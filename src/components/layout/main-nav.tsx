@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { mainNav } from "@/lib/navigation";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import { mainNav, productName } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 export function MainNav({
@@ -23,10 +25,11 @@ export function MainNav({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const t = useTranslations("nav");
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t("primary")}
       className={cn(
         orientation === "horizontal"
           ? "hidden items-center gap-1 lg:flex"
@@ -51,7 +54,7 @@ export function MainNav({
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            {item.label}
+            {t(item.key)}
           </Link>
         );
       })}
@@ -61,6 +64,7 @@ export function MainNav({
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("nav");
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -70,7 +74,7 @@ export function MobileNav() {
             variant="outline"
             size="icon"
             className="lg:hidden"
-            aria-label="Open navigation"
+            aria-label={t("open")}
           />
         }
       >
@@ -79,11 +83,12 @@ export function MobileNav() {
       <SheetContent side="left" className="w-72">
         <SheetHeader>
           <SheetTitle className="font-heading text-left text-lg">
-            Field to Finance
+            {productName}
           </SheetTitle>
         </SheetHeader>
-        <div className="px-2 pb-6">
+        <div className="flex flex-col gap-6 px-2 pb-6">
           <MainNav orientation="vertical" onNavigate={() => setOpen(false)} />
+          <LanguageSwitcher />
         </div>
       </SheetContent>
     </Sheet>

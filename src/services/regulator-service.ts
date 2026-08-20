@@ -9,17 +9,3 @@ export function getSystemOverview(): SystemOverview {
 export function listAuditEvents(): AuditEvent[] {
   return auditEvents;
 }
-
-export const regulatorTopics = [
-  "Asset provenance",
-  "Contract verification",
-  "Contract pool",
-  "Producer scoring",
-  "Satellite monitoring",
-  "Insurance status",
-  "Haircut calculation",
-  "Contract coverage",
-  "Token supply",
-  "Compliance status",
-  "Audit trail",
-] as const;

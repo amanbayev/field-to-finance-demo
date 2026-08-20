@@ -1,24 +1,24 @@
 import type { FinancingPosition } from "@/domain";
+import { money } from "@/domain/money";
+
+const exampleMarketValue = money(100_000_000, "KZT");
+const examplePrincipal = money(80_000_000, "KZT");
 
 export const financingModules: FinancingPosition[] = [
   {
     id: "fin-secured-loan",
     module: "SECURED_LOAN",
-    title: "Secured Loan",
     status: "COMING_NEXT",
-    steps: ["Agricultural Token", "Pledged", "Financing", "Repayment", "Token Released"],
+    marketValue: exampleMarketValue,
+    haircutPercent: 20,
+    principal: examplePrincipal,
   },
   {
     id: "fin-repo",
     module: "REPO",
-    title: "Repo",
     status: "EXPERIMENTAL",
-    legalNote: "Potential financing module subject to legal structuring.",
-    steps: [
-      "Token Sale",
-      "Financing",
-      "Repurchase Obligation",
-      "Token Returned",
-    ],
+    marketValue: exampleMarketValue,
+    haircutPercent: 20,
+    principal: examplePrincipal,
   },
 ];

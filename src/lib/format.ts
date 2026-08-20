@@ -1,48 +1,72 @@
-export function formatNumber(value: number, fractionDigits = 0): string {
-  return new Intl.NumberFormat("en-US", {
+import type { Money } from "@/domain/money";
+import {
+  BASE_CURRENCY,
+  REFERENCE_CURRENCY,
+} from "@/adapters/fx/config";
+import { fxProvider } from "@/adapters/fx";
+import { intlLocales, type AppLocale } from "@/i18n/config";
+
+export function formatInteger(value: number, locale: AppLocale): string {
+  return new Intl.NumberFormat(intlLocales[locale], {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export function formatNumber(
+  value: number,
+  locale: AppLocale,
+  fractionDigits = 0,
+): string {
+  return new Intl.NumberFormat(intlLocales[locale], {
     maximumFractionDigits: fractionDigits,
     minimumFractionDigits: fractionDigits,
   }).format(value);
 }
 
-export function formatTonnes(value: number): string {
-  return `${formatNumber(value)} t`;
+export function formatMoney(
+  value: Money,
+  locale: AppLocale,
+  options?: { compact?: boolean },
+): string {
+  const formatted = new Intl.NumberFormat(intlLocales[locale], {
+    notation: options?.compact ? "compact" : "standard",
+    maximumFractionDigits: options?.compact ? 2 : 0,
+    minimumFractionDigits: 0,
+  }).format(value.amount);
+  const symbol = value.currency === "KZT" ? "₸" : "$";
+  return `${symbol}${formatted}`;
 }
 
-export function formatHectares(value: number): string {
-  return `${formatNumber(value)} hectares`;
+export function toPrimaryAndReference(value: Money): {
+  primary: Money;
+  reference: Money;
+} {
+  const primary = fxProvider.convert(value, BASE_CURRENCY);
+  const reference = fxProvider.convert(primary, REFERENCE_CURRENCY);
+  return { primary, reference };
 }
 
-export function formatPercent(value: number, fractionDigits = 0): string {
-  return `${formatNumber(value, fractionDigits)}%`;
+export function formatPercent(
+  value: number,
+  locale: AppLocale,
+  fractionDigits = 0,
+): string {
+  return `${formatNumber(value, locale, fractionDigits)}%`;
 }
 
-export function formatSignedPercent(value: number): string {
+export function formatSignedPercent(value: number, locale: AppLocale): string {
   const sign = value > 0 ? "+" : "";
-  return `${sign}${value}%`;
-}
-
-export function formatUsdCompact(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 2,
-  }).format(value);
+  return `${sign}${formatNumber(value, locale, 0)}%`;
 }
 
 export function formatScore(value: number, maxValue: number): string {
   return `${value} / ${maxValue}`;
 }
 
-export function formatTimestamp(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
+export function formatTimestamp(iso: string, locale: AppLocale): string {
+  return new Intl.DateTimeFormat(intlLocales[locale], {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "UTC",
   }).format(new Date(iso));
-}
-
-export function formatStatusLabel(status: string): string {
-  return status.replaceAll("_", " ");
 }

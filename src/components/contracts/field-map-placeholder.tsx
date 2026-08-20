@@ -1,3 +1,8 @@
+import { useLocale, useTranslations } from "next-intl";
+import { lookupMessage } from "@/i18n/t-dynamic";
+import type { AppLocale } from "@/i18n/config";
+import { formatInteger } from "@/lib/format";
+
 export function FieldMapPlaceholder({
   region,
   cadastralRef,
@@ -9,14 +14,19 @@ export function FieldMapPlaceholder({
   centroidLabel: string;
   areaHectares: number;
 }) {
+  const t = useTranslations("contracts");
+  const tCatalog = useTranslations("catalog");
+  const tUnits = useTranslations("units");
+  const locale = useLocale() as AppLocale;
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
-          Field schematic
+          {t("map.title")}
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">
-          Placeholder · no live map
+          {t("map.placeholder")}
         </p>
       </div>
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_14rem]">
@@ -28,33 +38,37 @@ export function FieldMapPlaceholder({
           <div className="absolute top-[22%] left-[22%] h-[36%] w-[28%] border border-primary/40 bg-primary/5" />
           <div className="absolute right-[20%] bottom-[20%] h-[30%] w-[34%] border border-primary/40 bg-card/70" />
           <span className="absolute top-2 right-2 border border-border bg-card px-1.5 py-0.5 text-[10px] tracking-widest uppercase">
-            N
+            {t("map.north")}
           </span>
         </div>
         <dl className="space-y-3 text-sm">
           <div>
             <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              Region
+              {t("fields.region")}
             </dt>
-            <dd className="font-medium">{region}</dd>
+            <dd className="font-medium">{lookupMessage(tCatalog, `regions.${region}`)}</dd>
           </div>
           <div>
             <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              Cadastral ref
+              {t("fields.cadastralRef")}
             </dt>
             <dd className="font-mono text-xs">{cadastralRef}</dd>
           </div>
           <div>
             <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              Approximate centroid
+              {t("map.centroid")}
             </dt>
             <dd className="font-mono text-xs">{centroidLabel}</dd>
           </div>
           <div>
             <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              Recorded area
+              {t("map.area")}
             </dt>
-            <dd className="font-medium">{areaHectares.toLocaleString("en-US")} ha</dd>
+            <dd className="font-medium">
+              {tUnits("hectaresShort", {
+                value: formatInteger(areaHectares, locale),
+              })}
+            </dd>
           </div>
         </dl>
       </div>

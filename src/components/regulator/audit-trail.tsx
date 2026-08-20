@@ -1,9 +1,15 @@
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
+import type { AppLocale } from "@/i18n/config";
 import { formatTimestamp } from "@/lib/format";
+import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AuditEvent } from "@/domain";
 
 export function AuditTrail({ events }: { events: AuditEvent[] }) {
+  const t = useTranslations("audit");
+  const locale = useLocale() as AppLocale;
+
   return (
     <ol className="space-y-3">
       {events.map((event, index) => (
@@ -18,11 +24,13 @@ export function AuditTrail({ events }: { events: AuditEvent[] }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-mono text-[11px] text-muted-foreground">
-                  {formatTimestamp(event.timestamp)} UTC
+                  {formatTimestamp(event.timestamp, locale)} UTC
                 </p>
-                <p className="mt-1 font-medium">{event.title}</p>
+                <p className="mt-1 font-medium">
+                  {lookupMessage(t, `${event.eventKey}.title`)}
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {event.detail}
+                  {lookupMessage(t, `${event.eventKey}.detail`)}
                 </p>
                 {event.relatedEntityId && event.relatedEntityType === "contract" ? (
                   <Link

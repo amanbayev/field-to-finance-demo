@@ -1,26 +1,34 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { IssueTokenButton } from "@/components/tokens/issue-token-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataList } from "@/components/shared/data-list";
-import { formatNumber } from "@/lib/format";
+import { lookupMessage } from "@/i18n/t-dynamic";
+import type { AppLocale } from "@/i18n/config";
+import { formatInteger } from "@/lib/format";
 import { getPrimaryToken } from "@/services/token-service";
 
-export const metadata: Metadata = {
-  title: "Tokens",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("tokens");
+  return { title: t("title") };
+}
 
-export default function TokensPage() {
+export default async function TokensPage() {
+  const t = await getTranslations("tokens");
+  const tCatalog = await getTranslations("catalog");
+  const tStatus = await getTranslations("status");
+  const locale = (await getLocale()) as AppLocale;
   const { token, pool } = getPrimaryToken();
 
   return (
     <div>
       <PageHeader
-        eyebrow="Agricultural token series"
+        eyebrow={t("eyebrow")}
         title={token.symbol}
-        description="Token issuance is prepared in the product layer. Solana Devnet deployment is reserved for a later phase."
+        description={t("description")}
       />
 
       <Card className="shadow-none">
@@ -39,29 +47,38 @@ export default function TokensPage() {
         <CardContent>
           <DataList
             items={[
-              { label: "Type", value: token.type },
-              { label: "Issuer", value: token.issuerName },
-              { label: "Token unit", value: token.tokenUnitDescription },
-              { label: "Contract pool", value: pool.id },
               {
-                label: "Maximum issuance",
-                value: formatNumber(token.maximumIssuance),
+                label: t("fields.type"),
+                value: lookupMessage(tCatalog, `tokenType.${token.id}`),
               },
-              { label: "Issued", value: formatNumber(token.issued) },
-              { label: "Network", value: token.network },
+              { label: t("fields.issuer"), value: token.issuerName },
               {
-                label: "Blockchain status",
-                value: token.blockchainStatus.replaceAll("_", " "),
+                label: t("fields.tokenUnit"),
+                value: lookupMessage(tCatalog, `tokenUnit.${token.id}`),
+              },
+              { label: t("fields.contractPool"), value: pool.id },
+              {
+                label: t("fields.maximumIssuance"),
+                value: formatInteger(token.maximumIssuance, locale),
+              },
+              {
+                label: t("fields.issued"),
+                value: formatInteger(token.issued, locale),
+              },
+              { label: t("fields.network"), value: token.network },
+              {
+                label: t("fields.blockchainStatus"),
+                value: tStatus(token.blockchainStatus),
               },
             ]}
           />
           <p className="mt-6 text-sm">
-            Underlying pool:{" "}
+            {t("underlyingPool")}:{" "}
             <Link
               href={`/pools/${pool.id}`}
               className="font-medium text-primary hover:underline"
             >
-              {pool.name}
+              {lookupMessage(tCatalog, `pools.${pool.id}`)}
             </Link>
           </p>
         </CardContent>

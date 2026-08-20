@@ -12,17 +12,75 @@ Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
 ## Current phase
 
-**Phase 0 — Public UI prototype**
+**Phase 0.1 — Localization and Kazakhstan formatting**
 
-A live, deployable Next.js product skeleton with:
+Phase 0 public UI plus:
 
-- Institutional product shell and navigation
-- Mock contracts, pool, coverage, token, finance, compliance and regulator views
-- Domain models, centralized mock data and service layer
-- `BlockchainProvider`, `KycProvider`, `KybProvider` and `KytProvider` interfaces
-- `MockBlockchainProvider` only (no Solana transactions)
+- Kazakh, Russian and English interface
+- KZT-first money display with a USD reference
+- Cookie-persisted language, same URLs as Phase 0
 
 Phase 1 (Solana Devnet connection) has not been started.
+
+## Languages
+
+Supported locales:
+
+| Code | Language | Switcher |
+| --- | --- | --- |
+| `kk` | Kazakh | ҚАЗ |
+| `ru` | Russian | РУС |
+| `en` | English | ENG |
+
+Default locale: **Kazakh (`kk`)**.
+
+Missing translation keys fall back to English. The selected language is stored in the `ftf-locale` cookie and kept across visits. Changing language refreshes the current page; routes such as `/contracts` are unchanged.
+
+### Localization architecture
+
+The app uses `next-intl` **without locale prefixes** in the URL.
+
+```
+messages/
+  en.json
+  ru.json
+  kk.json
+src/i18n/
+  config.ts          locales, cookie name, default
+  request.ts         reads cookie, merges English fallback
+  actions.ts         setLocale server action
+  merge-messages.ts
+```
+
+UI copy lives in the message catalogs, not in page components. Domain enums (`VERIFIED`, `IN_POOL`, …) are unchanged; only their presentation is translated.
+
+## Currency formatting
+
+Kazakhstan tenge is the primary display currency. USD is a secondary reference only.
+
+```
+src/domain/money.ts              Money { amount, currency }
+src/adapters/fx/config.ts        BASE_CURRENCY, REFERENCE_CURRENCY, DEMO_USD_KZT_RATE
+src/adapters/fx/demo-fx-provider.ts
+src/lib/format.ts                formatMoney(), toPrimaryAndReference()
+src/components/shared/dual-money.tsx
+```
+
+Demo FX configuration:
+
+- `BASE_CURRENCY=KZT`
+- `REFERENCE_CURRENCY=USD`
+- `DEMO_USD_KZT_RATE=500` (1 USD = 500 KZT)
+
+This rate is a **fixed demonstration reference**, not a live market quote. It is defined once in `src/adapters/fx/config.ts` and consumed through `FxProvider`.
+
+A later live provider can implement the same `FxProvider` interface (`getQuote`, `convert`) and replace `DemoFxProvider` in `src/adapters/fx/index.ts` without changing product pages.
+
+Example:
+
+₸620,000,000  
+≈ $1.24M
+
 
 ## Tech stack
 
@@ -31,6 +89,7 @@ Phase 1 (Solana Devnet connection) has not been started.
 - TypeScript (strict)
 - Tailwind CSS 4
 - shadcn/ui
+- next-intl
 - npm
 
 Inspected local toolchain when this project was scaffolded:
@@ -54,6 +113,8 @@ src/
   adapters/
     blockchain/        BlockchainProvider + MockBlockchainProvider
     compliance/        KycProvider, KybProvider, KytProvider + mocks
+    fx/                FxProvider + DemoFxProvider
+  i18n/                Locale config and request setup
   lib/                 Formatting and navigation
 ```
 
@@ -139,6 +200,7 @@ No Sumsub or TRM integration is included in Phase 0.
 | Phase | Scope |
 | --- | --- |
 | Phase 0 | Public UI prototype |
+| Phase 0.1 | Localization and Kazakhstan formatting |
 | Phase 1 | Solana Devnet connection |
 | Phase 2 | Digital Agricultural Contract Registry |
 | Phase 3 | Contract Pools and Coverage Engine |

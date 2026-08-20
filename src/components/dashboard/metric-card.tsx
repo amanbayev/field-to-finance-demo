@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import type { ReactNode } from "react";
 
 export function MetricCard({
   label,
@@ -6,8 +7,8 @@ export function MetricCard({
   hint,
 }: {
   label: string;
-  value: string;
-  hint?: string;
+  value: ReactNode;
+  hint?: ReactNode;
 }) {
   return (
     <Card className="shadow-none">
@@ -15,9 +16,9 @@ export function MetricCard({
         <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
           {label}
         </p>
-        <p className="mt-3 font-heading text-3xl tracking-tight">{value}</p>
+        <div className="mt-3 font-heading text-3xl tracking-tight">{value}</div>
         {hint ? (
-          <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+          <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
         ) : null}
       </CardContent>
     </Card>

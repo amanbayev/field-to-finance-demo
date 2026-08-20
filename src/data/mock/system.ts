@@ -1,11 +1,12 @@
 import type { DashboardMetrics, SystemOverview } from "@/domain";
+import { money } from "@/domain/money";
 
 export const dashboardMetrics: DashboardMetrics = {
   digitalContracts: 12,
   contractVolumeTonnes: 24800,
   eligibleCoverageTonnes: 19600,
   tokenizedVolumeTonnes: 8000,
-  activeFinancingUsd: 1_240_000,
+  activeFinancing: money(620_000_000, "KZT"),
   averageCoverageRatioPercent: 122,
 };
 

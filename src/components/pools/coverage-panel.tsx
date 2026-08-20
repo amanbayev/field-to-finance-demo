@@ -1,9 +1,19 @@
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatNumber, formatPercent, formatSignedPercent, formatTonnes } from "@/lib/format";
+import type { AppLocale } from "@/i18n/config";
+import {
+  formatInteger,
+  formatPercent,
+  formatSignedPercent,
+} from "@/lib/format";
+import { lookupMessage } from "@/i18n/t-dynamic";
 import type { ContractCoverage } from "@/domain";
 
 export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
+  const t = useTranslations("risk");
+  const tUnits = useTranslations("units");
+  const locale = useLocale() as AppLocale;
   const utilization =
     coverage.eligibleCoverageTonnes === 0
       ? 0
@@ -13,15 +23,17 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
     <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
       <Card className="shadow-none">
         <CardHeader className="border-b">
-          <CardTitle>Risk adjustments</CardTitle>
+          <CardTitle>{t("adjustmentsTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
-              Gross contractual volume
+              {t("grossVolume")}
             </p>
             <p className="mt-1 font-heading text-3xl">
-              {formatTonnes(coverage.grossVolumeTonnes)}
+              {tUnits("tonnes", {
+                value: formatInteger(coverage.grossVolumeTonnes, locale),
+              })}
             </p>
           </div>
           <ul className="divide-y divide-border">
@@ -30,19 +42,19 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
                 key={adjustment.key}
                 className="flex items-center justify-between py-2 text-sm"
               >
-                <span>{adjustment.label}</span>
+                <span>{lookupMessage(t, `adjustments.${adjustment.key}`)}</span>
                 <span className="font-mono">
-                  {formatSignedPercent(adjustment.percentagePoints)}
+                  {formatSignedPercent(adjustment.percentagePoints, locale)}
                 </span>
               </li>
             ))}
           </ul>
           <div className="flex items-center justify-between border-t border-border pt-3">
             <span className="text-sm font-medium tracking-wide uppercase">
-              Total haircut
+              {t("totalHaircut")}
             </span>
             <span className="font-mono text-lg">
-              {formatPercent(coverage.totalHaircutPercent)}
+              {formatPercent(coverage.totalHaircutPercent, locale)}
             </span>
           </div>
         </CardContent>
@@ -51,28 +63,32 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
       <Card className="shadow-none">
         <CardHeader className="border-b">
           <div className="flex items-start justify-between gap-3">
-            <CardTitle>Eligible contract coverage</CardTitle>
+            <CardTitle>{t("eligibleTitle")}</CardTitle>
             <StatusBadge value={coverage.status} />
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
           <div>
             <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
-              Eligible coverage
+              {t("eligibleCoverage")}
             </p>
             <p className="mt-1 font-heading text-3xl">
-              {formatTonnes(coverage.eligibleCoverageTonnes)}
+              {tUnits("tonnes", {
+                value: formatInteger(coverage.eligibleCoverageTonnes, locale),
+              })}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Maximum token issuance {formatNumber(coverage.maximumTokenIssuance)} tokens
+              {t("maxIssuance", {
+                value: formatInteger(coverage.maximumTokenIssuance, locale),
+              })}
             </p>
           </div>
           <div>
             <div className="mb-2 flex items-center justify-between text-xs">
-              <span>Outstanding tokens</span>
+              <span>{t("outstanding")}</span>
               <span className="font-mono">
-                {formatNumber(coverage.outstandingTokens)} /{" "}
-                {formatNumber(coverage.eligibleCoverageTonnes)}
+                {formatInteger(coverage.outstandingTokens, locale)} /{" "}
+                {formatInteger(coverage.eligibleCoverageTonnes, locale)}
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -85,15 +101,15 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                Coverage ratio
+                {t("coverageRatio")}
               </dt>
               <dd className="mt-1 font-heading text-2xl">
-                {formatPercent(coverage.coverageRatioPercent, 2)}
+                {formatPercent(coverage.coverageRatioPercent, locale, 2)}
               </dd>
             </div>
             <div>
               <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                Status
+                {t("status")}
               </dt>
               <dd className="mt-2">
                 <StatusBadge value={coverage.status} />

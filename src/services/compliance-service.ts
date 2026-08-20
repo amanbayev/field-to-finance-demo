@@ -29,13 +29,3 @@ export function listParticipantCompliance(): ParticipantCompliance[] {
     };
   });
 }
-
-export const complianceControls = [
-  "KYC",
-  "KYB",
-  "KYT",
-  "Wallet Ownership",
-  "Sanctions Screening",
-  "PEP Screening",
-  "Participant Eligibility",
-] as const;

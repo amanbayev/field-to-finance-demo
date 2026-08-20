@@ -1,0 +1,391 @@
+{
+  "brand": {
+    "name": "Field to Finance",
+    "subtitle": "Digital Agricultural Finance Infrastructure"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "contracts": "Contracts",
+    "pools": "Pools",
+    "tokens": "Tokens",
+    "finance": "Finance",
+    "compliance": "Compliance",
+    "regulator": "Regulator View",
+    "primary": "Primary",
+    "open": "Open navigation"
+  },
+  "header": {
+    "badge": "PROTOTYPE · SOLANA DEVNET",
+    "phase": "Live public demo · Phase 0",
+    "network": "Network",
+    "system": "System",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "language": "Interface language"
+  },
+  "footer": {
+    "disclaimer": "Demonstration prototype only. No real agricultural assets, funds, securities, contractual rights or legal obligations are created or transferred.",
+    "contact": "Contact",
+    "email": "amanbayev@gmail.com"
+  },
+  "money": {
+    "approx": "≈ {value}",
+    "demoFxNote": "Demo reference conversion at a fixed rate, not a live market FX quote.",
+    "primary": "KZT",
+    "reference": "USD"
+  },
+  "status": {
+    "DRAFT": "Draft",
+    "PENDING_VERIFICATION": "Pending Verification",
+    "VERIFIED": "Verified",
+    "IN_POOL": "In Pool",
+    "SUSPENDED": "Suspended",
+    "PASSED": "Passed",
+    "CONFIRMED": "Confirmed",
+    "PENDING": "Pending",
+    "FAILED": "Failed",
+    "HEALTHY": "Healthy",
+    "WATCH": "Watch",
+    "ALERT": "Alert",
+    "NORMAL": "Normal",
+    "DRY": "Dry",
+    "EXCESS": "Excess",
+    "ACTIVE": "Active",
+    "EXPIRED": "Expired",
+    "NONE": "None",
+    "BREACH": "Breach",
+    "ELIGIBLE": "Eligible",
+    "INELIGIBLE": "Ineligible",
+    "NOT_YET_DEPLOYED": "Not Yet Deployed",
+    "DEPLOYED": "Deployed",
+    "PRODUCER": "Producer",
+    "INVESTOR": "Investor",
+    "ISSUER": "Issuer",
+    "NOT_APPLICABLE": "N/A",
+    "LOW_RISK": "Low Risk",
+    "HIGH_RISK": "High Risk",
+    "CLEAR": "Clear",
+    "HIT": "Hit",
+    "APPROVED": "Approved",
+    "BLOCKED": "Blocked",
+    "COMING_NEXT": "Coming Next",
+    "EXPERIMENTAL": "Experimental",
+    "MOCK": "Mock",
+    "CONNECTED": "Connected",
+    "DISCONNECTED": "Disconnected"
+  },
+  "units": {
+    "tonnes": "{value} t",
+    "hectares": "{value} hectares",
+    "hectaresShort": "{value} ha",
+    "tokens": "{value} tokens",
+    "score": "{value} / {max}"
+  },
+  "catalog": {
+    "crops": {
+      "Wheat": "Wheat",
+      "Barley": "Barley"
+    },
+    "quality": {
+      "Class 2": "Class 2",
+      "Class 3": "Class 3",
+      "Class 4": "Class 4"
+    },
+    "regions": {
+      "Akmola": "Akmola",
+      "Kostanay": "Kostanay",
+      "North Kazakhstan": "North Kazakhstan",
+      "Pavlodar": "Pavlodar",
+      "Karaganda": "Karaganda",
+      "Aktobe": "Aktobe",
+      "Abai": "Abai",
+      "Turkistan": "Turkistan"
+    },
+    "delivery": {
+      "Aug–Oct 2027": "Aug–Oct 2027",
+      "Sep–Oct 2027": "Sep–Oct 2027",
+      "Aug–Sep 2027": "Aug–Sep 2027",
+      "Jun–Jul 2027": "Jun–Jul 2027"
+    },
+    "pools": {
+      "POOL-WHEAT-2027-01": "2027 Wheat Pool"
+    },
+    "tokenType": {
+      "tok-wheat-2027": "Commodity Agricultural Token"
+    },
+    "tokenUnit": {
+      "tok-wheat-2027": "1 token = claim for 1 tonne of Wheat Class 3"
+    },
+    "insuranceProvider": {
+      "Demo Agricultural Cover": "Demo Agricultural Cover",
+      "—": "—"
+    }
+  },
+  "lifecycle": {
+    "title": "Lifecycle",
+    "description": "Each stage opens the corresponding module. Blockchain settlement is not active in Phase 0.",
+    "field": "Field",
+    "contract": "Contract",
+    "pool": "Pool",
+    "risk": "Risk",
+    "token": "Token",
+    "finance": "Finance"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "eyebrow": "Public product skeleton",
+    "intro": "This prototype shows how rights to future agricultural production can be digitally verified, pooled, risk-adjusted, tokenized and financed.",
+    "digitalContracts": "Digital Contracts",
+    "contractVolume": "Contract Volume",
+    "eligibleCoverage": "Eligible Coverage",
+    "tokenizedVolume": "Tokenized Volume",
+    "activeFinancing": "Active Financing",
+    "averageCoverageRatio": "Average Coverage Ratio"
+  },
+  "contracts": {
+    "title": "Contracts",
+    "eyebrow": "Digital Agricultural Contract Registry",
+    "description": "Mock digital agricultural contracts. Status, verification and production figures are demonstration data only.",
+    "detailEyebrow": "Digital Agricultural Contract",
+    "producerScore": "Producer score",
+    "sections": {
+      "contract": "Contract",
+      "producer": "Producer",
+      "field": "Field",
+      "production": "Production",
+      "verification": "Verification",
+      "risk": "Risk",
+      "monitoring": "Monitoring",
+      "insurance": "Insurance"
+    },
+    "fields": {
+      "contractId": "Contract ID",
+      "status": "Status",
+      "season": "Season",
+      "deliveryPeriod": "Delivery period",
+      "legalName": "Legal name",
+      "region": "Region",
+      "scoreAsOf": "Score as of",
+      "fieldArea": "Field area",
+      "cadastralRef": "Cadastral ref",
+      "centroid": "Centroid",
+      "crop": "Crop",
+      "quality": "Quality",
+      "expectedProduction": "Expected production",
+      "landRights": "Land rights",
+      "kyb": "KYB",
+      "directorKyc": "Director KYC",
+      "fieldVerified": "Field",
+      "cropConfirmed": "Crop",
+      "contractStatus": "Contract status",
+      "monitoring": "Monitoring",
+      "insurance": "Insurance",
+      "satellite": "Satellite monitoring",
+      "soilMoisture": "Soil moisture",
+      "provider": "Provider",
+      "policyRef": "Policy ref",
+      "field": "Field",
+      "delivery": "Delivery"
+    },
+    "map": {
+      "title": "Field schematic",
+      "placeholder": "Placeholder · no live map",
+      "north": "N",
+      "centroid": "Approximate centroid",
+      "area": "Recorded area"
+    }
+  },
+  "pools": {
+    "title": "Pools",
+    "eyebrow": "Contract pooling",
+    "description": "A contract pool aggregates verified production into a coverage base for token issuance.",
+    "detailEyebrow": "Contract pool",
+    "detailSummary": "{id} · {producers} producers · {contracts} contracts",
+    "contracts": "Contracts",
+    "producers": "Producers",
+    "grossVolume": "Gross contract volume",
+    "eligibleCoverage": "Eligible contract coverage",
+    "composition": "Pool composition",
+    "columns": {
+      "producer": "Producer",
+      "contract": "Contract",
+      "volume": "Volume",
+      "producerScore": "Producer score",
+      "monitoring": "Monitoring",
+      "insurance": "Insurance",
+      "eligibility": "Eligibility"
+    }
+  },
+  "risk": {
+    "adjustmentsTitle": "Risk adjustments",
+    "grossVolume": "Gross contractual volume",
+    "totalHaircut": "Total haircut",
+    "eligibleTitle": "Eligible contract coverage",
+    "eligibleCoverage": "Eligible coverage",
+    "maxIssuance": "Maximum token issuance {value} tokens",
+    "outstanding": "Outstanding tokens",
+    "coverageRatio": "Coverage ratio",
+    "status": "Status",
+    "adjustments": {
+      "producer": "Producer Risk",
+      "weather": "Weather / Satellite",
+      "concentration": "Regional Concentration",
+      "quality": "Quality Risk",
+      "insurance": "Insurance Adjustment",
+      "issuer": "Issuer Risk"
+    }
+  },
+  "tokens": {
+    "title": "Tokens",
+    "eyebrow": "Agricultural token series",
+    "description": "Token issuance is prepared in the product layer. Solana Devnet deployment is reserved for a later phase.",
+    "issue": "Issue on Solana",
+    "issueTooltip": "Solana issuance will be activated in the next development phase.",
+    "underlyingPool": "Underlying pool",
+    "fields": {
+      "type": "Type",
+      "issuer": "Issuer",
+      "tokenUnit": "Token unit",
+      "contractPool": "Contract pool",
+      "maximumIssuance": "Maximum issuance",
+      "issued": "Issued",
+      "network": "Network",
+      "blockchainStatus": "Blockchain status"
+    }
+  },
+  "finance": {
+    "title": "Finance",
+    "eyebrow": "Collateral and structured financing",
+    "description": "Financing modules are shown as product placeholders. No credit is originated in this prototype.",
+    "exampleTitle": "Worked example",
+    "principal": "Principal",
+    "reference": "Reference",
+    "marketValue": "Market Value",
+    "haircut": "Haircut",
+    "financingAmount": "Financing",
+    "modules": {
+      "SECURED_LOAN": {
+        "title": "Secured Loan",
+        "steps": {
+          "0": "Agricultural Token",
+          "1": "Pledged",
+          "2": "Financing",
+          "3": "Repayment",
+          "4": "Token Released"
+        }
+      },
+      "REPO": {
+        "title": "Repo",
+        "legalNote": "Potential financing module subject to legal structuring.",
+        "steps": {
+          "0": "Token Sale",
+          "1": "Financing",
+          "2": "Repurchase Obligation",
+          "3": "Token Returned"
+        }
+      }
+    }
+  },
+  "compliance": {
+    "title": "Compliance",
+    "eyebrow": "Compliance control center",
+    "description": "All checks are mock results from Demo Compliance Provider. They are not real KYC, KYB or KYT determinations.",
+    "controlModules": "Control modules",
+    "provider": "Demo Compliance Provider",
+    "sample": "Sample participants",
+    "register": "Participant register",
+    "controls": {
+      "kyc": "KYC",
+      "kyb": "KYB",
+      "kyt": "KYT",
+      "wallet": "Wallet Ownership",
+      "sanctions": "Sanctions Screening",
+      "pep": "PEP Screening",
+      "eligibility": "Participant Eligibility"
+    },
+    "columns": {
+      "participant": "Participant",
+      "type": "Type",
+      "kyc": "KYC",
+      "kyb": "KYB",
+      "kyt": "KYT",
+      "wallet": "Wallet",
+      "sanctions": "Sanctions",
+      "pep": "PEP",
+      "eligibility": "Eligibility",
+      "directorKyc": "Director KYC"
+    }
+  },
+  "regulator": {
+    "title": "Regulator View",
+    "eyebrow": "Supervisory transparency",
+    "description": "A dedicated read-only view of system provenance, coverage, token supply and compliance. Later records will cite Solana Devnet transactions.",
+    "overview": "System overview",
+    "contracts": "Contracts",
+    "pools": "Pools",
+    "tokenSeries": "Token series",
+    "participants": "Participants",
+    "blocked": "Blocked participants",
+    "coverageAlerts": "Coverage alerts",
+    "lenses": "Supervisory lenses",
+    "auditTitle": "Audit trail",
+    "auditIntro": "Example control events for the 2027 wheat programme. Timestamps are mock records. Blockchain transaction references will be attached in a later phase.",
+    "topics": {
+      "provenance": "Asset provenance",
+      "verification": "Contract verification",
+      "pool": "Contract pool",
+      "scoring": "Producer scoring",
+      "satellite": "Satellite monitoring",
+      "insurance": "Insurance status",
+      "haircut": "Haircut calculation",
+      "coverage": "Contract coverage",
+      "supply": "Token supply",
+      "compliance": "Compliance status",
+      "audit": "Audit trail"
+    }
+  },
+  "audit": {
+    "contractCreated": {
+      "title": "Digital contract created",
+      "detail": "DAC-2027-0001 recorded for Akmola Agro LLP, 2027 wheat season."
+    },
+    "producerVerified": {
+      "title": "Producer verified",
+      "detail": "KYB and director KYC completed for Akmola Agro LLP (mock checks)."
+    },
+    "contractVerified": {
+      "title": "Contract verified",
+      "detail": "Land rights, field, and crop confirmation completed for DAC-2027-0001."
+    },
+    "addedToPool": {
+      "title": "Contract added to pool",
+      "detail": "DAC-2027-0001 admitted to POOL-WHEAT-2027-01."
+    },
+    "riskCompleted": {
+      "title": "Risk assessment completed",
+      "detail": "Producer, weather, concentration, quality, insurance and issuer factors applied."
+    },
+    "coverageCalculated": {
+      "title": "Coverage calculated",
+      "detail": "Eligible contract coverage set at 8,300 tonnes against 10,000 tonnes gross."
+    },
+    "tokenPrepared": {
+      "title": "Token issuance prepared",
+      "detail": "WHEAT-2027 series prepared. On-chain issuance is not yet deployed."
+    }
+  },
+  "errors": {
+    "system": "System",
+    "unableTitle": "Unable to load this view",
+    "unableBody": "The prototype could not render this page. Retry, or return to the dashboard.",
+    "retry": "Retry",
+    "notFound": "Not found",
+    "recordTitle": "Record not available",
+    "recordBody": "This identifier does not exist in the demonstration dataset.",
+    "returnDashboard": "Return to dashboard"
+  },
+  "metadata": {
+    "defaultTitle": "Field to Finance · Agricultural Tokenization Demo",
+    "titleTemplate": "{page} · Field to Finance"
+  }
+}

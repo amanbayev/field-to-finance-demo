@@ -1,20 +1,21 @@
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import { LifecycleStrip } from "@/components/dashboard/lifecycle-strip";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import { productName, productSubtitle } from "@/lib/navigation";
-import {
-  formatNumber,
-  formatPercent,
-  formatTonnes,
-  formatUsdCompact,
-} from "@/lib/format";
+import { DualMoney } from "@/components/shared/dual-money";
+import { productName } from "@/lib/navigation";
+import type { AppLocale } from "@/i18n/config";
+import { formatInteger, formatPercent } from "@/lib/format";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
 
-export const metadata: Metadata = {
-  title: "Dashboard",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("dashboard");
+  return { title: t("title") };
+}
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const t = await getTranslations();
+  const locale = (await getLocale()) as AppLocale;
   const { metrics, network } = getDashboardSnapshot();
 
   return (
@@ -22,30 +23,30 @@ export default function DashboardPage() {
       <section className="mb-10 grid gap-6 border-b border-border pb-8 lg:grid-cols-[1.4fr_0.6fr]">
         <div>
           <p className="text-[11px] font-medium tracking-[0.18em] text-primary uppercase">
-            Public product skeleton
+            {t("dashboard.eyebrow")}
           </p>
           <h1 className="mt-2 font-heading text-4xl tracking-tight sm:text-5xl">
             {productName}
           </h1>
           <p className="mt-3 max-w-2xl text-base text-muted-foreground">
-            {productSubtitle}. This prototype shows how rights to future
-            agricultural production can be digitally verified, pooled,
-            risk-adjusted, tokenized and financed.
+            {t("brand.subtitle")}. {t("dashboard.intro")}
           </p>
         </div>
         <dl className="grid grid-cols-2 gap-4 self-end rounded-lg border border-border bg-card p-4">
           <div>
             <dt className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
-              Network
+              {t("header.network")}
             </dt>
             <dd className="mt-1 text-sm font-medium">{network.network}</dd>
           </div>
           <div>
             <dt className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
-              System status
+              {t("header.system")}
             </dt>
             <dd className="mt-1 text-sm font-medium text-primary">
-              {network.connected ? "Connected" : "Disconnected"}
+              {network.connected
+                ? t("header.connected")
+                : t("header.disconnected")}
             </dd>
           </div>
         </dl>
@@ -53,37 +54,42 @@ export default function DashboardPage() {
 
       <section className="mb-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
-          label="Digital Contracts"
-          value={formatNumber(metrics.digitalContracts)}
+          label={t("dashboard.digitalContracts")}
+          value={formatInteger(metrics.digitalContracts, locale)}
         />
         <MetricCard
-          label="Contract Volume"
-          value={formatTonnes(metrics.contractVolumeTonnes)}
+          label={t("dashboard.contractVolume")}
+          value={t("units.tonnes", {
+            value: formatInteger(metrics.contractVolumeTonnes, locale),
+          })}
         />
         <MetricCard
-          label="Eligible Coverage"
-          value={formatTonnes(metrics.eligibleCoverageTonnes)}
+          label={t("dashboard.eligibleCoverage")}
+          value={t("units.tonnes", {
+            value: formatInteger(metrics.eligibleCoverageTonnes, locale),
+          })}
         />
         <MetricCard
-          label="Tokenized Volume"
-          value={formatTonnes(metrics.tokenizedVolumeTonnes)}
+          label={t("dashboard.tokenizedVolume")}
+          value={t("units.tonnes", {
+            value: formatInteger(metrics.tokenizedVolumeTonnes, locale),
+          })}
         />
         <MetricCard
-          label="Active Financing"
-          value={formatUsdCompact(metrics.activeFinancingUsd)}
+          label={t("dashboard.activeFinancing")}
+          value={<DualMoney value={metrics.activeFinancing} compact />}
         />
         <MetricCard
-          label="Average Coverage Ratio"
-          value={formatPercent(metrics.averageCoverageRatioPercent)}
+          label={t("dashboard.averageCoverageRatio")}
+          value={formatPercent(metrics.averageCoverageRatioPercent, locale)}
         />
       </section>
 
       <section>
         <div className="mb-4">
-          <h2 className="font-heading text-2xl">Lifecycle</h2>
+          <h2 className="font-heading text-2xl">{t("lifecycle.title")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Each stage opens the corresponding module. Blockchain settlement is
-            not active in Phase 0.
+            {t("lifecycle.description")}
           </p>
         </div>
         <LifecycleStrip />

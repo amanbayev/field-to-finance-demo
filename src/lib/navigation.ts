@@ -1,24 +1,45 @@
 export const productName = "Field to Finance";
-export const productSubtitle = "Digital Agricultural Finance Infrastructure";
-export const prototypeBadge = "PROTOTYPE · SOLANA DEVNET";
-export const footerDisclaimer =
-  "Demonstration prototype only. No real agricultural assets, funds, securities, contractual rights or legal obligations are created or transferred.";
+export const contactEmail = "amanbayev@gmail.com";
 
 export const mainNav = [
-  { href: "/", label: "Dashboard" },
-  { href: "/contracts", label: "Contracts" },
-  { href: "/pools", label: "Pools" },
-  { href: "/tokens", label: "Tokens" },
-  { href: "/finance", label: "Finance" },
-  { href: "/compliance", label: "Compliance" },
-  { href: "/regulator", label: "Regulator View" },
+  { href: "/", key: "dashboard" },
+  { href: "/contracts", key: "contracts" },
+  { href: "/pools", key: "pools" },
+  { href: "/tokens", key: "tokens" },
+  { href: "/finance", key: "finance" },
+  { href: "/compliance", key: "compliance" },
+  { href: "/regulator", key: "regulator" },
 ] as const;
 
 export const lifecycleSteps = [
-  { id: "field", label: "Field", href: "/contracts" },
-  { id: "contract", label: "Contract", href: "/contracts" },
-  { id: "pool", label: "Pool", href: "/pools" },
-  { id: "risk", label: "Risk", href: "/pools/POOL-WHEAT-2027-01" },
-  { id: "token", label: "Token", href: "/tokens" },
-  { id: "finance", label: "Finance", href: "/finance" },
+  { id: "field", href: "/contracts" },
+  { id: "contract", href: "/contracts" },
+  { id: "pool", href: "/pools" },
+  { id: "risk", href: "/pools/POOL-WHEAT-2027-01" },
+  { id: "token", href: "/tokens" },
+  { id: "finance", href: "/finance" },
+] as const;
+
+export const complianceControlKeys = [
+  "kyc",
+  "kyb",
+  "kyt",
+  "wallet",
+  "sanctions",
+  "pep",
+  "eligibility",
+] as const;
+
+export const regulatorTopicKeys = [
+  "provenance",
+  "verification",
+  "pool",
+  "scoring",
+  "satellite",
+  "insurance",
+  "haircut",
+  "coverage",
+  "supply",
+  "compliance",
+  "audit",
 ] as const;

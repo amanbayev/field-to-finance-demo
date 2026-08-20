@@ -2,16 +2,15 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { FieldMapPlaceholder } from "@/components/contracts/field-map-placeholder";
 import { DataList } from "@/components/shared/data-list";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  formatHectares,
-  formatScore,
-  formatTonnes,
-} from "@/lib/format";
+import type { AppLocale } from "@/i18n/config";
+import { formatInteger, formatScore } from "@/lib/format";
+import { lookupMessage } from "@/i18n/t-dynamic";
 import { getContract, listContractIds } from "@/services/contract-service";
 
 export const dynamicParams = false;
@@ -42,118 +41,180 @@ export default async function ContractDetailPage({
   }
 
   const { contract, producer } = item;
+  const t = await getTranslations("contracts");
+  const tNav = await getTranslations("nav");
+  const tCatalog = await getTranslations("catalog");
+  const tUnits = await getTranslations("units");
+  const tStatus = await getTranslations("status");
+  const locale = (await getLocale()) as AppLocale;
 
   return (
     <div>
       <p className="mb-4 text-sm">
         <Link href="/contracts" className="text-muted-foreground hover:text-foreground">
-          Contracts
+          {tNav("contracts")}
         </Link>
         <span className="mx-2 text-muted-foreground">/</span>
         <span className="font-mono">{contract.id}</span>
       </p>
       <PageHeader
-        eyebrow="Digital Agricultural Contract"
+        eyebrow={t("detailEyebrow")}
         title={contract.id}
-        description={`${producer.legalName} · ${contract.production.crop} · ${contract.production.season}`}
+        description={`${producer.legalName} · ${lookupMessage(tCatalog, `crops.${contract.production.crop}`)} · ${contract.production.season}`}
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <StatusBadge value={contract.status} />
         <StatusBadge value={contract.verification.landRights} />
         <span className="text-xs text-muted-foreground">
-          Producer score {formatScore(producer.score.value, producer.score.maxValue)}
+          {t("producerScore")}{" "}
+          {formatScore(producer.score.value, producer.score.maxValue)}
         </span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Contract">
+        <Section title={t("sections.contract")}>
           <DataList
             items={[
-              { label: "Contract ID", value: contract.id },
-              { label: "Status", value: contract.status.replaceAll("_", " ") },
-              { label: "Season", value: String(contract.production.season) },
-              { label: "Delivery period", value: contract.production.deliveryPeriod },
+              { label: t("fields.contractId"), value: contract.id },
+              { label: t("fields.status"), value: tStatus(contract.status) },
+              { label: t("fields.season"), value: String(contract.production.season) },
+              {
+                label: t("fields.deliveryPeriod"),
+                value: lookupMessage(tCatalog, `delivery.${contract.production.deliveryPeriod}`),
+              },
             ]}
           />
         </Section>
-        <Section title="Producer">
+        <Section title={t("sections.producer")}>
           <DataList
             items={[
-              { label: "Legal name", value: producer.legalName },
-              { label: "Region", value: producer.region },
+              { label: t("fields.legalName"), value: producer.legalName },
               {
-                label: "Producer score",
+                label: t("fields.region"),
+                value: lookupMessage(tCatalog, `regions.${producer.region}`),
+              },
+              {
+                label: t("producerScore"),
                 value: formatScore(producer.score.value, producer.score.maxValue),
               },
-              { label: "Score as of", value: producer.score.asOf },
+              { label: t("fields.scoreAsOf"), value: producer.score.asOf },
             ]}
           />
         </Section>
-        <Section title="Field">
+        <Section title={t("sections.field")}>
           <DataList
             items={[
-              { label: "Region", value: contract.field.region },
               {
-                label: "Field area",
-                value: formatHectares(contract.field.areaHectares),
+                label: t("fields.region"),
+                value: lookupMessage(tCatalog, `regions.${contract.field.region}`),
               },
-              { label: "Cadastral ref", value: contract.field.cadastralRef },
-              { label: "Centroid", value: contract.field.centroidLabel },
-            ]}
-          />
-        </Section>
-        <Section title="Production">
-          <DataList
-            items={[
-              { label: "Crop", value: contract.production.crop },
-              { label: "Quality", value: contract.production.quality },
               {
-                label: "Expected production",
-                value: formatTonnes(contract.production.expectedProductionTonnes),
+                label: t("fields.fieldArea"),
+                value: tUnits("hectares", {
+                  value: formatInteger(contract.field.areaHectares, locale),
+                }),
               },
-              { label: "Delivery period", value: contract.production.deliveryPeriod },
+              { label: t("fields.cadastralRef"), value: contract.field.cadastralRef },
+              { label: t("fields.centroid"), value: contract.field.centroidLabel },
             ]}
           />
         </Section>
-        <Section title="Verification">
-          <DataList
-            items={[
-              { label: "Land rights", value: title(contract.verification.landRights) },
-              { label: "KYB", value: title(contract.verification.kyb) },
-              { label: "Director KYC", value: title(contract.verification.directorKyc) },
-              { label: "Field", value: title(contract.verification.field) },
-              { label: "Crop", value: title(contract.verification.crop) },
-            ]}
-          />
-        </Section>
-        <Section title="Risk">
+        <Section title={t("sections.production")}>
           <DataList
             items={[
               {
-                label: "Producer score",
+                label: t("fields.crop"),
+                value: lookupMessage(tCatalog, `crops.${contract.production.crop}`),
+              },
+              {
+                label: t("fields.quality"),
+                value: lookupMessage(tCatalog, `quality.${contract.production.quality}`),
+              },
+              {
+                label: t("fields.expectedProduction"),
+                value: tUnits("tonnes", {
+                  value: formatInteger(
+                    contract.production.expectedProductionTonnes,
+                    locale,
+                  ),
+                }),
+              },
+              {
+                label: t("fields.deliveryPeriod"),
+                value: lookupMessage(tCatalog, `delivery.${contract.production.deliveryPeriod}`),
+              },
+            ]}
+          />
+        </Section>
+        <Section title={t("sections.verification")}>
+          <DataList
+            items={[
+              {
+                label: t("fields.landRights"),
+                value: tStatus(contract.verification.landRights),
+              },
+              { label: t("fields.kyb"), value: tStatus(contract.verification.kyb) },
+              {
+                label: t("fields.directorKyc"),
+                value: tStatus(contract.verification.directorKyc),
+              },
+              {
+                label: t("fields.fieldVerified"),
+                value: tStatus(contract.verification.field),
+              },
+              {
+                label: t("fields.cropConfirmed"),
+                value: tStatus(contract.verification.crop),
+              },
+            ]}
+          />
+        </Section>
+        <Section title={t("sections.risk")}>
+          <DataList
+            items={[
+              {
+                label: t("producerScore"),
                 value: formatScore(producer.score.value, producer.score.maxValue),
               },
-              { label: "Contract status", value: contract.status.replaceAll("_", " ") },
-              { label: "Monitoring", value: title(contract.monitoring.satellite) },
-              { label: "Insurance", value: title(contract.insurance.status) },
+              {
+                label: t("fields.contractStatus"),
+                value: tStatus(contract.status),
+              },
+              {
+                label: t("fields.monitoring"),
+                value: tStatus(contract.monitoring.satellite),
+              },
+              {
+                label: t("fields.insurance"),
+                value: tStatus(contract.insurance.status),
+              },
             ]}
           />
         </Section>
-        <Section title="Monitoring">
+        <Section title={t("sections.monitoring")}>
           <DataList
             items={[
-              { label: "Satellite monitoring", value: title(contract.monitoring.satellite) },
-              { label: "Soil moisture", value: title(contract.monitoring.soilMoisture) },
+              {
+                label: t("fields.satellite"),
+                value: tStatus(contract.monitoring.satellite),
+              },
+              {
+                label: t("fields.soilMoisture"),
+                value: tStatus(contract.monitoring.soilMoisture),
+              },
             ]}
           />
         </Section>
-        <Section title="Insurance">
+        <Section title={t("sections.insurance")}>
           <DataList
             items={[
-              { label: "Insurance", value: title(contract.insurance.status) },
-              { label: "Provider", value: contract.insurance.provider },
-              { label: "Policy ref", value: contract.insurance.policyRef },
+              {
+                label: t("fields.insurance"),
+                value: tStatus(contract.insurance.status),
+              },
+              { label: t("fields.provider"), value: lookupMessage(tCatalog, `insuranceProvider.${contract.insurance.provider}`) },
+              { label: t("fields.policyRef"), value: contract.insurance.policyRef },
             ]}
           />
         </Section>
@@ -186,12 +247,4 @@ function Section({
       <CardContent>{children}</CardContent>
     </Card>
   );
-}
-
-function title(value: string): string {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }

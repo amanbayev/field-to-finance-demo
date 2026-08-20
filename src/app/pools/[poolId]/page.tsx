@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { CoveragePanel } from "@/components/pools/coverage-panel";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -13,7 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatScore, formatTonnes } from "@/lib/format";
+import { lookupMessage } from "@/i18n/t-dynamic";
+import type { AppLocale } from "@/i18n/config";
+import { formatInteger, formatScore } from "@/lib/format";
 import { getPool, listPoolIds } from "@/services/pool-service";
 
 export const dynamicParams = false;
@@ -24,8 +27,11 @@ export async function generateMetadata({
   params: Promise<{ poolId: string }>;
 }): Promise<Metadata> {
   const { poolId } = await params;
+  const tCatalog = await getTranslations("catalog");
   const detail = getPool(poolId);
-  return { title: detail?.pool.name ?? "Pool" };
+  return {
+    title: detail ? lookupMessage(tCatalog, `pools.${detail.pool.id}`) : poolId,
+  };
 }
 
 export function generateStaticParams() {
@@ -45,39 +51,48 @@ export default async function PoolDetailPage({
   }
 
   const { pool, members, producerCount } = detail;
+  const t = await getTranslations("pools");
+  const tNav = await getTranslations("nav");
+  const tCatalog = await getTranslations("catalog");
+  const tUnits = await getTranslations("units");
+  const locale = (await getLocale()) as AppLocale;
 
   return (
     <div>
       <p className="mb-4 text-sm">
         <Link href="/pools" className="text-muted-foreground hover:text-foreground">
-          Pools
+          {tNav("pools")}
         </Link>
         <span className="mx-2 text-muted-foreground">/</span>
         <span className="font-mono">{pool.id}</span>
       </p>
       <PageHeader
-        eyebrow="Contract pool"
-        title={pool.name}
-        description={`${pool.id} · ${producerCount} producers · ${pool.contractIds.length} contracts`}
+        eyebrow={t("detailEyebrow")}
+        title={lookupMessage(tCatalog, `pools.${pool.id}`)}
+        description={t("detailSummary", {
+          id: pool.id,
+          producers: formatInteger(producerCount, locale),
+          contracts: formatInteger(pool.contractIds.length, locale),
+        })}
       />
 
       <CoveragePanel coverage={pool.coverage} />
 
       <Card className="mt-6 shadow-none">
         <CardHeader className="border-b">
-          <CardTitle>Pool composition</CardTitle>
+          <CardTitle>{t("composition")}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Producer</TableHead>
-                <TableHead>Contract</TableHead>
-                <TableHead>Volume</TableHead>
-                <TableHead>Producer score</TableHead>
-                <TableHead>Monitoring</TableHead>
-                <TableHead>Insurance</TableHead>
-                <TableHead>Eligibility</TableHead>
+                <TableHead>{t("columns.producer")}</TableHead>
+                <TableHead>{t("columns.contract")}</TableHead>
+                <TableHead>{t("columns.volume")}</TableHead>
+                <TableHead>{t("columns.producerScore")}</TableHead>
+                <TableHead>{t("columns.monitoring")}</TableHead>
+                <TableHead>{t("columns.insurance")}</TableHead>
+                <TableHead>{t("columns.eligibility")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -94,7 +109,11 @@ export default async function PoolDetailPage({
                       {member.contract.id}
                     </Link>
                   </TableCell>
-                  <TableCell>{formatTonnes(member.volumeTonnes)}</TableCell>
+                  <TableCell>
+                    {tUnits("tonnes", {
+                      value: formatInteger(member.volumeTonnes, locale),
+                    })}
+                  </TableCell>
                   <TableCell>
                     {formatScore(
                       member.producer.score.value,

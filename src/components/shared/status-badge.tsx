@@ -1,5 +1,5 @@
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
-import { formatStatusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const positive = new Set([
@@ -49,6 +49,8 @@ export function StatusBadge({
   value: string;
   className?: string;
 }) {
+  const t = useTranslations("status");
+  const label = t(value as Parameters<typeof t>[0]);
   const tone = positive.has(value)
     ? "border-primary/20 bg-accent text-accent-foreground"
     : negative.has(value)
@@ -60,9 +62,9 @@ export function StatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("rounded-sm font-medium tracking-wide uppercase", tone, className)}
+      className={cn("rounded-sm font-medium tracking-wide", tone, className)}
     >
-      {formatStatusLabel(value)}
+      {label}
     </Badge>
   );
 }

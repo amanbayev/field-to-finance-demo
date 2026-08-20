@@ -1,8 +1,11 @@
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { lifecycleSteps } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 export function LifecycleStrip({ className }: { className?: string }) {
+  const t = useTranslations("lifecycle");
+
   return (
     <ol
       className={cn(
@@ -20,7 +23,7 @@ export function LifecycleStrip({ className }: { className?: string }) {
               {String(index + 1).padStart(2, "0")}
             </span>
             <span className="mt-3 font-heading text-lg leading-none">
-              {step.label}
+              {t(step.id)}
             </span>
           </Link>
         </li>

@@ -1,0 +1,391 @@
+{
+  "brand": {
+    "name": "Field to Finance",
+    "subtitle": "Аграрлық қаржыландырудың цифрлық инфрақұрылымы"
+  },
+  "nav": {
+    "dashboard": "Шолу",
+    "contracts": "Шарттар",
+    "pools": "Пулдар",
+    "tokens": "Токендер",
+    "finance": "Қаржыландыру",
+    "compliance": "Комплаенс",
+    "regulator": "Реттеуші көрінісі",
+    "primary": "Негізгі мәзір",
+    "open": "Мәзірді ашу"
+  },
+  "header": {
+    "badge": "ПРОТОТИП · SOLANA DEVNET",
+    "phase": "Ашық демонстрация · 0-кезең",
+    "network": "Желі",
+    "system": "Жүйе",
+    "connected": "Қосылған",
+    "disconnected": "Байланыс жоқ",
+    "language": "Интерфейс тілі"
+  },
+  "footer": {
+    "disclaimer": "Демонстрациялық прототип. Нақты ауыл шаруашылығы активтері, ақша қаражаты, бағалы қағаздар, шарттық құқықтар немесе заңды міндеттемелер жасалмайды және берілмейді.",
+    "contact": "Байланыс",
+    "email": "amanbayev@gmail.com"
+  },
+  "money": {
+    "approx": "≈ {value}",
+    "demoFxNote": "Тіркелген демонстрациялық анықтамалық курс, нақты нарықтық FX бағамы емес.",
+    "primary": "KZT",
+    "reference": "USD"
+  },
+  "status": {
+    "DRAFT": "Жоба",
+    "PENDING_VERIFICATION": "Тексеруді күтуде",
+    "VERIFIED": "Расталған",
+    "IN_POOL": "Пул құрамында",
+    "SUSPENDED": "Тоқтатылған",
+    "PASSED": "Өтті",
+    "CONFIRMED": "Расталды",
+    "PENDING": "Күтуде",
+    "FAILED": "Қабылданбады",
+    "HEALTHY": "Қалыпты",
+    "WATCH": "Бақылауда",
+    "ALERT": "Дабыл",
+    "NORMAL": "Қалыпты",
+    "DRY": "Құрғақ",
+    "EXCESS": "Артық",
+    "ACTIVE": "Қолданыста",
+    "EXPIRED": "Мерзімі өткен",
+    "NONE": "Жоқ",
+    "BREACH": "Бұзушылық",
+    "ELIGIBLE": "Жарамды",
+    "INELIGIBLE": "Жарамсыз",
+    "NOT_YET_DEPLOYED": "Әлі орналастырылмаған",
+    "DEPLOYED": "Орналастырылған",
+    "PRODUCER": "Өндіруші",
+    "INVESTOR": "Инвестор",
+    "ISSUER": "Эмитент",
+    "NOT_APPLICABLE": "Қолд. жоқ",
+    "LOW_RISK": "Төмен тәуекел",
+    "HIGH_RISK": "Жоғары тәуекел",
+    "CLEAR": "Таза",
+    "HIT": "Сәйкестік",
+    "APPROVED": "Мақұлданған",
+    "BLOCKED": "Бұғатталған",
+    "COMING_NEXT": "Келесі кезең",
+    "EXPERIMENTAL": "Эксперименттік",
+    "MOCK": "Имитация",
+    "CONNECTED": "Қосылған",
+    "DISCONNECTED": "Байланыс жоқ"
+  },
+  "units": {
+    "tonnes": "{value} т",
+    "hectares": "{value} га",
+    "hectaresShort": "{value} га",
+    "tokens": "{value} токен",
+    "score": "{value} / {max}"
+  },
+  "catalog": {
+    "crops": {
+      "Wheat": "Бидай",
+      "Barley": "Арпа"
+    },
+    "quality": {
+      "Class 2": "2-сынып",
+      "Class 3": "3-сынып",
+      "Class 4": "4-сынып"
+    },
+    "regions": {
+      "Akmola": "Ақмола облысы",
+      "Kostanay": "Қостанай облысы",
+      "North Kazakhstan": "Солтүстік Қазақстан облысы",
+      "Pavlodar": "Павлодар облысы",
+      "Karaganda": "Қарағанды облысы",
+      "Aktobe": "Ақтөбе облысы",
+      "Abai": "Абай облысы",
+      "Turkistan": "Түркістан облысы"
+    },
+    "delivery": {
+      "Aug–Oct 2027": "тамыз–қазан 2027",
+      "Sep–Oct 2027": "қыркүйек–қазан 2027",
+      "Aug–Sep 2027": "тамыз–қыркүйек 2027",
+      "Jun–Jul 2027": "маусым–шілде 2027"
+    },
+    "pools": {
+      "POOL-WHEAT-2027-01": "2027 жылғы бидай пулы"
+    },
+    "tokenType": {
+      "tok-wheat-2027": "Тауарлық аграрлық токен"
+    },
+    "tokenUnit": {
+      "tok-wheat-2027": "1 токен = 3-сыныпты бидайдың 1 тоннасына құқық"
+    },
+    "insuranceProvider": {
+      "Demo Agricultural Cover": "Демонстрациялық аграрлық сақтандыру",
+      "—": "—"
+    }
+  },
+  "lifecycle": {
+    "title": "Өмірлік цикл",
+    "description": "Әр қадам тиісті модульді ашады. Blockchain есеп айырысуы 0-кезеңде іске қосылмаған.",
+    "field": "Егістік",
+    "contract": "Шарт",
+    "pool": "Пул",
+    "risk": "Тәуекел",
+    "token": "Токен",
+    "finance": "Қаржыландыру"
+  },
+  "dashboard": {
+    "title": "Шолу",
+    "eyebrow": "Өнімнің ашық қаңқасы",
+    "intro": "Прототип болашақ ауыл шаруашылығы өніміне құқықтардың қалай цифрлық түрде расталатынын, пулға біріктірілетінін, тәуекел бойынша түзетілетінін, токенделетінін және қаржыландырылатынын көрсетеді.",
+    "digitalContracts": "Цифрлық шарттар",
+    "contractVolume": "Шарт көлемі",
+    "eligibleCoverage": "Жарамды жабу",
+    "tokenizedVolume": "Токенделген көлем",
+    "activeFinancing": "Белсенді қаржыландыру",
+    "averageCoverageRatio": "Орташа жабу коэффициенті"
+  },
+  "contracts": {
+    "title": "Шарттар",
+    "eyebrow": "Цифрлық аграрлық шарттар тізілімі",
+    "description": "Демонстрациялық цифрлық аграрлық шарттар. Мәртебе, тексеру және өндіріс көрсеткіштері тек мысал үшін берілген.",
+    "detailEyebrow": "Цифрлық аграрлық шарт",
+    "producerScore": "Өндіруші баллы",
+    "sections": {
+      "contract": "Шарт",
+      "producer": "Өндіруші",
+      "field": "Егістік",
+      "production": "Өндіріс",
+      "verification": "Тексеру",
+      "risk": "Тәуекел",
+      "monitoring": "Мониторинг",
+      "insurance": "Сақтандыру"
+    },
+    "fields": {
+      "contractId": "Шарт ID",
+      "status": "Мәртебе",
+      "season": "Маусым",
+      "deliveryPeriod": "Жеткізу кезеңі",
+      "legalName": "Заңды атауы",
+      "region": "Өңір",
+      "scoreAsOf": "Балл күні",
+      "fieldArea": "Егістік алаңы",
+      "cadastralRef": "Кадастрлық нөмір",
+      "centroid": "Центроид",
+      "crop": "Дақыл",
+      "quality": "Сапа",
+      "expectedProduction": "Күтілетін өнім",
+      "landRights": "Жер құқығы",
+      "kyb": "KYB",
+      "directorKyc": "Директор KYC",
+      "fieldVerified": "Егістік",
+      "cropConfirmed": "Дақыл",
+      "contractStatus": "Шарт мәртебесі",
+      "monitoring": "Мониторинг",
+      "insurance": "Сақтандыру",
+      "satellite": "Жерсеріктік мониторинг",
+      "soilMoisture": "Топырақ ылғалдылығы",
+      "provider": "Сақтандырушы",
+      "policyRef": "Полис нөмірі",
+      "field": "Егістік",
+      "delivery": "Жеткізу"
+    },
+    "map": {
+      "title": "Егістік схемасы",
+      "placeholder": "Орынбасар · тікелей карта жоқ",
+      "north": "С",
+      "centroid": "Шамамен центроид",
+      "area": "Есепке алынған алаң"
+    }
+  },
+  "pools": {
+    "title": "Пулдар",
+    "eyebrow": "Шарттарды біріктіру",
+    "description": "Шарт пулы расталған өнімді токен шығаруға арналған жабу базасына жинақтайды.",
+    "detailEyebrow": "Шарт пулы",
+    "detailSummary": "{id} · өндіруші: {producers} · шарт: {contracts}",
+    "contracts": "Шарттар",
+    "producers": "Өндірушілер",
+    "grossVolume": "Жалпы шарт көлемі",
+    "eligibleCoverage": "Жарамды шарт жабуы",
+    "composition": "Пул құрамы",
+    "columns": {
+      "producer": "Өндіруші",
+      "contract": "Шарт",
+      "volume": "Көлем",
+      "producerScore": "Өндіруші баллы",
+      "monitoring": "Мониторинг",
+      "insurance": "Сақтандыру",
+      "eligibility": "Жарамдылық"
+    }
+  },
+  "risk": {
+    "adjustmentsTitle": "Тәуекел түзетулері",
+    "grossVolume": "Жалпы шарттық көлем",
+    "totalHaircut": "Жиынтық дисконт",
+    "eligibleTitle": "Жарамды шарт жабуы",
+    "eligibleCoverage": "Жарамды жабу",
+    "maxIssuance": "Токендердің ең жоғары шығарылымы {value}",
+    "outstanding": "Шығарылған токендер",
+    "coverageRatio": "Жабу коэффициенті",
+    "status": "Мәртебе",
+    "adjustments": {
+      "producer": "Өндіруші тәуекелі",
+      "weather": "Ауа райы / жерсерік",
+      "concentration": "Өңірлік шоғырлану",
+      "quality": "Сапа тәуекелі",
+      "insurance": "Сақтандыру түзетуі",
+      "issuer": "Эмитент тәуекелі"
+    }
+  },
+  "tokens": {
+    "title": "Токендер",
+    "eyebrow": "Аграрлық токен сериясы",
+    "description": "Токен шығару өнім қабатында дайындалған. Solana Devnet-те орналастыру келесі кезеңге қалдырылған.",
+    "issue": "Solana-да шығару",
+    "issueTooltip": "Solana шығарылымы келесі әзірлеу кезеңінде іске қосылады.",
+    "underlyingPool": "Негізгі пул",
+    "fields": {
+      "type": "Түрі",
+      "issuer": "Эмитент",
+      "tokenUnit": "Токен бірлігі",
+      "contractPool": "Шарт пулы",
+      "maximumIssuance": "Ең жоғары шығарылым",
+      "issued": "Шығарылды",
+      "network": "Желі",
+      "blockchainStatus": "Blockchain мәртебесі"
+    }
+  },
+  "finance": {
+    "title": "Қаржыландыру",
+    "eyebrow": "Кепілмен және құрылымдалған қаржыландыру",
+    "description": "Қаржыландыру модульдері өнім орнықтырғыштары ретінде көрсетілген. Бұл прототипте кредит берілмейді.",
+    "exampleTitle": "Есептік мысал",
+    "principal": "Негізгі сома",
+    "reference": "Анықтама",
+    "marketValue": "Нарықтық құн",
+    "haircut": "Дисконт",
+    "financingAmount": "Қаржыландыру",
+    "modules": {
+      "SECURED_LOAN": {
+        "title": "Кепілді қарыз",
+        "steps": {
+          "0": "Аграрлық токен",
+          "1": "Кепілге берілді",
+          "2": "Қаржыландыру",
+          "3": "Өтеу",
+          "4": "Токен босатылды"
+        }
+      },
+      "REPO": {
+        "title": "Repo",
+        "legalNote": "Құқықтық құрылымдауға жататын ықтимал қаржыландыру модулі.",
+        "steps": {
+          "0": "Токенді сату",
+          "1": "Қаржыландыру",
+          "2": "Кері сатып алу міндеттемесі",
+          "3": "Токен қайтарылды"
+        }
+      }
+    }
+  },
+  "compliance": {
+    "title": "Комплаенс",
+    "eyebrow": "Комплаенс бақылау орталығы",
+    "description": "Барлық тексерулер — Demo Compliance Provider имитациясы. Бұл нақты KYC, KYB немесе KYT қорытындылары емес.",
+    "controlModules": "Бақылау модульдері",
+    "provider": "Demo Compliance Provider",
+    "sample": "Үлгі қатысушылар",
+    "register": "Қатысушылар тізілімі",
+    "controls": {
+      "kyc": "KYC",
+      "kyb": "KYB",
+      "kyt": "KYT",
+      "wallet": "Әмиян иелігі",
+      "sanctions": "Санкциялық скрининг",
+      "pep": "PEP тексерісі",
+      "eligibility": "Қатысушы жарамдылығы"
+    },
+    "columns": {
+      "participant": "Қатысушы",
+      "type": "Түрі",
+      "kyc": "KYC",
+      "kyb": "KYB",
+      "kyt": "KYT",
+      "wallet": "Әмиян",
+      "sanctions": "Санкциялар",
+      "pep": "PEP",
+      "eligibility": "Жарамдылық",
+      "directorKyc": "Директор KYC"
+    }
+  },
+  "regulator": {
+    "title": "Реттеуші көрінісі",
+    "eyebrow": "Қадағалау ашықтығы",
+    "description": "Жүйенің шығу тегі, жабуы, токен ұсынысы және комплаенсі бойынша тек оқуға арналған бөлек көрініс. Кейін жазбалар Solana Devnet транзакцияларына сілтеме жасайды.",
+    "overview": "Жүйе шолуы",
+    "contracts": "Шарттар",
+    "pools": "Пулдар",
+    "tokenSeries": "Токен сериялары",
+    "participants": "Қатысушылар",
+    "blocked": "Бұғатталған қатысушылар",
+    "coverageAlerts": "Жабу дабылдары",
+    "lenses": "Қадағалау қималары",
+    "auditTitle": "Аудит журналы",
+    "auditIntro": "2027 жылғы бидай бағдарламасының бақылау оқиғалары. Уақыт белгілері демонстрациялық. Blockchain транзакция сілтемелері кейін қосылады.",
+    "topics": {
+      "provenance": "Активтің шығу тегі",
+      "verification": "Шартты тексеру",
+      "pool": "Шарт пулы",
+      "scoring": "Өндіруші скорингі",
+      "satellite": "Жерсеріктік мониторинг",
+      "insurance": "Сақтандыру мәртебесі",
+      "haircut": "Дисконт есебі",
+      "coverage": "Шарт жабуы",
+      "supply": "Токен ұсынысы",
+      "compliance": "Комплаенс мәртебесі",
+      "audit": "Аудит журналы"
+    }
+  },
+  "audit": {
+    "contractCreated": {
+      "title": "Цифрлық шарт құрылды",
+      "detail": "DAC-2027-0001 Akmola Agro LLP үшін, 2027 жылғы бидай маусымы бойынша тіркелді."
+    },
+    "producerVerified": {
+      "title": "Өндіруші расталды",
+      "detail": "Akmola Agro LLP бойынша KYB және директор KYC аяқталды (имитация)."
+    },
+    "contractVerified": {
+      "title": "Шарт расталды",
+      "detail": "DAC-2027-0001 бойынша жер құқығы, егістік және дақыл расталды."
+    },
+    "addedToPool": {
+      "title": "Шарт пулға қосылды",
+      "detail": "DAC-2027-0001 POOL-WHEAT-2027-01 құрамына қабылданды."
+    },
+    "riskCompleted": {
+      "title": "Тәуекел бағалауы аяқталды",
+      "detail": "Өндіруші, ауа райы, шоғырлану, сапа, сақтандыру және эмитент факторлары қолданылды."
+    },
+    "coverageCalculated": {
+      "title": "Жабу есептелді",
+      "detail": "Жарамды жабу 10 000 тонна жалпы көлемге қарсы 8 300 тонна болып белгіленді."
+    },
+    "tokenPrepared": {
+      "title": "Токен шығаруы дайындалды",
+      "detail": "WHEAT-2027 сериясы дайындалды. Ончейн шығарылым әлі орналастырылмаған."
+    }
+  },
+  "errors": {
+    "system": "Жүйе",
+    "unableTitle": "Бұл бөлімді ашу мүмкін болмады",
+    "unableBody": "Прототип бетті көрсетпеді. Қайталап көріңіз немесе шолуға оралыңыз.",
+    "retry": "Қайталау",
+    "notFound": "Табылмады",
+    "recordTitle": "Жазба қолжетімді емес",
+    "recordBody": "Бұл идентификатор демонстрациялық деректерде жоқ.",
+    "returnDashboard": "Шолуға оралу"
+  },
+  "metadata": {
+    "defaultTitle": "Field to Finance · Аграрлық токендеу демонстрациясы",
+    "titleTemplate": "{page} · Field to Finance"
+  }
+}

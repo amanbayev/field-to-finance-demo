@@ -1,11 +1,18 @@
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatHectares, formatScore, formatTonnes } from "@/lib/format";
+import { lookupMessage } from "@/i18n/t-dynamic";
+import type { AppLocale } from "@/i18n/config";
+import { formatInteger, formatScore } from "@/lib/format";
 import type { ContractListItem } from "@/services/contract-service";
 
 export function ContractSummaryCard({ item }: { item: ContractListItem }) {
   const { contract, producer } = item;
+  const t = useTranslations("contracts");
+  const tUnits = useTranslations("units");
+  const tCatalog = useTranslations("catalog");
+  const locale = useLocale() as AppLocale;
 
   return (
     <Link href={`/contracts/${contract.id}`} className="block h-full">
@@ -22,20 +29,45 @@ export function ContractSummaryCard({ item }: { item: ContractListItem }) {
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <Field label="Crop" value={contract.production.crop} />
-          <Field label="Season" value={String(contract.production.season)} />
-          <Field label="Field" value={formatHectares(contract.field.areaHectares)} />
           <Field
-            label="Expected production"
-            value={formatTonnes(contract.production.expectedProductionTonnes)}
+            label={t("fields.crop")}
+            value={lookupMessage(tCatalog, `crops.${contract.production.crop}`)}
           />
-          <Field label="Quality" value={contract.production.quality} />
-          <Field label="Region" value={contract.field.region} />
           <Field
-            label="Producer score"
+            label={t("fields.season")}
+            value={String(contract.production.season)}
+          />
+          <Field
+            label={t("fields.field")}
+            value={tUnits("hectares", {
+              value: formatInteger(contract.field.areaHectares, locale),
+            })}
+          />
+          <Field
+            label={t("fields.expectedProduction")}
+            value={tUnits("tonnes", {
+              value: formatInteger(
+                contract.production.expectedProductionTonnes,
+                locale,
+              ),
+            })}
+          />
+          <Field
+            label={t("fields.quality")}
+            value={lookupMessage(tCatalog, `quality.${contract.production.quality}`)}
+          />
+          <Field
+            label={t("fields.region")}
+            value={lookupMessage(tCatalog, `regions.${contract.field.region}`)}
+          />
+          <Field
+            label={t("producerScore")}
             value={formatScore(producer.score.value, producer.score.maxValue)}
           />
-          <Field label="Delivery" value={contract.production.deliveryPeriod} />
+          <Field
+            label={t("fields.delivery")}
+            value={lookupMessage(tCatalog, `delivery.${contract.production.deliveryPeriod}`)}
+          />
         </CardContent>
       </Card>
     </Link>

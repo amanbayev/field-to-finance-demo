@@ -1,3 +1,5 @@
+import type { Money } from "./money";
+
 export type ContractStatus =
   | "DRAFT"
   | "PENDING_VERIFICATION"
@@ -168,17 +170,25 @@ export interface ComplianceRecord {
 export interface FinancingPosition {
   id: string;
   module: FinancingModule;
-  title: string;
   status: FinancingModuleStatus;
-  legalNote?: string;
-  steps: string[];
+  marketValue: Money;
+  haircutPercent: number;
+  principal: Money;
 }
+
+export type AuditEventKey =
+  | "contractCreated"
+  | "producerVerified"
+  | "contractVerified"
+  | "addedToPool"
+  | "riskCompleted"
+  | "coverageCalculated"
+  | "tokenPrepared";
 
 export interface AuditEvent {
   id: string;
   timestamp: string;
-  title: string;
-  detail: string;
+  eventKey: AuditEventKey;
   relatedEntityType?: string;
   relatedEntityId?: string;
 }
@@ -188,7 +198,7 @@ export interface DashboardMetrics {
   contractVolumeTonnes: number;
   eligibleCoverageTonnes: number;
   tokenizedVolumeTonnes: number;
-  activeFinancingUsd: number;
+  activeFinancing: Money;
   averageCoverageRatioPercent: number;
 }
 

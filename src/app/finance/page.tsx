@@ -1,21 +1,24 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { FinancingFlow } from "@/components/finance/financing-flow";
 import { PageHeader } from "@/components/shared/page-header";
 import { listFinancingModules } from "@/services/finance-service";
 
-export const metadata: Metadata = {
-  title: "Finance",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("title") };
+}
 
-export default function FinancePage() {
+export default async function FinancePage() {
+  const t = await getTranslations("finance");
   const modules = listFinancingModules();
 
   return (
     <div>
       <PageHeader
-        eyebrow="Collateral and structured financing"
-        title="Finance"
-        description="Financing modules are shown as product placeholders. No credit is originated in this prototype."
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
       />
       <div className="grid gap-4">
         {modules.map((module) => (
