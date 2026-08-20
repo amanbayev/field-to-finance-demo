@@ -1,3 +1,4 @@
+import { getPublicEnv, solanaNetworkLabel } from "@/lib/public-env";
 import type {
   BlockchainProvider,
   BlockchainTransaction,
@@ -8,8 +9,9 @@ import type {
 
 export class MockBlockchainProvider implements BlockchainProvider {
   getNetworkStatus(): NetworkStatus {
+    const { solanaNetwork } = getPublicEnv();
     return {
-      network: "Solana Devnet",
+      network: solanaNetworkLabel(solanaNetwork),
       connected: true,
       blockchainDeployed: false,
     };

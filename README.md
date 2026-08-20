@@ -12,13 +12,11 @@ Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
 ## Current phase
 
-**Phase 0.1 — Localization and Kazakhstan formatting**
+**Phase 0.2 — Public deployment foundation**
 
-Phase 0 public UI plus:
+Phase 0 public UI and Phase 0.1 localization, plus a public Vercel deployment and documented environment configuration.
 
-- Kazakh, Russian and English interface
-- KZT-first money display with a USD reference
-- Cookie-persisted language, same URLs as Phase 0
+Phase 0 still uses **mock blockchain data**. Solana Devnet integration begins in Phase 1. The public URL stays the same as later phases are deployed.
 
 Phase 1 (Solana Devnet connection) has not been started.
 
@@ -97,7 +95,7 @@ Inspected local toolchain when this project was scaffolded:
 - Node.js `v24.19.0`
 - npm `11.17.0`
 - Git `2.54.0.windows.1`
-- Vercel CLI: not installed
+- Vercel CLI: `npx vercel` (not installed globally)
 
 ## Architecture
 
@@ -115,7 +113,7 @@ src/
     compliance/        KycProvider, KybProvider, KytProvider + mocks
     fx/                FxProvider + DemoFxProvider
   i18n/                Locale config and request setup
-  lib/                 Formatting and navigation
+  lib/                 Formatting, navigation, and public env defaults
 ```
 
 ### Blockchain adapter
@@ -128,7 +126,7 @@ interface BlockchainProvider {
 }
 ```
 
-Phase 0 uses `MockBlockchainProvider`. A later `SolanaBlockchainProvider` can implement the same interface without rewriting contracts, pools, coverage or UI flows.
+Phase 0 and 0.2 use `MockBlockchainProvider`, selected by `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=mock` (the default). A later `SolanaBlockchainProvider` can implement the same interface without rewriting contracts, pools, coverage or UI flows. If the Solana provider name is set before Phase 1 exists, the app stays on mock and does not fail.
 
 ### Compliance adapters
 
@@ -201,6 +199,7 @@ No Sumsub or TRM integration is included in Phase 0.
 | --- | --- |
 | Phase 0 | Public UI prototype |
 | Phase 0.1 | Localization and Kazakhstan formatting |
+| Phase 0.2 | Public deployment foundation |
 | Phase 1 | Solana Devnet connection |
 | Phase 2 | Digital Agricultural Contract Registry |
 | Phase 3 | Contract Pools and Coverage Engine |
@@ -211,16 +210,51 @@ No Sumsub or TRM integration is included in Phase 0.
 | Phase 8 | Risk Monitoring and Coverage Events |
 | Phase 9 | Default / Enforcement Demo |
 
-## Deployment
+## Public Demo
 
-The app is a standard Next.js project and can be deployed on Vercel.
+| Item | Value |
+| --- | --- |
+| Production URL | https://field-to-finance-demo.vercel.app |
+| Preview URL | https://field-to-finance-demo-554bbx2as-amanbayts-projects.vercel.app |
+| Platform | Vercel |
+| Vercel project | `field-to-finance-demo` |
+| GitHub | https://github.com/amanbayev/field-to-finance-demo |
 
-If the Vercel CLI is not installed:
+This is the stable public URL for the prototype. Later phases (including Solana Devnet in Phase 1) should keep deploying to the same production hostname.
+
+### Deployment process
+
+The app is a standard Next.js project on Vercel.
+
+Preview (current working tree):
 
 ```bash
-npm install -g vercel
-npx vercel login
 npx vercel
 ```
 
-If the CLI is installed but you are not logged in, run `npx vercel login` first. Do not place credentials in this repository.
+Production:
+
+```bash
+npx vercel --prod
+```
+
+If the CLI is not logged in, run `npx vercel login` first. Do not place Vercel tokens, GitHub credentials, wallet files, or API secrets in this repository.
+
+Continuous deployment: connect this GitHub repository to the Vercel project (`npx vercel git connect`). Subsequent pushes to the connected branch create preview or production deployments according to the Vercel project settings.
+
+### Environment configuration
+
+Public variables (safe to expose in the browser). Copy `.env.example` to `.env.local` for local overrides:
+
+```bash
+NEXT_PUBLIC_APP_ENV=demo
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
+NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=mock
+```
+
+These are also set on the Vercel project for Production, Preview, and Development.
+
+Defaults live in `src/lib/public-env.ts`. The application must not crash if future Solana variables are absent: missing values fall back to the demo defaults above, and `MockBlockchainProvider` remains active in Phase 0.2.
+
+Do not put private keys, seed phrases, wallet JSON, or secret API credentials in `NEXT_PUBLIC_*` variables. Those would be inlined into the client bundle.

@@ -23,6 +23,10 @@
 # misc
 .DS_Store
 *.pem
+*.key
+*.p12
+*.pfx
+*.keystore
 
 # debug
 npm-debug.log*
@@ -30,8 +34,19 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — never commit secrets; keep `.env.example` as the template
+.env
+.env.*
+!.env.example
+
+# wallets, keypairs, seed material
+*.keypair
+id.json
+keypair.json
+wallet.json
+*-wallet.json
+*-keypair.json
+.solana/
 
 # vercel
 .vercel
