@@ -9,22 +9,25 @@ export function LifecycleStrip({ className }: { className?: string }) {
   return (
     <ol
       className={cn(
-        "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6",
+        "flex flex-wrap items-center gap-x-1 gap-y-2 border border-border bg-card px-3 py-2.5 text-sm",
         className,
       )}
     >
       {lifecycleSteps.map((step, index) => (
-        <li key={step.id}>
+        <li key={step.id} className="flex items-center gap-1">
+          {index > 0 ? (
+            <span className="px-1 text-muted-foreground" aria-hidden>
+              →
+            </span>
+          ) : null}
           <Link
             href={step.href}
-            className="flex h-full flex-col justify-between rounded-lg border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-accent"
+            className="text-muted-foreground hover:text-foreground"
           >
-            <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="mr-1.5 font-tabular text-[10px] text-muted-foreground">
               {String(index + 1).padStart(2, "0")}
             </span>
-            <span className="mt-3 font-heading text-lg leading-none">
-              {t(step.id)}
-            </span>
+            {t(step.id)}
           </Link>
         </li>
       ))}

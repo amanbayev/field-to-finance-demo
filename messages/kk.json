@@ -12,7 +12,13 @@
     "compliance": "Комплаенс",
     "regulator": "Реттеуші көрінісі",
     "primary": "Негізгі мәзір",
-    "open": "Мәзірді ашу"
+    "open": "Мәзірді ашу",
+    "groups": {
+      "overview": "Шолу",
+      "assets": "Активтер",
+      "market": "Нарық",
+      "control": "Бақылау"
+    }
   },
   "header": {
     "badge": "ПРОТОТИП · SOLANA DEVNET",
@@ -123,7 +129,7 @@
   },
   "lifecycle": {
     "title": "Өмірлік цикл",
-    "description": "Әр қадам тиісті модульді ашады. Blockchain есеп айырысуы 0-кезеңде іске қосылмаған.",
+    "description": "Егістік есебінен қаржыландыруға дейінгі операциялық тізбек. Ончейн есеп айырысу 0-кезеңде іске қосылмаған.",
     "field": "Егістік",
     "contract": "Шарт",
     "pool": "Пул",
@@ -133,7 +139,7 @@
   },
   "dashboard": {
     "title": "Шолу",
-    "eyebrow": "Өнімнің ашық қаңқасы",
+    "eyebrow": "Шолу",
     "intro": "Прототип болашақ ауыл шаруашылығы өніміне құқықтардың қалай цифрлық түрде расталатынын, пулға біріктірілетінін, тәуекел бойынша түзетілетінін, токенделетінін және қаржыландырылатынын көрсетеді.",
     "digitalContracts": "Цифрлық шарттар",
     "contractVolume": "Шарт көлемі",
@@ -148,15 +154,31 @@
     "description": "Демонстрациялық цифрлық аграрлық шарттар. Мәртебе, тексеру және өндіріс көрсеткіштері тек мысал үшін берілген.",
     "detailEyebrow": "Цифрлық аграрлық шарт",
     "producerScore": "Өндіруші баллы",
+    "businessRecord": "Шарт пен өндіріс деректері.",
+    "verificationEvidence": "Тәуелсіз тексерулер. Жоғарыдағы шаруашылық жазбадан бөлек.",
+    "onChainEmpty": "Ончейн дәлел жазылмаған. Program ID, mint және транзакция тарихы Solana орналастырылғаннан кейін осында пайда болады.",
+    "onChainReserved": "Келесі кезеңге қалдырылған. Blockchain идентификаторлары имитацияланбайды.",
+    "columns": {
+      "contractId": "Шарт ID",
+      "producer": "Өндіруші",
+      "crop": "Дақыл",
+      "volume": "Көлем",
+      "region": "Өңір",
+      "score": "Балл",
+      "status": "Мәртебе"
+    },
     "sections": {
       "contract": "Шарт",
       "producer": "Өндіруші",
       "field": "Егістік",
       "production": "Өндіріс",
+      "asset": "Актив / өндіріс",
       "verification": "Тексеру",
       "risk": "Тәуекел",
       "monitoring": "Мониторинг",
-      "insurance": "Сақтандыру"
+      "insurance": "Сақтандыру",
+      "audit": "Аудит",
+      "onChainProof": "Ончейн дәлел"
     },
     "fields": {
       "contractId": "Шарт ID",
@@ -213,7 +235,10 @@
       "producerScore": "Өндіруші баллы",
       "monitoring": "Мониторинг",
       "insurance": "Сақтандыру",
-      "eligibility": "Жарамдылық"
+      "eligibility": "Жарамдылық",
+      "pool": "Пул ID",
+      "name": "Пул",
+      "status": "Мәртебе"
     }
   },
   "risk": {
@@ -226,6 +251,14 @@
     "outstanding": "Шығарылған токендер",
     "coverageRatio": "Жабу коэффициенті",
     "status": "Мәртебе",
+    "flow": {
+      "gross": "Жалпы шарт көлемі",
+      "adjustments": "Тәуекел түзетулері",
+      "haircut": "Дисконт",
+      "eligible": "Жарамды жабу",
+      "outstanding": "Шығарылған токендер",
+      "ratio": "Жабу коэффициенті"
+    },
     "adjustments": {
       "producer": "Өндіруші тәуекелі",
       "weather": "Ауа райы / жерсерік",
@@ -242,15 +275,24 @@
     "issue": "Solana-да шығару",
     "issueTooltip": "Solana шығарылымы келесі әзірлеу кезеңінде іске қосылады.",
     "underlyingPool": "Негізгі пул",
+    "issueNote": "Solana шығарылымы келесі кезеңге қалдырылған.",
+    "notDeployedNote": "Орналастырылмаған. Бұл өрістер Solana шығарылымы іске қосылғанға дейін бос қалады.",
+    "onChainReserved": "Ончейн идентификаторлары",
+    "notRecorded": "—",
     "fields": {
+      "instrument": "Құрал",
       "type": "Түрі",
       "issuer": "Эмитент",
-      "tokenUnit": "Токен бірлігі",
-      "contractPool": "Шарт пулы",
+      "tokenUnit": "Бірлік",
+      "contractPool": "Негізгі пул",
       "maximumIssuance": "Ең жоғары шығарылым",
       "issued": "Шығарылды",
+      "maturity": "Өтеу мерзімі",
       "network": "Желі",
-      "blockchainStatus": "Blockchain мәртебесі"
+      "blockchainStatus": "Мәртебе",
+      "programId": "Program ID",
+      "mint": "Mint",
+      "txHistory": "Транзакция тарихы"
     }
   },
   "finance": {
@@ -263,6 +305,10 @@
     "marketValue": "Нарықтық құн",
     "haircut": "Дисконт",
     "financingAmount": "Қаржыландыру",
+    "collateralMarketValue": "Кепілдің нарықтық құны",
+    "eligibleFinancing": "Жарамды қаржыландыру",
+    "secondaryModule": "Қосымша модуль",
+    "repoSecondary": "Repo осы прототиптің бекітілген операциялық моделіне кірмейді.",
     "modules": {
       "SECURED_LOAN": {
         "title": "Кепілді қарыз",
@@ -294,6 +340,7 @@
     "provider": "Demo Compliance Provider",
     "sample": "Үлгі қатысушылар",
     "register": "Қатысушылар тізілімі",
+    "notRecorded": "—",
     "controls": {
       "kyc": "KYC",
       "kyb": "KYB",
@@ -313,12 +360,13 @@
       "sanctions": "Санкциялар",
       "pep": "PEP",
       "eligibility": "Жарамдылық",
-      "directorKyc": "Директор KYC"
+      "directorKyc": "Директор KYC",
+      "lastReview": "Соңғы тексеру"
     }
   },
   "regulator": {
     "title": "Реттеуші көрінісі",
-    "eyebrow": "Қадағалау ашықтығы",
+    "eyebrow": "Қадағалау консолі",
     "description": "Жүйенің шығу тегі, жабуы, токен ұсынысы және комплаенсі бойынша тек оқуға арналған бөлек көрініс. Кейін жазбалар Solana Devnet транзакцияларына сілтеме жасайды.",
     "overview": "Жүйе шолуы",
     "contracts": "Шарттар",
@@ -329,7 +377,15 @@
     "coverageAlerts": "Жабу дабылдары",
     "lenses": "Қадағалау қималары",
     "auditTitle": "Аудит журналы",
-    "auditIntro": "2027 жылғы бидай бағдарламасының бақылау оқиғалары. Уақыт белгілері демонстрациялық. Blockchain транзакция сілтемелері кейін қосылады.",
+    "auditIntro": "2027 жылғы бидай бағдарламасының бақылау оқиғалары. Уақыт белгілері демонстрациялық. Solana транзакция қолтаңбасы, program ID және PDA кейін осы журналға қосылуы мүмкін.",
+    "exceptions": "Ерекшеліктер / дабылдар",
+    "noCoverageBreaches": "Белсенді жабу бұзушылықтары жоқ",
+    "blockedTitle": "Бұғатталған қатысушылар",
+    "noBlocked": "Бұғатталған қатысушылар жоқ",
+    "tokenSupply": "Токен ұсынысы",
+    "complianceExceptions": "Комплаенс ерекшеліктері",
+    "riskEvents": "Тәуекел оқиғалары",
+    "noRiskEvents": "Белсенді тәуекел оқиғалары жоқ",
     "topics": {
       "provenance": "Активтің шығу тегі",
       "verification": "Шартты тексеру",
@@ -345,6 +401,18 @@
     }
   },
   "audit": {
+    "actorApplication": "Қолданба",
+    "statusCompleted": "Аяқталды",
+    "notRecorded": "—",
+    "empty": "Бұл жазба бойынша аудит оқиғалары жоқ.",
+    "columns": {
+      "timestamp": "Уақыт",
+      "event": "Оқиға",
+      "entity": "Нысан",
+      "actor": "Актор / дереккөз",
+      "status": "Мәртебе",
+      "reference": "Сілтеме"
+    },
     "contractCreated": {
       "title": "Цифрлық шарт құрылды",
       "detail": "DAC-2027-0001 Akmola Agro LLP үшін, 2027 жылғы бидай маусымы бойынша тіркелді."

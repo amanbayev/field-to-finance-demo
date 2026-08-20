@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { FinancingFlow } from "@/components/finance/financing-flow";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageSection } from "@/components/shared/page-section";
 import { listFinancingModules } from "@/services/finance-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,6 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function FinancePage() {
   const t = await getTranslations("finance");
   const modules = listFinancingModules();
+  const loan = modules.find((module) => module.module === "SECURED_LOAN");
+  const repo = modules.find((module) => module.module === "REPO");
 
   return (
     <div>
@@ -20,11 +23,12 @@ export default async function FinancePage() {
         title={t("title")}
         description={t("description")}
       />
-      <div className="grid gap-4">
-        {modules.map((module) => (
-          <FinancingFlow key={module.id} module={module} />
-        ))}
-      </div>
+      {loan ? <FinancingFlow module={loan} /> : null}
+      {repo ? (
+        <PageSection title={t("secondaryModule")}>
+          <FinancingFlow module={repo} />
+        </PageSection>
+      ) : null}
     </div>
   );
 }

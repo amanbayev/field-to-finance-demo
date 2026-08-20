@@ -14,7 +14,9 @@ export function IssueTokenButton() {
   return (
     <Tooltip>
       <TooltipTrigger render={<span className="inline-flex w-fit" />}>
-        <Button disabled>{t("issue")}</Button>
+        <Button disabled variant="outline" size="sm">
+          {t("issue")}
+        </Button>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs">{t("issueTooltip")}</TooltipContent>
     </Tooltip>

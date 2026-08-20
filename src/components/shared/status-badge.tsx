@@ -1,5 +1,4 @@
 import { useTranslations } from "next-intl";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const positive = new Set([
@@ -14,6 +13,7 @@ const positive = new Set([
   "LOW_RISK",
   "CLEAR",
   "CONNECTED",
+  "NORMAL",
 ]);
 
 const caution = new Set([
@@ -28,6 +28,7 @@ const caution = new Set([
   "EXPIRED",
   "NOT_APPLICABLE",
   "MOCK",
+  "NONE",
 ]);
 
 const negative = new Set([
@@ -42,6 +43,26 @@ const negative = new Set([
   "EXCESS",
 ]);
 
+function markerClass(value: string): string {
+  if (positive.has(value)) {
+    return "bg-primary";
+  }
+  if (negative.has(value)) {
+    return "bg-destructive";
+  }
+  if (caution.has(value)) {
+    return "bg-muted-foreground/55";
+  }
+  return "bg-muted-foreground/40";
+}
+
+function textClass(value: string): string {
+  if (negative.has(value)) {
+    return "text-destructive";
+  }
+  return "text-foreground";
+}
+
 export function StatusBadge({
   value,
   className,
@@ -51,20 +72,20 @@ export function StatusBadge({
 }) {
   const t = useTranslations("status");
   const label = t(value as Parameters<typeof t>[0]);
-  const tone = positive.has(value)
-    ? "border-primary/20 bg-accent text-accent-foreground"
-    : negative.has(value)
-      ? "border-destructive/20 bg-destructive/10 text-destructive"
-      : caution.has(value)
-        ? "border-border bg-secondary text-secondary-foreground"
-        : "border-border bg-muted text-muted-foreground";
 
   return (
-    <Badge
-      variant="outline"
-      className={cn("rounded-sm font-medium tracking-wide", tone, className)}
+    <span
+      className={cn(
+        "inline-flex max-w-full items-center gap-1.5 text-xs font-medium tracking-wide",
+        textClass(value),
+        className,
+      )}
     >
-      {label}
-    </Badge>
+      <span
+        aria-hidden
+        className={cn("size-1.5 shrink-0 rounded-full", markerClass(value))}
+      />
+      <span className="truncate">{label}</span>
+    </span>
   );
 }

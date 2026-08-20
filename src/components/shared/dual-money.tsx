@@ -19,7 +19,7 @@ export function DualMoney({
 
   return (
     <span className={cn("inline-flex flex-col items-start gap-0.5", className)}>
-      <span>{formatMoney(primary, locale, { compact })}</span>
+      <span className="font-tabular">{formatMoney(primary, locale, { compact })}</span>
       <span
         className="text-xs font-normal text-muted-foreground"
         title={t("demoFxNote")}

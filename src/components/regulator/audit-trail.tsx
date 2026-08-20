@@ -1,8 +1,17 @@
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Card, CardContent } from "@/components/ui/card";
+import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { AppLocale } from "@/i18n/config";
-import { formatTimestamp } from "@/lib/format";
+import { formatLedgerTimestamp } from "@/lib/format";
+import { entityHref } from "@/lib/entity";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AuditEvent } from "@/domain";
 
@@ -10,41 +19,72 @@ export function AuditTrail({ events }: { events: AuditEvent[] }) {
   const t = useTranslations("audit");
   const locale = useLocale() as AppLocale;
 
+  if (events.length === 0) {
+    return (
+      <p className="border border-dashed border-border bg-card px-4 py-6 text-sm text-muted-foreground">
+        {t("empty")}
+      </p>
+    );
+  }
+
   return (
-    <ol className="space-y-3">
-      {events.map((event, index) => (
-        <li key={event.id}>
-          <Card className="shadow-none">
-            <CardContent className="flex gap-4">
-              <div className="flex w-8 flex-col items-center">
-                <span className="mt-1 size-2.5 rounded-full bg-primary" />
-                {index < events.length - 1 ? (
-                  <span className="mt-2 w-px flex-1 bg-border" />
-                ) : null}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-mono text-[11px] text-muted-foreground">
-                  {formatTimestamp(event.timestamp, locale)} UTC
-                </p>
-                <p className="mt-1 font-medium">
-                  {lookupMessage(t, `${event.eventKey}.title`)}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {lookupMessage(t, `${event.eventKey}.detail`)}
-                </p>
-                {event.relatedEntityId && event.relatedEntityType === "contract" ? (
-                  <Link
-                    href={`/contracts/${event.relatedEntityId}`}
-                    className="mt-2 inline-block text-xs text-primary hover:underline"
-                  >
-                    {event.relatedEntityId}
-                  </Link>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-        </li>
-      ))}
-    </ol>
+    <Table className="min-w-[48rem]">
+      <TableHeader>
+        <TableRow>
+          <StickyHead>{t("columns.timestamp")}</StickyHead>
+          <TableHead>{t("columns.event")}</TableHead>
+          <TableHead>{t("columns.entity")}</TableHead>
+          <TableHead>{t("columns.actor")}</TableHead>
+          <TableHead>{t("columns.status")}</TableHead>
+          <TableHead>{t("columns.reference")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {events.map((event) => {
+          const href = entityHref(event.relatedEntityType, event.relatedEntityId);
+          return (
+            <TableRow key={event.id}>
+              <StickyCell className="font-tabular text-xs text-muted-foreground">
+                {formatLedgerTimestamp(event.timestamp, locale)} UTC
+              </StickyCell>
+              <TableCell className="font-medium">
+                {lookupMessage(t, `${event.eventKey}.title`)}
+              </TableCell>
+              <TableCell>
+                {event.relatedEntityId ? (
+                  href ? (
+                    <Link
+                      href={href}
+                      className="font-tabular text-xs text-primary hover:underline"
+                    >
+                      {event.relatedEntityId}
+                    </Link>
+                  ) : (
+                    <span className="font-tabular text-xs">
+                      {event.relatedEntityId}
+                    </span>
+                  )
+                ) : (
+                  t("notRecorded")
+                )}
+              </TableCell>
+              <TableCell>{t("actorApplication")}</TableCell>
+              <TableCell>
+                <span className="inline-flex items-center gap-1.5 text-xs">
+                  <span
+                    aria-hidden
+                    className="size-1.5 shrink-0 rounded-full bg-primary"
+                  />
+                  {t("statusCompleted")}
+                </span>
+              </TableCell>
+              <TableCell className="font-tabular text-xs uppercase">
+                {event.id}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }

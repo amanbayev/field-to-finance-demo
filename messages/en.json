@@ -12,7 +12,13 @@
     "compliance": "Compliance",
     "regulator": "Regulator View",
     "primary": "Primary",
-    "open": "Open navigation"
+    "open": "Open navigation",
+    "groups": {
+      "overview": "Overview",
+      "assets": "Assets",
+      "market": "Market",
+      "control": "Control"
+    }
   },
   "header": {
     "badge": "PROTOTYPE · SOLANA DEVNET",
@@ -123,7 +129,7 @@
   },
   "lifecycle": {
     "title": "Lifecycle",
-    "description": "Each stage opens the corresponding module. Blockchain settlement is not active in Phase 0.",
+    "description": "Operating sequence from field record to financing. On-chain settlement is not active in Phase 0.",
     "field": "Field",
     "contract": "Contract",
     "pool": "Pool",
@@ -133,7 +139,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "eyebrow": "Public product skeleton",
+    "eyebrow": "Overview",
     "intro": "This prototype shows how rights to future agricultural production can be digitally verified, pooled, risk-adjusted, tokenized and financed.",
     "digitalContracts": "Digital Contracts",
     "contractVolume": "Contract Volume",
@@ -148,15 +154,31 @@
     "description": "Mock digital agricultural contracts. Status, verification and production figures are demonstration data only.",
     "detailEyebrow": "Digital Agricultural Contract",
     "producerScore": "Producer score",
+    "businessRecord": "Contract and production data.",
+    "verificationEvidence": "Independent verification checks. Distinct from the business record above.",
+    "onChainEmpty": "No on-chain proof is recorded. Program ID, mint and transaction history will appear here after Solana deployment.",
+    "onChainReserved": "Reserved for a later phase. No blockchain identifiers are simulated.",
+    "columns": {
+      "contractId": "Contract ID",
+      "producer": "Producer",
+      "crop": "Crop",
+      "volume": "Volume",
+      "region": "Region",
+      "score": "Score",
+      "status": "Status"
+    },
     "sections": {
       "contract": "Contract",
       "producer": "Producer",
       "field": "Field",
       "production": "Production",
+      "asset": "Asset / Production",
       "verification": "Verification",
       "risk": "Risk",
       "monitoring": "Monitoring",
-      "insurance": "Insurance"
+      "insurance": "Insurance",
+      "audit": "Audit",
+      "onChainProof": "On-chain proof"
     },
     "fields": {
       "contractId": "Contract ID",
@@ -213,7 +235,10 @@
       "producerScore": "Producer score",
       "monitoring": "Monitoring",
       "insurance": "Insurance",
-      "eligibility": "Eligibility"
+      "eligibility": "Eligibility",
+      "pool": "Pool ID",
+      "name": "Pool",
+      "status": "Status"
     }
   },
   "risk": {
@@ -226,6 +251,14 @@
     "outstanding": "Outstanding tokens",
     "coverageRatio": "Coverage ratio",
     "status": "Status",
+    "flow": {
+      "gross": "Gross Contract Volume",
+      "adjustments": "Risk Adjustments",
+      "haircut": "Haircut",
+      "eligible": "Eligible Coverage",
+      "outstanding": "Outstanding Tokens",
+      "ratio": "Coverage Ratio"
+    },
     "adjustments": {
       "producer": "Producer Risk",
       "weather": "Weather / Satellite",
@@ -242,15 +275,24 @@
     "issue": "Issue on Solana",
     "issueTooltip": "Solana issuance will be activated in the next development phase.",
     "underlyingPool": "Underlying pool",
+    "issueNote": "Issuance on Solana is reserved for a later phase.",
+    "notDeployedNote": "Not deployed. These fields remain empty until Solana issuance is activated.",
+    "onChainReserved": "On-chain identifiers",
+    "notRecorded": "—",
     "fields": {
+      "instrument": "Instrument",
       "type": "Type",
       "issuer": "Issuer",
-      "tokenUnit": "Token unit",
-      "contractPool": "Contract pool",
+      "tokenUnit": "Unit",
+      "contractPool": "Underlying pool",
       "maximumIssuance": "Maximum issuance",
       "issued": "Issued",
+      "maturity": "Maturity",
       "network": "Network",
-      "blockchainStatus": "Blockchain status"
+      "blockchainStatus": "Status",
+      "programId": "Program ID",
+      "mint": "Mint",
+      "txHistory": "Transaction history"
     }
   },
   "finance": {
@@ -263,6 +305,10 @@
     "marketValue": "Market Value",
     "haircut": "Haircut",
     "financingAmount": "Financing",
+    "collateralMarketValue": "Collateral Market Value",
+    "eligibleFinancing": "Eligible Financing",
+    "secondaryModule": "Additional module",
+    "repoSecondary": "Repo is not part of the approved operating model in this prototype.",
     "modules": {
       "SECURED_LOAN": {
         "title": "Secured Loan",
@@ -294,6 +340,7 @@
     "provider": "Demo Compliance Provider",
     "sample": "Sample participants",
     "register": "Participant register",
+    "notRecorded": "—",
     "controls": {
       "kyc": "KYC",
       "kyb": "KYB",
@@ -313,12 +360,13 @@
       "sanctions": "Sanctions",
       "pep": "PEP",
       "eligibility": "Eligibility",
-      "directorKyc": "Director KYC"
+      "directorKyc": "Director KYC",
+      "lastReview": "Last Review"
     }
   },
   "regulator": {
     "title": "Regulator View",
-    "eyebrow": "Supervisory transparency",
+    "eyebrow": "Supervisory / Oversight Console",
     "description": "A dedicated read-only view of system provenance, coverage, token supply and compliance. Later records will cite Solana Devnet transactions.",
     "overview": "System overview",
     "contracts": "Contracts",
@@ -329,7 +377,15 @@
     "coverageAlerts": "Coverage alerts",
     "lenses": "Supervisory lenses",
     "auditTitle": "Audit trail",
-    "auditIntro": "Example control events for the 2027 wheat programme. Timestamps are mock records. Blockchain transaction references will be attached in a later phase.",
+    "auditIntro": "Control events for the 2027 wheat programme. Timestamps are mock records. Solana transaction signature, program ID and PDA can be added to this ledger later.",
+    "exceptions": "Exceptions / Alerts",
+    "noCoverageBreaches": "No active coverage breaches",
+    "blockedTitle": "Blocked participants",
+    "noBlocked": "No blocked participants",
+    "tokenSupply": "Token supply",
+    "complianceExceptions": "Compliance exceptions",
+    "riskEvents": "Risk events",
+    "noRiskEvents": "No active risk events",
     "topics": {
       "provenance": "Asset provenance",
       "verification": "Contract verification",
@@ -345,6 +401,18 @@
     }
   },
   "audit": {
+    "actorApplication": "Application",
+    "statusCompleted": "Completed",
+    "notRecorded": "—",
+    "empty": "No audit events for this record.",
+    "columns": {
+      "timestamp": "Timestamp",
+      "event": "Event",
+      "entity": "Entity",
+      "actor": "Actor / Source",
+      "status": "Status",
+      "reference": "Reference"
+    },
     "contractCreated": {
       "title": "Digital contract created",
       "detail": "DAC-2027-0001 recorded for Akmola Agro LLP, 2027 wheat season."

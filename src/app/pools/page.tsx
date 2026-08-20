@@ -3,7 +3,15 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
@@ -30,63 +38,58 @@ export default async function PoolsPage() {
         title={t("title")}
         description={t("description")}
       />
-      <div className="grid gap-4">
-        {pools.map(({ pool, producerCount }) => (
-          <Link key={pool.id} href={`/pools/${pool.id}`}>
-            <Card className="shadow-none transition-colors hover:border-primary/40">
-              <CardHeader className="border-b">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {pool.id}
-                    </p>
-                    <CardTitle className="mt-1 tracking-wide">
-                      {lookupMessage(tCatalog, `pools.${pool.id}`)}
-                    </CardTitle>
-                  </div>
-                  <StatusBadge value={pool.coverage.status} />
-                </div>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Stat
-                  label={t("contracts")}
-                  value={formatInteger(pool.contractIds.length, locale)}
-                />
-                <Stat
-                  label={t("producers")}
-                  value={formatInteger(producerCount, locale)}
-                />
-                <Stat
-                  label={t("grossVolume")}
-                  value={tUnits("tonnes", {
-                    value: formatInteger(pool.coverage.grossVolumeTonnes, locale),
-                  })}
-                />
-                <Stat
-                  label={t("eligibleCoverage")}
-                  value={tUnits("tonnes", {
-                    value: formatInteger(
-                      pool.coverage.eligibleCoverageTonnes,
-                      locale,
-                    ),
-                  })}
-                />
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-        {label}
-      </p>
-      <p className="mt-1 font-heading text-xl">{value}</p>
+      <Table className="min-w-[44rem]">
+        <TableHeader>
+          <TableRow>
+            <StickyHead>{t("columns.pool")}</StickyHead>
+            <TableHead>{t("columns.name")}</TableHead>
+            <TableHead className="text-right">{t("contracts")}</TableHead>
+            <TableHead className="text-right">{t("producers")}</TableHead>
+            <TableHead className="text-right">{t("grossVolume")}</TableHead>
+            <TableHead className="text-right">{t("eligibleCoverage")}</TableHead>
+            <TableHead>{t("columns.status")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pools.map(({ pool, producerCount }) => (
+            <TableRow key={pool.id}>
+              <StickyCell>
+                <Link
+                  href={`/pools/${pool.id}`}
+                  className="font-tabular text-xs text-primary hover:underline"
+                >
+                  {pool.id}
+                </Link>
+              </StickyCell>
+              <TableCell className="font-medium">
+                {lookupMessage(tCatalog, `pools.${pool.id}`)}
+              </TableCell>
+              <TableCell className="text-right font-tabular">
+                {formatInteger(pool.contractIds.length, locale)}
+              </TableCell>
+              <TableCell className="text-right font-tabular">
+                {formatInteger(producerCount, locale)}
+              </TableCell>
+              <TableCell className="text-right font-tabular">
+                {tUnits("tonnes", {
+                  value: formatInteger(pool.coverage.grossVolumeTonnes, locale),
+                })}
+              </TableCell>
+              <TableCell className="text-right font-tabular">
+                {tUnits("tonnes", {
+                  value: formatInteger(
+                    pool.coverage.eligibleCoverageTonnes,
+                    locale,
+                  ),
+                })}
+              </TableCell>
+              <TableCell>
+                <StatusBadge value={pool.coverage.status} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

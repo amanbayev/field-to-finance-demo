@@ -1,18 +1,17 @@
 export function DataList({
   items,
 }: {
-  items: { label: string; value: string }[];
+  items: { label: string; value: React.ReactNode }[];
 }) {
   return (
-    <dl className="grid gap-3 sm:grid-cols-2">
+    <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
       {items.map((item) => (
-        <div key={item.label} className="border-b border-border/80 pb-3">
-          <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-            {item.label}
-          </dt>
-          <dd className="mt-1 text-sm font-medium text-foreground">
-            {item.value}
-          </dd>
+        <div
+          key={item.label}
+          className="flex items-baseline justify-between gap-4 border-b border-border/70 py-2"
+        >
+          <dt className="label-caps shrink-0">{item.label}</dt>
+          <dd className="text-right text-sm font-medium text-foreground">{item.value}</dd>
         </div>
       ))}
     </dl>

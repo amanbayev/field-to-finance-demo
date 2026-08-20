@@ -20,7 +20,7 @@ export function FieldMapPlaceholder({
   const locale = useLocale() as AppLocale;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
+    <div className="overflow-hidden border border-border bg-muted/40">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
           {t("map.title")}
@@ -32,7 +32,7 @@ export function FieldMapPlaceholder({
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_14rem]">
         <div
           aria-hidden="true"
-          className="relative min-h-56 rounded-md border border-primary/20 bg-[linear-gradient(#dfe6d4_1px,transparent_1px),linear-gradient(90deg,#dfe6d4_1px,transparent_1px)] bg-size-[28px_28px] bg-card"
+          className="relative min-h-56 border border-primary/20 bg-[linear-gradient(#dfe6d4_1px,transparent_1px),linear-gradient(90deg,#dfe6d4_1px,transparent_1px)] bg-size-[28px_28px] bg-card"
         >
           <div className="absolute inset-[18%] border-2 border-primary/70 bg-primary/10" />
           <div className="absolute top-[22%] left-[22%] h-[36%] w-[28%] border border-primary/40 bg-primary/5" />

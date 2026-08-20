@@ -6,11 +6,11 @@ export async function SiteFooter() {
 
   return (
     <footer className="mt-auto border-t border-border bg-card">
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <p className="text-xs font-medium tracking-wide text-foreground">
           {productName}
         </p>
-        <div className="max-w-3xl space-y-1.5">
+        <div className="max-w-3xl space-y-1">
           <p className="text-xs leading-relaxed text-muted-foreground">
             {t("disclaimer")}
           </p>

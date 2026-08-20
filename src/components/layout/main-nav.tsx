@@ -14,56 +14,56 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
-import { mainNav, productName } from "@/lib/navigation";
+import { lookupMessage } from "@/i18n/t-dynamic";
+import { navGroups, productName } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
-export function MainNav({
-  orientation = "horizontal",
-  onNavigate,
-}: {
-  orientation?: "horizontal" | "vertical";
-  onNavigate?: () => void;
-}) {
+function isActive(pathname: string, href: string): boolean {
+  return href === "/"
+    ? pathname === "/"
+    : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function MainNav() {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
   return (
-    <nav
-      aria-label={t("primary")}
-      className={cn(
-        orientation === "horizontal"
-          ? "hidden items-center gap-1 lg:flex"
-          : "flex flex-col gap-1",
-      )}
-    >
-      {mainNav.map((item) => {
-        const active =
-          item.href === "/"
-            ? pathname === "/"
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={cn(
-              "rounded-md px-2.5 py-1.5 text-sm tracking-wide transition-colors",
-              active
-                ? "bg-accent font-medium text-accent-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            {t(item.key)}
-          </Link>
-        );
-      })}
+    <nav aria-label={t("primary")} className="hidden min-w-0 flex-1 items-end gap-4 overflow-x-auto lg:flex">
+      {navGroups.map((group, index) => (
+        <div
+          key={group.key}
+          className={cn(
+            "flex flex-col gap-1",
+            index > 0 && "border-l border-border pl-4",
+          )}
+        >
+          <p className="label-caps">{lookupMessage(t, `groups.${group.key}`)}</p>
+          <div className="flex items-center gap-0.5">
+            {group.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "px-2 py-1 text-sm tracking-wide",
+                  isActive(pathname, item.href)
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {lookupMessage(t, item.key)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 }
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
   const t = useTranslations("nav");
 
   return (
@@ -80,16 +80,39 @@ export function MobileNav() {
       >
         <Menu />
       </SheetTrigger>
-      <SheetContent side="left" className="w-72">
+      <SheetContent side="left" className="w-72 rounded-none">
         <SheetHeader>
-          <SheetTitle className="font-heading text-left text-lg">
+          <SheetTitle className="text-left text-base font-medium">
             {productName}
           </SheetTitle>
         </SheetHeader>
-        <div className="flex flex-col gap-6 px-2 pb-6">
-          <MainNav orientation="vertical" onNavigate={() => setOpen(false)} />
+        <nav aria-label={t("primary")} className="flex flex-col gap-5 px-2 pb-6">
+          {navGroups.map((group) => (
+            <div key={group.key}>
+              <p className="label-caps mb-1.5 px-2">
+                {lookupMessage(t, `groups.${group.key}`)}
+              </p>
+              <div className="flex flex-col">
+                {group.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      "px-2 py-1.5 text-sm",
+                      isActive(pathname, item.href)
+                        ? "font-medium text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {lookupMessage(t, item.key)}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
           <LanguageSwitcher />
-        </div>
+        </nav>
       </SheetContent>
     </Sheet>
   );

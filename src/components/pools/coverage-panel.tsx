@@ -1,5 +1,4 @@
 import { useLocale, useTranslations } from "next-intl";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { AppLocale } from "@/i18n/config";
 import {
@@ -9,115 +8,141 @@ import {
 } from "@/lib/format";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { ContractCoverage } from "@/domain";
+import { cn } from "@/lib/utils";
+
+const flowSteps = [
+  "gross",
+  "adjustments",
+  "haircut",
+  "eligible",
+  "outstanding",
+  "ratio",
+] as const;
 
 export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
   const t = useTranslations("risk");
   const tUnits = useTranslations("units");
   const locale = useLocale() as AppLocale;
-  const utilization =
-    coverage.eligibleCoverageTonnes === 0
-      ? 0
-      : (coverage.outstandingTokens / coverage.eligibleCoverageTonnes) * 100;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-      <Card className="shadow-none">
-        <CardHeader className="border-b">
-          <CardTitle>{t("adjustmentsTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
-              {t("grossVolume")}
-            </p>
-            <p className="mt-1 font-heading text-3xl">
-              {tUnits("tonnes", {
-                value: formatInteger(coverage.grossVolumeTonnes, locale),
-              })}
-            </p>
-          </div>
-          <ul className="divide-y divide-border">
-            {coverage.adjustments.map((adjustment) => (
-              <li
-                key={adjustment.key}
-                className="flex items-center justify-between py-2 text-sm"
-              >
-                <span>{lookupMessage(t, `adjustments.${adjustment.key}`)}</span>
-                <span className="font-mono">
-                  {formatSignedPercent(adjustment.percentagePoints, locale)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex items-center justify-between border-t border-border pt-3">
-            <span className="text-sm font-medium tracking-wide uppercase">
-              {t("totalHaircut")}
-            </span>
-            <span className="font-mono text-lg">
-              {formatPercent(coverage.totalHaircutPercent, locale)}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-none">
-        <CardHeader className="border-b">
-          <div className="flex items-start justify-between gap-3">
-            <CardTitle>{t("eligibleTitle")}</CardTitle>
-            <StatusBadge value={coverage.status} />
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div>
-            <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
-              {t("eligibleCoverage")}
-            </p>
-            <p className="mt-1 font-heading text-3xl">
-              {tUnits("tonnes", {
-                value: formatInteger(coverage.eligibleCoverageTonnes, locale),
-              })}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t("maxIssuance", {
-                value: formatInteger(coverage.maximumTokenIssuance, locale),
-              })}
-            </p>
-          </div>
-          <div>
-            <div className="mb-2 flex items-center justify-between text-xs">
-              <span>{t("outstanding")}</span>
-              <span className="font-mono">
-                {formatInteger(coverage.outstandingTokens, locale)} /{" "}
-                {formatInteger(coverage.eligibleCoverageTonnes, locale)}
+    <div className="grid gap-6 lg:grid-cols-[12.5rem_minmax(0,1fr)]">
+      <ol className="hidden text-sm lg:block">
+        {flowSteps.map((step, index) => (
+          <li key={step} className="flex flex-col">
+            {index > 0 ? (
+              <span className="py-1 pl-6 text-muted-foreground" aria-hidden>
+                ↓
+              </span>
+            ) : null}
+            <div className="flex items-baseline gap-2">
+              <span className="font-tabular text-[10px] text-muted-foreground">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span className="text-muted-foreground">
+                {lookupMessage(t, `flow.${step}`)}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-primary"
-                style={{ width: `${Math.min(utilization, 100)}%` }}
+          </li>
+        ))}
+      </ol>
+
+      <div className="overflow-x-auto border border-border bg-card">
+        <table className="w-full min-w-[28rem] text-sm">
+          <tbody>
+            <ScheduleRow
+              label={t("grossVolume")}
+              value={tUnits("tonnes", {
+                value: formatInteger(coverage.grossVolumeTonnes, locale),
+              })}
+              strong
+            />
+            {coverage.adjustments.map((adjustment) => (
+              <ScheduleRow
+                key={adjustment.key}
+                label={lookupMessage(t, `adjustments.${adjustment.key}`)}
+                value={formatSignedPercent(adjustment.percentagePoints, locale)}
+                inset
+                muted
               />
-            </div>
-          </div>
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                {t("coverageRatio")}
-              </dt>
-              <dd className="mt-1 font-heading text-2xl">
-                {formatPercent(coverage.coverageRatioPercent, locale, 2)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
+            ))}
+            <ScheduleRow
+              label={t("totalHaircut")}
+              value={formatPercent(coverage.totalHaircutPercent, locale)}
+              rule
+              strong
+            />
+            <ScheduleRow
+              label={t("eligibleCoverage")}
+              value={tUnits("tonnes", {
+                value: formatInteger(coverage.eligibleCoverageTonnes, locale),
+              })}
+              strong
+            />
+            <ScheduleRow
+              label={t("outstanding")}
+              value={formatInteger(coverage.outstandingTokens, locale)}
+            />
+            <ScheduleRow
+              label={t("coverageRatio")}
+              value={formatPercent(coverage.coverageRatioPercent, locale, 2)}
+              strong
+            />
+            <tr className="border-t border-border">
+              <th className="px-4 py-3 text-left text-sm font-medium">
                 {t("status")}
-              </dt>
-              <dd className="mt-2">
+              </th>
+              <td className="px-4 py-3 text-right">
                 <StatusBadge value={coverage.status} />
-              </dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+          {t("maxIssuance", {
+            value: formatInteger(coverage.maximumTokenIssuance, locale),
+          })}
+        </p>
+      </div>
     </div>
+  );
+}
+
+function ScheduleRow({
+  label,
+  value,
+  inset,
+  muted,
+  strong,
+  rule,
+}: {
+  label: string;
+  value: string;
+  inset?: boolean;
+  muted?: boolean;
+  strong?: boolean;
+  rule?: boolean;
+}) {
+  return (
+    <tr className={cn(rule && "border-t border-border")}>
+      <th
+        className={cn(
+          "px-4 py-2 text-left font-normal",
+          inset && "pl-8",
+          muted ? "text-muted-foreground" : "text-foreground",
+          strong && "font-medium",
+        )}
+      >
+        {label}
+      </th>
+      <td
+        className={cn(
+          "px-4 py-2 text-right font-tabular whitespace-nowrap",
+          strong ? "font-medium text-foreground" : "text-foreground",
+          muted && "text-muted-foreground",
+        )}
+      >
+        {value}
+      </td>
+    </tr>
   );
 }

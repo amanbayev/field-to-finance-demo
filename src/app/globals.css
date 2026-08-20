@@ -76,7 +76,7 @@
   --chart-3: oklch(0.45 0.03 80);
   --chart-4: oklch(0.7 0.03 95);
   --chart-5: oklch(0.28 0.03 142);
-  --radius: 0.4rem;
+  --radius: 0.2rem;
   --sidebar: oklch(0.98 0.006 95);
   --sidebar-foreground: oklch(0.24 0.02 95);
   --sidebar-primary: oklch(0.36 0.055 142);
@@ -101,5 +101,24 @@
   h2,
   .font-heading {
     font-family: var(--font-source-serif), ui-serif, Georgia, serif;
+  }
+}
+
+@layer utilities {
+  .font-tabular {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-ibm-plex-mono), ui-monospace, monospace;
+  }
+
+  .label-caps {
+    @apply text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase;
+  }
+
+  .panel {
+    @apply border border-border bg-card;
+  }
+
+  .table-sticky {
+    @apply sticky left-0 z-10 bg-card;
   }
 }
