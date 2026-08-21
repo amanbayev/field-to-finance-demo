@@ -383,7 +383,7 @@
       "tokenUnit": "Unit",
       "contractPool": "Underlying pool",
       "maximumIssuance": "Maximum issuance",
-      "issued": "Issued",
+      "issued": "Issuance status",
       "maturity": "Maturity",
       "network": "Network",
       "blockchainStatus": "Status",

@@ -383,7 +383,7 @@
       "tokenUnit": "Единица",
       "contractPool": "Базовый пул",
       "maximumIssuance": "Максимальный выпуск",
-      "issued": "Выпущено",
+      "issued": "Статус выпуска",
       "maturity": "Погашение",
       "network": "Сеть",
       "blockchainStatus": "Статус",
