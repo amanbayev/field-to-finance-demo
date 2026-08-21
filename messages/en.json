@@ -22,7 +22,7 @@
   },
   "header": {
     "badge": "PROTOTYPE · SOLANA DEVNET",
-    "phase": "Live public demo · Phase 1",
+    "phase": "Live public demo · Phase 2",
     "network": "Network",
     "system": "System",
     "connected": "Connected",
@@ -82,7 +82,11 @@
     "ON_CHAIN": "On-chain",
     "OFF_CHAIN": "Demo / Off-chain",
     "VERIFIED_ON_CHAIN": "Verified On-Chain",
-    "PROOF_UNAVAILABLE": "Temporarily unavailable"
+    "PROOF_UNAVAILABLE": "Temporarily unavailable",
+    "CLOSED": "Closed",
+    "PROTECTED_ON_CHAIN": "Protected On-Chain",
+    "NOT_STARTED": "Not Started",
+    "DEMO_SIMULATED": "DEMO / SIMULATED"
   },
   "units": {
     "tonnes": "{value} t",
@@ -133,7 +137,7 @@
   },
   "lifecycle": {
     "title": "Lifecycle",
-    "description": "Operating sequence from field record to financing. On-chain contract proof is live on Solana Devnet; token issuance is not active in Phase 1.",
+    "description": "Operating sequence from field record to financing. Four wheat contracts and the 2027 pool are proven on Solana Devnet. Token issuance is not started.",
     "field": "Field",
     "contract": "Contract",
     "pool": "Pool",
@@ -148,18 +152,23 @@
     "digitalContracts": "Digital Contracts",
     "contractVolume": "Contract Volume",
     "eligibleCoverage": "Eligible Coverage",
+    "tokenIssuance": "Token issuance",
+    "tokenIssuanceNotStarted": "Not Started",
     "tokenizedVolume": "Tokenized Volume",
     "activeFinancing": "Active Financing",
     "averageCoverageRatio": "Average Coverage Ratio",
     "infrastructure": "Infrastructure",
     "infrastructureNote": "Read-only Solana Devnet status. The business record above remains the operating view.",
     "registryProgram": "Registry Program",
-    "onChainDemoContracts": "On-chain Demo Contracts"
+    "onChainDemoContracts": "On-chain Demo Contracts",
+    "verifiedOnChain": "Verified On-Chain Contracts",
+    "contractPool": "Contract Pool",
+    "grossPoolVolume": "Gross Pool Volume"
   },
   "contracts": {
     "title": "Contracts",
     "eyebrow": "Digital Agricultural Contract Registry",
-    "description": "Digital agricultural contracts. One demonstration contract is proven on Solana Devnet; the others remain off-chain demo records.",
+    "description": "Digital agricultural contracts. Four wheat contracts are proven on Solana Devnet; additional rows remain off-chain demo records.",
     "businessRecord": "Business record · off-chain. Legal name and operational fields are not stored on-chain.",
     "onChainEmpty": "No on-chain proof is recorded for this contract.",
     "onChainReserved": "On-chain proof is a technical evidence layer, not the full business record.",
@@ -192,7 +201,8 @@
       "insurance": "Insurance",
       "audit": "Audit",
       "businessRecord": "Business record",
-      "onChainProof": "On-chain proof"
+      "onChainProof": "On-chain proof",
+      "poolAllocation": "Pool allocation"
     },
     "fields": {
       "contractId": "Contract ID",
@@ -241,6 +251,15 @@
       "viewCreateTx": "View Creation Transaction",
       "viewVerifyTx": "View Verification Transaction"
     },
+    "allocation": {
+      "intro": "Active volume allocated to the contract pool, read from the registry program where available.",
+      "pool": "Pool",
+      "allocated": "Allocated",
+      "remaining": "Remaining",
+      "proof": "Allocation proof",
+      "pda": "Allocation PDA",
+      "tx": "Allocation transaction"
+    },
     "map": {
       "title": "Field schematic",
       "placeholder": "Placeholder · no live map",
@@ -259,7 +278,45 @@
     "producers": "Producers",
     "grossVolume": "Gross contract volume",
     "eligibleCoverage": "Eligible contract coverage",
+    "cropSeason": "Crop / season",
+    "verifiedContracts": "Verified contracts",
     "composition": "Pool composition",
+    "layers": {
+      "pool": "Contract pool",
+      "poolNote": "Book of record for verified contracts in this pool.",
+      "coverage": "Coverage / underwriting",
+      "coverageNote": "Off-chain risk model. Sources are DEMO / SIMULATED. The snapshot hash is anchored on Solana."
+    },
+    "doubleUse": {
+      "title": "Double-use control",
+      "body": "Active contract allocations are checked by the registry program before pool inclusion. The same volume cannot be allocated twice while those allocations remain active."
+    },
+    "proof": {
+      "title": "On-chain pool proof",
+      "intro": "Solana Devnet control layer for this pool. Coverage math stays off-chain.",
+      "unavailable": "Blockchain proof is temporarily unavailable. The pool book of record above remains visible.",
+      "missing": "This pool has not been registered on Solana Devnet.",
+      "hybridNote": "Coverage model: off-chain calculation. Coverage snapshot: anchored on-chain.",
+      "network": "Network",
+      "program": "Program",
+      "programId": "Program ID",
+      "pda": "Pool PDA",
+      "status": "Pool status",
+      "contractCount": "Contract count",
+      "gross": "Gross volume",
+      "eligible": "Eligible volume",
+      "haircut": "Haircut",
+      "snapshotHash": "Coverage snapshot hash",
+      "coverageModel": "Coverage model",
+      "coverageModelValue": "Off-chain calculation",
+      "coverageSnapshot": "Coverage snapshot",
+      "coverageSnapshotValue": "Anchored on-chain",
+      "updated": "Last updated",
+      "createTx": "Pool creation transaction",
+      "coverageTx": "Coverage update transaction",
+      "notRecorded": "—",
+      "viewPool": "View Pool on Solana Explorer"
+    },
     "columns": {
       "producer": "Producer",
       "contract": "Contract",
@@ -270,7 +327,10 @@
       "eligibility": "Eligibility",
       "pool": "Pool ID",
       "name": "Pool",
-      "status": "Status"
+      "status": "Status",
+      "expected": "Expected volume",
+      "allocated": "Allocated volume",
+      "proof": "Blockchain proof"
     }
   },
   "risk": {
@@ -279,7 +339,10 @@
     "totalHaircut": "Total haircut",
     "eligibleTitle": "Eligible contract coverage",
     "eligibleCoverage": "Eligible coverage",
-    "maxIssuance": "Maximum token issuance {value} tokens",
+    "tokenIssuance": "Current token issuance",
+    "tokenIssuanceNotStarted": "Not Started",
+    "illustrativeCapacity": "Illustrative future issuance capacity",
+    "simulatedNote": "Risk adjustments are DEMO / SIMULATED. They are not live satellite or insurer feeds. Token issuance has not started.",
     "outstanding": "Outstanding tokens",
     "coverageRatio": "Coverage ratio",
     "status": "Status",
@@ -288,6 +351,7 @@
       "adjustments": "Risk Adjustments",
       "haircut": "Haircut",
       "eligible": "Eligible Coverage",
+      "issuance": "Token Issuance",
       "outstanding": "Outstanding Tokens",
       "ratio": "Coverage Ratio"
     },
@@ -311,6 +375,7 @@
     "notDeployedNote": "Not deployed. These fields remain empty until Solana issuance is activated.",
     "onChainReserved": "On-chain identifiers",
     "notRecorded": "—",
+    "issuanceNotStarted": "Not Started",
     "fields": {
       "instrument": "Instrument",
       "type": "Type",
@@ -399,7 +464,7 @@
   "regulator": {
     "title": "Regulator View",
     "eyebrow": "Supervisory / Oversight Console",
-    "description": "A dedicated read-only view of system provenance, coverage, token supply and compliance, with Solana Devnet proof for the demonstration contract.",
+    "description": "A dedicated read-only view of system provenance, coverage, pool controls and compliance, with Solana Devnet proof for the wheat programme.",
     "auditIntro": "Application events and Solana Devnet blockchain events. Application timestamps for the 2027 wheat programme are demonstration records.",
     "chainProofTitle": "On-chain proof",
     "chainProofIntro": "Business record plus immutable technical evidence for DAC-2027-0001.",
@@ -419,6 +484,26 @@
       "viewAccount": "View contract account"
     },
     "overview": "System overview",
+    "verifiedContracts": "Verified contracts",
+    "activePools": "Active pools",
+    "grossVolume": "Gross contract volume",
+    "eligibleCoverage": "Eligible coverage",
+    "coverageHaircut": "Coverage haircut",
+    "doubleUseExceptions": "Double-use exceptions",
+    "coverageBreaches": "Coverage breaches",
+    "catalogContracts": "Catalogue contracts",
+    "doubleUseTitle": "Double-use control",
+    "tokenIssuanceNotStarted": "Not Started",
+    "poolProofTitle": "Pool evidence",
+    "poolProofIntro": "On-chain identity, allocation control and the anchored coverage snapshot for POOL-WHEAT-2027-01.",
+    "poolProofMissing": "No on-chain pool proof is recorded yet.",
+    "poolProof": {
+      "pool": "Pool",
+      "pda": "Pool PDA",
+      "snapshotHash": "Coverage snapshot hash",
+      "updated": "Last coverage update",
+      "explorer": "Explorer"
+    },
     "contracts": "Contracts",
     "pools": "Pools",
     "tokenSeries": "Token series",
@@ -494,12 +579,24 @@
       "detail": "WHEAT-2027 series prepared. On-chain issuance is not yet deployed."
     },
     "contractRegisteredOnChain": {
-      "title": "Contract Registered On-Chain",
-      "detail": "DAC-2027-0001 created on Solana Devnet."
+      "title": "Contract Registered",
+      "detail": "Digital agricultural contract created on Solana Devnet."
     },
     "contractVerifiedOnChain": {
       "title": "Contract Verified On-Chain",
-      "detail": "DAC-2027-0001 verified on Solana Devnet."
+      "detail": "Contract verified on Solana Devnet."
+    },
+    "poolCreatedOnChain": {
+      "title": "Pool Created",
+      "detail": "Contract pool created on Solana Devnet."
+    },
+    "contractAllocatedOnChain": {
+      "title": "Contract Allocated to Pool",
+      "detail": "Contract volume allocated on Solana Devnet."
+    },
+    "coverageSnapshotAnchored": {
+      "title": "Coverage Snapshot Anchored",
+      "detail": "Off-chain coverage snapshot hash stored on the pool account."
     }
   },
   "errors": {

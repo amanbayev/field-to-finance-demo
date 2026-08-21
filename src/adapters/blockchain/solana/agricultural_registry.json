@@ -8,6 +8,206 @@
   },
   "instructions": [
     {
+      "name": "add_contract_to_pool",
+      "discriminator": [
+        14,
+        121,
+        131,
+        214,
+        74,
+        144,
+        129,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "ContractPoolAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "contract",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  105,
+                  103,
+                  105,
+                  116,
+                  97,
+                  108,
+                  95,
+                  97,
+                  103,
+                  95,
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "contract.contract_id",
+                "account": "DigitalAgriculturalContractAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "allocation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116,
+                  95,
+                  97,
+                  108,
+                  108,
+                  111,
+                  99,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "contract.contract_id",
+                "account": "DigitalAgriculturalContractAccount"
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "ContractPoolAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "allocation_index",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  108,
+                  111,
+                  99,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  105,
+                  110,
+                  100,
+                  101,
+                  120
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "contract.contract_id",
+                "account": "DigitalAgriculturalContractAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "allocated_volume_tonnes",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "create_contract",
       "discriminator": [
         244,
@@ -129,6 +329,101 @@
       ]
     },
     {
+      "name": "create_pool",
+      "discriminator": [
+        233,
+        146,
+        209,
+        142,
+        207,
+        104,
+        64,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "pool_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "pool_id",
+          "type": "string"
+        },
+        {
+          "name": "crop",
+          "type": "string"
+        },
+        {
+          "name": "season",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "initialize",
       "discriminator": [
         175,
@@ -183,6 +478,93 @@
         {
           "name": "verification_authority",
           "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_pool_status",
+      "discriminator": [
+        112,
+        87,
+        135,
+        223,
+        83,
+        204,
+        132,
+        53
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "ContractPoolAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "status",
+          "type": {
+            "defined": {
+              "name": "PoolStatus"
+            }
+          }
         }
       ]
     },
@@ -271,6 +653,102 @@
       "args": []
     },
     {
+      "name": "update_pool_coverage",
+      "discriminator": [
+        238,
+        16,
+        33,
+        131,
+        164,
+        180,
+        85,
+        98
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116,
+                  95,
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "ContractPoolAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "eligible_volume_tonnes",
+          "type": "u64"
+        },
+        {
+          "name": "coverage_haircut_bps",
+          "type": "u16"
+        },
+        {
+          "name": "coverage_snapshot_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "verify_contract",
       "discriminator": [
         160,
@@ -356,6 +834,45 @@
     }
   ],
   "accounts": [
+    {
+      "name": "ContractAllocationAccount",
+      "discriminator": [
+        3,
+        194,
+        140,
+        247,
+        197,
+        68,
+        126,
+        28
+      ]
+    },
+    {
+      "name": "ContractAllocationIndexAccount",
+      "discriminator": [
+        226,
+        0,
+        209,
+        38,
+        230,
+        19,
+        159,
+        180
+      ]
+    },
+    {
+      "name": "ContractPoolAccount",
+      "discriminator": [
+        9,
+        37,
+        87,
+        12,
+        29,
+        82,
+        167,
+        186
+      ]
+    },
     {
       "name": "DigitalAgriculturalContractAccount",
       "discriminator": [
@@ -468,9 +985,231 @@
       "code": 6016,
       "name": "InvalidSuspendTransition",
       "msg": "contract cannot be suspended from its current status"
+    },
+    {
+      "code": 6017,
+      "name": "PoolIdEmpty",
+      "msg": "pool_id must be non-empty"
+    },
+    {
+      "code": 6018,
+      "name": "PoolIdTooLong",
+      "msg": "pool_id exceeds the 32-byte PDA seed limit"
+    },
+    {
+      "code": 6019,
+      "name": "UnauthorizedPoolAuthority",
+      "msg": "only the configured pool authority may perform this action"
+    },
+    {
+      "code": 6020,
+      "name": "ContractNotVerified",
+      "msg": "contract must be verified before pool allocation"
+    },
+    {
+      "code": 6021,
+      "name": "CropMismatch",
+      "msg": "contract crop does not match the pool"
+    },
+    {
+      "code": 6022,
+      "name": "SeasonMismatch",
+      "msg": "contract season does not match the pool"
+    },
+    {
+      "code": 6023,
+      "name": "AllocationZero",
+      "msg": "allocated volume must be greater than zero"
+    },
+    {
+      "code": 6024,
+      "name": "AllocationExceedsRemaining",
+      "msg": "allocation exceeds remaining unallocated contract volume"
+    },
+    {
+      "code": 6025,
+      "name": "AlreadyAllocatedToPool",
+      "msg": "this contract is already allocated to this pool"
+    },
+    {
+      "code": 6026,
+      "name": "PoolNotAcceptingAllocations",
+      "msg": "pool cannot accept allocations in its current status"
+    },
+    {
+      "code": 6027,
+      "name": "EligibleExceedsGross",
+      "msg": "eligible coverage cannot exceed gross pool volume"
+    },
+    {
+      "code": 6028,
+      "name": "HaircutExceedsMaximum",
+      "msg": "coverage haircut cannot exceed 100%"
+    },
+    {
+      "code": 6029,
+      "name": "InvalidPoolStatusTransition",
+      "msg": "pool status transition is not allowed"
+    },
+    {
+      "code": 6030,
+      "name": "ArithmeticOverflow",
+      "msg": "arithmetic overflow"
     }
   ],
   "types": [
+    {
+      "name": "AllocationStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Released"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ContractAllocationAccount",
+      "docs": [
+        "One allocation of a contract into a specific pool.",
+        "PDA: `[\"contract_allocation\", contract_id, pool_id]`"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "contract_id",
+            "type": "string"
+          },
+          {
+            "name": "pool_id",
+            "type": "string"
+          },
+          {
+            "name": "allocated_volume_tonnes",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "AllocationStatus"
+              }
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ContractAllocationIndexAccount",
+      "docs": [
+        "Running total of active allocations for one contract.",
+        "PDA: `[\"allocation_index\", contract_id]`",
+        "Kept off the Phase 1 contract account so DAC-2027-0001 layout stays readable."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "contract_id",
+            "type": "string"
+          },
+          {
+            "name": "allocated_volume_tonnes",
+            "type": "u64"
+          },
+          {
+            "name": "allocation_count",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ContractPoolAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_id",
+            "type": "string"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "crop",
+            "type": "string"
+          },
+          {
+            "name": "season",
+            "type": "u16"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "PoolStatus"
+              }
+            }
+          },
+          {
+            "name": "gross_volume_tonnes",
+            "type": "u64"
+          },
+          {
+            "name": "eligible_volume_tonnes",
+            "type": "u64"
+          },
+          {
+            "name": "coverage_haircut_bps",
+            "type": "u16"
+          },
+          {
+            "name": "coverage_snapshot_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "contract_count",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
     {
       "name": "ContractStatus",
       "type": {
@@ -552,6 +1291,26 @@
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Draft"
+          },
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Suspended"
+          },
+          {
+            "name": "Closed"
           }
         ]
       }

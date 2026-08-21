@@ -38,6 +38,36 @@ export interface OnChainContractLookup {
   verifySignature?: string;
 }
 
+export interface OnChainPoolLookup {
+  status: OnChainLookupStatus;
+  pool?: import("./solana/codec").OnChainContractPool;
+  createSignature?: string;
+  coverageSignature?: string;
+  activateSignature?: string;
+}
+
+export interface OnChainAllocationLookup {
+  status: OnChainLookupStatus;
+  allocation?: import("./solana/codec").OnChainContractAllocation;
+  index?: import("./solana/codec").OnChainAllocationIndex;
+  remainingVolumeTonnes?: number;
+  expectedVolumeTonnes?: number;
+  allocateSignature?: string;
+}
+
+export interface OnChainPoolContractsLookup {
+  status: OnChainLookupStatus;
+  allocations: import("./solana/codec").OnChainContractAllocation[];
+}
+
+export interface OnChainCoverageProofLookup {
+  status: OnChainLookupStatus;
+  pool?: import("./solana/codec").OnChainContractPool;
+  snapshotHashHex?: string;
+  coverageModel: "off-chain";
+  snapshotAnchored: boolean;
+}
+
 export interface CreateContractRequest {
   contractId: string;
   producerReference: string;
@@ -60,6 +90,13 @@ export interface BlockchainProvider {
   getDigitalAgriculturalContract(
     contractId: string,
   ): Promise<OnChainContractLookup>;
+  getContractPool(poolId: string): Promise<OnChainPoolLookup>;
+  getContractAllocation(contractId: string): Promise<OnChainAllocationLookup>;
+  getPoolContracts(
+    poolId: string,
+    contractIds: string[],
+  ): Promise<OnChainPoolContractsLookup>;
+  getCoverageProof(poolId: string): Promise<OnChainCoverageProofLookup>;
   createDigitalAgriculturalContract(
     request: CreateContractRequest,
   ): Promise<WriteInstructionResult>;

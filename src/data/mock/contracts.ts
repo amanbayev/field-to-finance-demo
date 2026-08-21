@@ -41,7 +41,7 @@ export const contracts: DigitalAgriculturalContract[] = [
     producerId: "prd-kostanay-grain",
     field: {
       region: "Kostanay",
-      areaHectares: 980,
+      areaHectares: 1050,
       cadastralRef: "KZ-KST-08-4412",
       centroidLabel: "53.21°N 63.62°E",
     },
@@ -70,7 +70,7 @@ export const contracts: DigitalAgriculturalContract[] = [
     producerId: "prd-north-steppe",
     field: {
       region: "North Kazakhstan",
-      areaHectares: 1560,
+      areaHectares: 1400,
       cadastralRef: "KZ-SKO-02-1188",
       centroidLabel: "54.88°N 69.15°E",
     },
@@ -98,10 +98,10 @@ export const contracts: DigitalAgriculturalContract[] = [
     id: "DAC-2027-0004",
     producerId: "prd-pavlodar-harvest",
     field: {
-      region: "Pavlodar",
-      areaHectares: 720,
-      cadastralRef: "KZ-PAV-11-0904",
-      centroidLabel: "52.28°N 76.95°E",
+      region: "Akmola",
+      areaHectares: 900,
+      cadastralRef: "KZ-AKM-22-0904",
+      centroidLabel: "51.18°N 71.45°E",
     },
     production: {
       ...wheatClass3,
@@ -116,7 +116,7 @@ export const contracts: DigitalAgriculturalContract[] = [
       field: "VERIFIED",
       crop: "CONFIRMED",
     },
-    monitoring: { satellite: "WATCH", soilMoisture: "DRY" },
+    monitoring: { satellite: "HEALTHY", soilMoisture: "NORMAL" },
     insurance: {
       status: "ACTIVE",
       provider: "Demo Agricultural Cover",

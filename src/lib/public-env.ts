@@ -4,13 +4,20 @@
  * These values are safe to expose in the browser (`NEXT_PUBLIC_*`).
  * Missing variables must never crash the app. Private keys must never appear
  * in NEXT_PUBLIC_* values.
+ *
+ * Environment policy:
+ * - Development (local default): mock provider. Set
+ *   NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana in `.env.local` for live Devnet reads.
+ * - Preview: solana / devnet (Vercel Preview env).
+ * - Production: solana / devnet (Vercel Production env). Do not change
+ *   Production RPC or Program ID from this default without an explicit release.
  */
 
 export const PUBLIC_ENV_DEFAULTS = {
   appEnv: "demo",
   solanaNetwork: "devnet",
   solanaRpcUrl: "https://api.devnet.solana.com",
-  blockchainProvider: "solana",
+  blockchainProvider: "mock",
   registryProgramId: "E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT",
 } as const;
 

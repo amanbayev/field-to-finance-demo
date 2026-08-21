@@ -36,4 +36,32 @@ pub enum RegistryError {
     AlreadyVerified,
     #[msg("contract cannot be suspended from its current status")]
     InvalidSuspendTransition,
+    #[msg("pool_id must be non-empty")]
+    PoolIdEmpty,
+    #[msg("pool_id exceeds the 32-byte PDA seed limit")]
+    PoolIdTooLong,
+    #[msg("only the configured pool authority may perform this action")]
+    UnauthorizedPoolAuthority,
+    #[msg("contract must be verified before pool allocation")]
+    ContractNotVerified,
+    #[msg("contract crop does not match the pool")]
+    CropMismatch,
+    #[msg("contract season does not match the pool")]
+    SeasonMismatch,
+    #[msg("allocated volume must be greater than zero")]
+    AllocationZero,
+    #[msg("allocation exceeds remaining unallocated contract volume")]
+    AllocationExceedsRemaining,
+    #[msg("this contract is already allocated to this pool")]
+    AlreadyAllocatedToPool,
+    #[msg("pool cannot accept allocations in its current status")]
+    PoolNotAcceptingAllocations,
+    #[msg("eligible coverage cannot exceed gross pool volume")]
+    EligibleExceedsGross,
+    #[msg("coverage haircut cannot exceed 100%")]
+    HaircutExceedsMaximum,
+    #[msg("pool status transition is not allowed")]
+    InvalidPoolStatusTransition,
+    #[msg("arithmetic overflow")]
+    ArithmeticOverflow,
 }

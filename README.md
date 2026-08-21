@@ -12,11 +12,13 @@ Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
 ## Current phase
 
-**Phase 1 — Solana Devnet foundation and first on-chain Digital Agricultural Contract**
+**Phase 2 — Contract pool, coverage engine, and double-use protection**
 
-`DAC-2027-0001` is registered and verified on **Solana Devnet** by the `agricultural_registry` program. The public contract page reads live proof. Token-2022 issuance, pools, DvP and financing remain off-chain placeholders.
+The `agricultural_registry` program now records contract pools, per-contract volume allocations, and an anchored coverage snapshot hash. Four wheat contracts (`DAC-2027-0001` … `0004`) and `POOL-WHEAT-2027-01` are registered on **Solana Devnet**. Eligible coverage is calculated off-chain (17% haircut → 8,300 t) and hashed on-chain.
 
-Phase 0–0.3 product UI is preserved. Production `https://f2f.amanbayev.pro` should keep serving that UI until this branch is preview-QA’d and then merged.
+Token-2022 issuance is **not started**. Production `https://f2f.amanbayev.pro` remains Phase 1 until this branch is preview-QA’d and promoted.
+
+Phase 1 contract `DAC-2027-0001` is unchanged: same Program ID and the same account layout.
 
 ## Solana workspace
 
@@ -27,11 +29,12 @@ solana/
   Anchor.toml
   programs/agricultural_registry/
   scripts/register-demo.mjs
+  scripts/phase2-devnet.mjs
 ```
 
 Program: `agricultural_registry`  
 Network: Solana Devnet only  
-PDA seeds: `["digital_ag_contract", contract_id]`  
+PDA seeds: `["digital_ag_contract", contract_id]` · `["contract_pool", pool_id]` · `["contract_allocation", contract_id, pool_id]` · `["allocation_index", contract_id]`  
 Program ID: [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet)
 
 `DAC-2027-0001` on Devnet:
@@ -43,6 +46,17 @@ Program ID: [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.so
 | Verify tx | [`bMy4TH3…vDy5`](https://explorer.solana.com/tx/bMy4TH3uosXjBR2CpchADUQiiCpkkAzUSGVKNJhjwF88d5UHnFiAUDsc6ENJPaSypqAemWwxDk8nGCDpZVfvDy5?cluster=devnet) |
 | On-chain status | Verified |
 | Producer reference | `PRODUCER-0001` (not the legal name) |
+
+Phase 2 Devnet pool `POOL-WHEAT-2027-01`:
+
+| Item | Value |
+| --- | --- |
+| Pool PDA | [`8A1KhRzo6PciKQ3FVNZ2W52F5hhCw8nkTcZHiZydE89E`](https://explorer.solana.com/address/8A1KhRzo6PciKQ3FVNZ2W52F5hhCw8nkTcZHiZydE89E?cluster=devnet) |
+| Gross / eligible | 10,000 t / 8,300 t |
+| Haircut | 1,700 bps (17%) |
+| Snapshot hash | `4b93b012e8c95c8133aa73faa4720db3b61f4ef83d7750a7b05d4a97417388b2` |
+
+Additional verified contracts: `DAC-2027-0002` (`PRODUCER-0002`), `DAC-2027-0003` (`PRODUCER-0003`), `DAC-2027-0004` (`PRODUCER-0004`).
 
 On-chain proof is **not** the full business record. The chain stores a producer reference (`PRODUCER-0001`), crop, season, area, volume, quality class and region. It does **not** store legal names, BIN/IIN, KYC documents or financials.
 
@@ -63,7 +77,7 @@ Source of truth is this Git repository. Anchor `build`/`test`/`deploy` run from 
 cd ~/src/field-to-finance-demo/solana
 anchor test
 anchor deploy --provider.cluster devnet --provider.wallet ~/.config/solana/id.json
-node /mnt/c/Users/user/field-to-finance-demo/solana/scripts/register-demo.mjs
+node /mnt/c/Users/user/field-to-finance-demo/solana/scripts/phase2-devnet.mjs
 ```
 
 Development wallets stay in `~/.config/solana/` and are never committed. Fund them with Devnet SOL only.
@@ -176,6 +190,10 @@ src/
 interface BlockchainProvider {
   getNetworkStatus()
   getDigitalAgriculturalContract(contractId)
+  getContractPool(poolId)
+  getContractAllocation(contractId)
+  getPoolContracts(poolId, contractIds)
+  getCoverageProof(poolId)
   createDigitalAgriculturalContract(...)
   verifyDigitalAgriculturalContract(...)
   getTransaction(signature)
@@ -183,7 +201,17 @@ interface BlockchainProvider {
 }
 ```
 
-`NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana` selects `SolanaBlockchainProvider` (read-only on Vercel). `mock` remains available for local fallback. Program ID, IDL and PDA derivation live in `src/adapters/blockchain/solana/`. Signing keypairs never appear in `NEXT_PUBLIC_*`.
+Environment policy:
+
+| Environment | `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER` |
+| --- | --- |
+| Development (local default) | `mock` |
+| Preview (Vercel) | `solana` / Devnet |
+| Production (Vercel) | `solana` / Devnet |
+
+Local developers who want live Devnet reads set `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana` in `.env.local`. Do not change Production RPC or Program ID casually.
+
+`SolanaBlockchainProvider` is read-only on Vercel. Signing keypairs never appear in `NEXT_PUBLIC_*`. Coverage math lives in `src/domain/coverage-engine.ts` (integer basis points). The chain stores only the snapshot hash.
 
 ### Compliance adapters
 
@@ -229,7 +257,7 @@ npm run start
 
 ## Future Solana architecture
 
-Phase 1 is the registry/proof layer only. Later phases may add Token-2022 issuance, pools, DvP and financing **without** putting those instructions in `agricultural_registry`.
+Phase 2 is the registry/proof layer plus contract pools, volume allocation, and an anchored coverage snapshot. Token-2022 issuance is reserved for a later phase and is **not** in this program.
 
 ## Future compliance architecture
 
@@ -298,11 +326,11 @@ Public variables (safe to expose in the browser). Copy `.env.example` to `.env.l
 NEXT_PUBLIC_APP_ENV=demo
 NEXT_PUBLIC_SOLANA_NETWORK=devnet
 NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
-NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana
+NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=mock
 NEXT_PUBLIC_SOLANA_REGISTRY_PROGRAM_ID=E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT
 ```
 
-These are also set on the Vercel project for Production, Preview, and Development.
+Vercel Preview and Production keep `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana`. Local default is `mock`.
 
 Defaults live in `src/lib/public-env.ts`. The application must not crash if Solana RPC is unreachable: pages still render the off-chain business record, and the proof panel shows a temporary unavailability state.
 

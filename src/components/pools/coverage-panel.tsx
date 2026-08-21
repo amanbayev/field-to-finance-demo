@@ -15,8 +15,7 @@ const flowSteps = [
   "adjustments",
   "haircut",
   "eligible",
-  "outstanding",
-  "ratio",
+  "issuance",
 ] as const;
 
 export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
@@ -79,13 +78,16 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
               strong
             />
             <ScheduleRow
-              label={t("outstanding")}
-              value={formatInteger(coverage.outstandingTokens, locale)}
+              label={t("tokenIssuance")}
+              value={t("tokenIssuanceNotStarted")}
+              strong
             />
             <ScheduleRow
-              label={t("coverageRatio")}
-              value={formatPercent(coverage.coverageRatioPercent, locale, 2)}
-              strong
+              label={t("illustrativeCapacity")}
+              value={tUnits("tonnes", {
+                value: formatInteger(coverage.maximumTokenIssuance, locale),
+              })}
+              muted
             />
             <tr className="border-t border-border">
               <th className="px-4 py-3 text-left text-sm font-medium">
@@ -98,9 +100,7 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
           </tbody>
         </table>
         <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
-          {t("maxIssuance", {
-            value: formatInteger(coverage.maximumTokenIssuance, locale),
-          })}
+          {t("simulatedNote")}
         </p>
       </div>
     </div>

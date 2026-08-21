@@ -50,4 +50,41 @@ pub mod agricultural_registry {
     pub fn suspend_contract(ctx: Context<SuspendContract>) -> Result<()> {
         crate::instructions::suspend_contract::handle_suspend_contract(ctx)
     }
+
+    pub fn create_pool(
+        ctx: Context<CreatePool>,
+        pool_id: String,
+        crop: String,
+        season: u16,
+    ) -> Result<()> {
+        crate::instructions::create_pool::handle_create_pool(ctx, pool_id, crop, season)
+    }
+
+    pub fn add_contract_to_pool(
+        ctx: Context<AddContractToPool>,
+        allocated_volume_tonnes: u64,
+    ) -> Result<()> {
+        crate::instructions::add_contract_to_pool::handle_add_contract_to_pool(
+            ctx,
+            allocated_volume_tonnes,
+        )
+    }
+
+    pub fn update_pool_coverage(
+        ctx: Context<UpdatePoolCoverage>,
+        eligible_volume_tonnes: u64,
+        coverage_haircut_bps: u16,
+        coverage_snapshot_hash: [u8; 32],
+    ) -> Result<()> {
+        crate::instructions::update_pool_coverage::handle_update_pool_coverage(
+            ctx,
+            eligible_volume_tonnes,
+            coverage_haircut_bps,
+            coverage_snapshot_hash,
+        )
+    }
+
+    pub fn set_pool_status(ctx: Context<SetPoolStatus>, status: PoolStatus) -> Result<()> {
+        crate::instructions::set_pool_status::handle_set_pool_status(ctx, status)
+    }
 }

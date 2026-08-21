@@ -1,6 +1,9 @@
 import { PublicKey } from "@solana/web3.js";
 import {
+  ALLOCATION_INDEX_PDA_SEED,
+  ALLOCATION_PDA_SEED,
   CONTRACT_PDA_SEED,
+  POOL_PDA_SEED,
   REGISTRY_PDA_SEED,
 } from "./config";
 
@@ -8,6 +11,10 @@ export type OnChainContractStatus =
   | "PendingVerification"
   | "Verified"
   | "Suspended";
+
+export type OnChainPoolStatus = "Draft" | "Active" | "Suspended" | "Closed";
+
+export type OnChainAllocationStatus = "Active" | "Released";
 
 export interface OnChainDigitalAgriculturalContract {
   contractId: string;
@@ -23,6 +30,45 @@ export interface OnChainDigitalAgriculturalContract {
   createdAt: number;
   updatedAt: number;
   verificationAuthority: string;
+  bump: number;
+  pda: string;
+  programId: string;
+}
+
+export interface OnChainContractPool {
+  poolId: string;
+  authority: string;
+  crop: string;
+  season: number;
+  status: OnChainPoolStatus;
+  grossVolumeTonnes: number;
+  eligibleVolumeTonnes: number;
+  coverageHaircutBps: number;
+  coverageSnapshotHash: Uint8Array;
+  coverageSnapshotHashHex: string;
+  createdAt: number;
+  updatedAt: number;
+  contractCount: number;
+  bump: number;
+  pda: string;
+  programId: string;
+}
+
+export interface OnChainContractAllocation {
+  contractId: string;
+  poolId: string;
+  allocatedVolumeTonnes: number;
+  status: OnChainAllocationStatus;
+  createdAt: number;
+  bump: number;
+  pda: string;
+  programId: string;
+}
+
+export interface OnChainAllocationIndex {
+  contractId: string;
+  allocatedVolumeTonnes: number;
+  allocationCount: number;
   bump: number;
   pda: string;
   programId: string;
@@ -45,6 +91,38 @@ export function deriveRegistryPda(programId: PublicKey): PublicKey {
   )[0];
 }
 
+export function derivePoolPda(programId: PublicKey, poolId: string): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(POOL_PDA_SEED), Buffer.from(poolId)],
+    programId,
+  )[0];
+}
+
+export function deriveAllocationPda(
+  programId: PublicKey,
+  contractId: string,
+  poolId: string,
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from(ALLOCATION_PDA_SEED),
+      Buffer.from(contractId),
+      Buffer.from(poolId),
+    ],
+    programId,
+  )[0];
+}
+
+export function deriveAllocationIndexPda(
+  programId: PublicKey,
+  contractId: string,
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(ALLOCATION_INDEX_PDA_SEED), Buffer.from(contractId)],
+    programId,
+  )[0];
+}
+
 export function decodeContractAccount(
   data: Buffer,
   pda: string,
@@ -61,7 +139,7 @@ export function decodeContractAccount(
   const expectedVolumeTonnes = reader.u64();
   const qualityClass = reader.string();
   const region = reader.string();
-  const status = decodeStatus(reader.u8());
+  const status = decodeContractStatus(reader.u8());
   const createdAt = reader.i64();
   const updatedAt = reader.i64();
   const verificationAuthority = reader.pubkey();
@@ -87,7 +165,96 @@ export function decodeContractAccount(
   };
 }
 
-function decodeStatus(value: number): OnChainContractStatus {
+export function decodePoolAccount(
+  data: Buffer,
+  pda: string,
+  programId: string,
+): OnChainContractPool {
+  const reader = new BorshReader(data);
+  reader.bytes(8);
+  const poolId = reader.string();
+  const authority = reader.pubkey();
+  const crop = reader.string();
+  const season = reader.u16();
+  const status = decodePoolStatus(reader.u8());
+  const grossVolumeTonnes = reader.u64();
+  const eligibleVolumeTonnes = reader.u64();
+  const coverageHaircutBps = reader.u16();
+  const coverageSnapshotHash = new Uint8Array(reader.bytes(32));
+  const createdAt = reader.i64();
+  const updatedAt = reader.i64();
+  const contractCount = reader.u16();
+  const bump = reader.u8();
+
+  return {
+    poolId,
+    authority,
+    crop,
+    season,
+    status,
+    grossVolumeTonnes,
+    eligibleVolumeTonnes,
+    coverageHaircutBps,
+    coverageSnapshotHash,
+    coverageSnapshotHashHex: bytesToHex(coverageSnapshotHash),
+    createdAt,
+    updatedAt,
+    contractCount,
+    bump,
+    pda,
+    programId,
+  };
+}
+
+export function decodeAllocationAccount(
+  data: Buffer,
+  pda: string,
+  programId: string,
+): OnChainContractAllocation {
+  const reader = new BorshReader(data);
+  reader.bytes(8);
+  const contractId = reader.string();
+  const poolId = reader.string();
+  const allocatedVolumeTonnes = reader.u64();
+  const status = decodeAllocationStatus(reader.u8());
+  const createdAt = reader.i64();
+  const bump = reader.u8();
+
+  return {
+    contractId,
+    poolId,
+    allocatedVolumeTonnes,
+    status,
+    createdAt,
+    bump,
+    pda,
+    programId,
+  };
+}
+
+export function decodeAllocationIndexAccount(
+  data: Buffer,
+  pda: string,
+  programId: string,
+): OnChainAllocationIndex {
+  const reader = new BorshReader(data);
+  reader.bytes(8);
+  const contractId = reader.string();
+  const allocatedVolumeTonnes = reader.u64();
+  const allocationCount = reader.u16();
+  const bump = reader.u8();
+
+  return {
+    contractId,
+    allocatedVolumeTonnes,
+    allocationCount,
+    bump,
+    pda,
+    programId,
+  };
+}
+
+function decodeContractStatus(value: number): OnChainContractStatus {
   switch (value) {
     case 0:
       return "PendingVerification";
@@ -98,6 +265,36 @@ function decodeStatus(value: number): OnChainContractStatus {
     default:
       throw new Error("invalid on-chain contract status");
   }
+}
+
+function decodePoolStatus(value: number): OnChainPoolStatus {
+  switch (value) {
+    case 0:
+      return "Draft";
+    case 1:
+      return "Active";
+    case 2:
+      return "Suspended";
+    case 3:
+      return "Closed";
+    default:
+      throw new Error("invalid on-chain pool status");
+  }
+}
+
+function decodeAllocationStatus(value: number): OnChainAllocationStatus {
+  switch (value) {
+    case 0:
+      return "Active";
+    case 1:
+      return "Released";
+    default:
+      throw new Error("invalid on-chain allocation status");
+  }
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 class BorshReader {

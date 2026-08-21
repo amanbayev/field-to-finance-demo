@@ -22,7 +22,7 @@
   },
   "header": {
     "badge": "ПРОТОТИП · SOLANA DEVNET",
-    "phase": "Ашық демонстрация · 1-кезең",
+    "phase": "Ашық демонстрация · 2-кезең",
     "network": "Желі",
     "system": "Жүйе",
     "connected": "Қосылған",
@@ -82,7 +82,11 @@
     "ON_CHAIN": "Ончейн",
     "OFF_CHAIN": "Демо / офчейн",
     "VERIFIED_ON_CHAIN": "Ончейн расталған",
-    "PROOF_UNAVAILABLE": "Уақытша қолжетімсіз"
+    "PROOF_UNAVAILABLE": "Уақытша қолжетімсіз",
+    "CLOSED": "Жабық",
+    "PROTECTED_ON_CHAIN": "Ончейн қорғалған",
+    "NOT_STARTED": "Басталған жоқ",
+    "DEMO_SIMULATED": "ДЕМО / ИМИТАЦИЯ"
   },
   "units": {
     "tonnes": "{value} т",
@@ -133,7 +137,7 @@
   },
   "lifecycle": {
     "title": "Өмірлік цикл",
-    "description": "Егістік есебінен қаржыландыруға дейінгі операциялық тізбек. Шарт дәлелі Solana Devnet-те бар; токен шығару 1-кезеңде іске қосылмаған.",
+    "description": "Егістік есебінен қаржыландыруға дейінгі операциялық тізбек. Төрт бидай шарты мен 2027 пулы Solana Devnet-те дәлелденген. Токен шығару басталған жоқ.",
     "field": "Егістік",
     "contract": "Шарт",
     "pool": "Пул",
@@ -148,18 +152,23 @@
     "digitalContracts": "Цифрлық шарттар",
     "contractVolume": "Шарт көлемі",
     "eligibleCoverage": "Жарамды жабу",
+    "tokenIssuance": "Токен шығару",
+    "tokenIssuanceNotStarted": "Басталған жоқ",
     "tokenizedVolume": "Токенделген көлем",
     "activeFinancing": "Белсенді қаржыландыру",
     "averageCoverageRatio": "Орташа жабу коэффициенті",
     "infrastructure": "Инфрақұрылым",
     "infrastructureNote": "Тек оқуға арналған Solana Devnet мәртебесі. Жоғарыдағы шаруашылық жазба негізгі көрініс болып қалады.",
     "registryProgram": "Тізілім бағдарламасы",
-    "onChainDemoContracts": "Ончейн демо шарттар"
+    "onChainDemoContracts": "Ончейн демо шарттар",
+    "verifiedOnChain": "Ончейн расталған шарттар",
+    "contractPool": "Шарт пулы",
+    "grossPoolVolume": "Пулдың жалпы көлемі"
   },
   "contracts": {
     "title": "Шарттар",
     "eyebrow": "Цифрлық аграрлық шарттар тізілімі",
-    "description": "Цифрлық аграрлық шарттар. Бір демо шарт Solana Devnet-те дәлелденген; қалғандары офчейн демо жазбалар.",
+    "description": "Цифрлық аграрлық шарттар. Төрт бидай шарты Solana Devnet-те дәлелденген; қалған жолдар офчейн демо жазбалар.",
     "detailEyebrow": "Цифрлық аграрлық шарт",
     "producerScore": "Өндіруші баллы",
     "businessRecord": "Шаруашылық жазба · офчейн. Заңды атау мен операциялық өрістер ончейн сақталмайды.",
@@ -192,7 +201,8 @@
       "insurance": "Сақтандыру",
       "audit": "Аудит",
       "businessRecord": "Шаруашылық жазба",
-      "onChainProof": "Ончейн дәлел"
+      "onChainProof": "Ончейн дәлел",
+      "poolAllocation": "Пулға бөлу"
     },
     "fields": {
       "contractId": "Шарт ID",
@@ -241,6 +251,15 @@
       "viewCreateTx": "Құру транзакциясын қарау",
       "viewVerifyTx": "Растау транзакциясын қарау"
     },
+    "allocation": {
+      "intro": "Пулға бөлінген белсенді көлем. Қолжетімді болса, тізілім бағдарламасынан оқылады.",
+      "pool": "Пул",
+      "allocated": "Бөлінген",
+      "remaining": "Қалдық",
+      "proof": "Бөлу дәлелі",
+      "pda": "Бөлу PDA",
+      "tx": "Бөлу транзакциясы"
+    },
     "map": {
       "title": "Егістік схемасы",
       "placeholder": "Орынбасар · тікелей карта жоқ",
@@ -259,7 +278,45 @@
     "producers": "Өндірушілер",
     "grossVolume": "Жалпы шарт көлемі",
     "eligibleCoverage": "Жарамды шарт жабуы",
+    "cropSeason": "Дақыл / маусым",
+    "verifiedContracts": "Расталған шарттар",
     "composition": "Пул құрамы",
+    "layers": {
+      "pool": "Шарт пулы",
+      "poolNote": "Осы пулдағы расталған шарттардың есеп кітабы.",
+      "coverage": "Жабу / андеррайтинг",
+      "coverageNote": "Офчейн тәуекел моделі. Дереккөздер — ДЕМО / ИМИТАЦИЯ. Снимок хеші Solana-да бекітілген."
+    },
+    "doubleUse": {
+      "title": "Қос пайдалану бақылауы",
+      "body": "Белсенді шарт бөліністерін пулға қосар алдында тізілім бағдарламасы тексереді. Бөлініс белсенді кезде бір көлем екі рет бөлінбейді."
+    },
+    "proof": {
+      "title": "Пулдың ончейн дәлелі",
+      "intro": "Осы пулдың Solana Devnet бақылау қабаты. Жабу есебі офчейн қалады.",
+      "unavailable": "Блокчейн дәлелі уақытша қолжетімсіз. Жоғарыдағы пул кітабы көрініп тұрады.",
+      "missing": "Бұл пул Solana Devnet-те тіркелмеген.",
+      "hybridNote": "Жабу моделі: офчейн есеп. Жабу снимкі: ончейн бекітілген.",
+      "network": "Желі",
+      "program": "Бағдарлама",
+      "programId": "Program ID",
+      "pda": "Пул PDA",
+      "status": "Пул мәртебесі",
+      "contractCount": "Шарт саны",
+      "gross": "Жалпы көлем",
+      "eligible": "Жарамды көлем",
+      "haircut": "Дисконт",
+      "snapshotHash": "Жабу снимок хеші",
+      "coverageModel": "Жабу моделі",
+      "coverageModelValue": "Офчейн есеп",
+      "coverageSnapshot": "Жабу снимкі",
+      "coverageSnapshotValue": "Ончейн бекітілген",
+      "updated": "Соңғы жаңарту",
+      "createTx": "Пул құру транзакциясы",
+      "coverageTx": "Жабуды жаңарту транзакциясы",
+      "notRecorded": "—",
+      "viewPool": "Пулды Solana Explorer-де қарау"
+    },
     "columns": {
       "producer": "Өндіруші",
       "contract": "Шарт",
@@ -270,7 +327,10 @@
       "eligibility": "Жарамдылық",
       "pool": "Пул ID",
       "name": "Пул",
-      "status": "Мәртебе"
+      "status": "Мәртебе",
+      "expected": "Күтілетін көлем",
+      "allocated": "Бөлінген көлем",
+      "proof": "Блокчейн дәлелі"
     }
   },
   "risk": {
@@ -279,7 +339,10 @@
     "totalHaircut": "Жиынтық дисконт",
     "eligibleTitle": "Жарамды шарт жабуы",
     "eligibleCoverage": "Жарамды жабу",
-    "maxIssuance": "Токендердің ең жоғары шығарылымы {value}",
+    "tokenIssuance": "Қазіргі токен шығару",
+    "tokenIssuanceNotStarted": "Басталған жоқ",
+    "illustrativeCapacity": "Болашақ шығару сыйымдылығы (иллюстрация)",
+    "simulatedNote": "Тәуекел түзетулері — ДЕМО / ИМИТАЦИЯ. Бұл тікелей жерсерік немесе сақтандыру арналары емес. Токен шығару басталған жоқ.",
     "outstanding": "Шығарылған токендер",
     "coverageRatio": "Жабу коэффициенті",
     "status": "Мәртебе",
@@ -288,6 +351,7 @@
       "adjustments": "Тәуекел түзетулері",
       "haircut": "Дисконт",
       "eligible": "Жарамды жабу",
+      "issuance": "Токен шығару",
       "outstanding": "Шығарылған токендер",
       "ratio": "Жабу коэффициенті"
     },
@@ -311,6 +375,7 @@
     "notDeployedNote": "Орналастырылмаған. Бұл өрістер Solana шығарылымы іске қосылғанға дейін бос қалады.",
     "onChainReserved": "Ончейн идентификаторлары",
     "notRecorded": "—",
+    "issuanceNotStarted": "Басталған жоқ",
     "fields": {
       "instrument": "Құрал",
       "type": "Түрі",
@@ -399,7 +464,7 @@
   "regulator": {
     "title": "Реттеуші көрінісі",
     "eyebrow": "Қадағалау консолі",
-    "description": "Жүйенің шығу тегі, жабуы, токен ұсынысы және комплаенсі бойынша тек оқуға арналған көрініс. Демо шарт үшін Solana Devnet дәлелі бар.",
+    "description": "Жүйенің шығу тегі, жабуы, пул бақылауы және комплаенсі бойынша тек оқуға арналған көрініс. Бидай бағдарламасы үшін Solana Devnet дәлелі бар.",
     "auditIntro": "Қолданба оқиғалары және Solana Devnet блокчейн оқиғалары. 2027 жылғы бидай бағдарламасының қолданба уақыт белгілері демонстрациялық.",
     "chainProofTitle": "Ончейн дәлел",
     "chainProofIntro": "DAC-2027-0001 үшін шаруашылық жазба және өзгермейтін техникалық дәлел.",
@@ -419,6 +484,26 @@
       "viewAccount": "Шарт шотын қарау"
     },
     "overview": "Жүйе шолуы",
+    "verifiedContracts": "Расталған шарттар",
+    "activePools": "Белсенді пулдар",
+    "grossVolume": "Жалпы шарт көлемі",
+    "eligibleCoverage": "Жарамды жабу",
+    "coverageHaircut": "Жабу дисконты",
+    "doubleUseExceptions": "Қос пайдалану ерекшеліктері",
+    "coverageBreaches": "Жабу бұзушылықтары",
+    "catalogContracts": "Каталог шарттары",
+    "doubleUseTitle": "Қос пайдалану бақылауы",
+    "tokenIssuanceNotStarted": "Басталған жоқ",
+    "poolProofTitle": "Пул дәлелдері",
+    "poolProofIntro": "POOL-WHEAT-2027-01 үшін ончейн сәйкестік, бөлу бақылауы және бекітілген жабу снимкі.",
+    "poolProofMissing": "Пулдың ончейн дәлелі әлі жазылмаған.",
+    "poolProof": {
+      "pool": "Пул",
+      "pda": "Пул PDA",
+      "snapshotHash": "Жабу снимок хеші",
+      "updated": "Жабудың соңғы жаңартылуы",
+      "explorer": "Explorer"
+    },
     "contracts": "Шарттар",
     "pools": "Пулдар",
     "tokenSeries": "Токен сериялары",
@@ -494,12 +579,24 @@
       "detail": "WHEAT-2027 сериясы дайындалды. Ончейн шығарылым әлі орналастырылмаған."
     },
     "contractRegisteredOnChain": {
-      "title": "Шарт ончейн тіркелді",
-      "detail": "DAC-2027-0001 Solana Devnet-те құрылды."
+      "title": "Шарт тіркелді",
+      "detail": "Цифрлық аграрлық шарт Solana Devnet-те құрылды."
     },
     "contractVerifiedOnChain": {
       "title": "Шарт ончейн расталды",
-      "detail": "DAC-2027-0001 Solana Devnet-те расталды."
+      "detail": "Шарт Solana Devnet-те расталды."
+    },
+    "poolCreatedOnChain": {
+      "title": "Пул құрылды",
+      "detail": "Шарт пулы Solana Devnet-те құрылды."
+    },
+    "contractAllocatedOnChain": {
+      "title": "Шарт пулға бөлінді",
+      "detail": "Шарт көлемі Solana Devnet-те бөлінді."
+    },
+    "coverageSnapshotAnchored": {
+      "title": "Жабу снимкі бекітілді",
+      "detail": "Офчейн жабу снимок хеші пул шотына жазылды."
     }
   },
   "errors": {
