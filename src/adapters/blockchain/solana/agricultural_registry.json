@@ -1,0 +1,583 @@
+{
+  "address": "E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT",
+  "metadata": {
+    "name": "agricultural_registry",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Solana Devnet registry for Digital Agricultural Contracts"
+  },
+  "instructions": [
+    {
+      "name": "create_contract",
+      "discriminator": [
+        244,
+        48,
+        244,
+        178,
+        216,
+        88,
+        122,
+        52
+      ],
+      "accounts": [
+        {
+          "name": "producer_authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "contract",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  105,
+                  103,
+                  105,
+                  116,
+                  97,
+                  108,
+                  95,
+                  97,
+                  103,
+                  95,
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "contract_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "contract_id",
+          "type": "string"
+        },
+        {
+          "name": "producer_reference",
+          "type": "string"
+        },
+        {
+          "name": "crop",
+          "type": "string"
+        },
+        {
+          "name": "season",
+          "type": "u16"
+        },
+        {
+          "name": "field_area_hectares",
+          "type": "u64"
+        },
+        {
+          "name": "expected_volume_tonnes",
+          "type": "u64"
+        },
+        {
+          "name": "quality_class",
+          "type": "string"
+        },
+        {
+          "name": "region",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "verification_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "suspend_contract",
+      "discriminator": [
+        249,
+        35,
+        60,
+        214,
+        219,
+        215,
+        221,
+        222
+      ],
+      "accounts": [
+        {
+          "name": "contract",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  105,
+                  103,
+                  105,
+                  116,
+                  97,
+                  108,
+                  95,
+                  97,
+                  103,
+                  95,
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "contract.contract_id",
+                "account": "DigitalAgriculturalContractAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "verification_authority",
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "verify_contract",
+      "discriminator": [
+        160,
+        209,
+        168,
+        109,
+        30,
+        222,
+        156,
+        103
+      ],
+      "accounts": [
+        {
+          "name": "contract",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  105,
+                  103,
+                  105,
+                  116,
+                  97,
+                  108,
+                  95,
+                  97,
+                  103,
+                  95,
+                  99,
+                  111,
+                  110,
+                  116,
+                  114,
+                  97,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "contract.contract_id",
+                "account": "DigitalAgriculturalContractAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "verification_authority",
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "DigitalAgriculturalContractAccount",
+      "discriminator": [
+        45,
+        128,
+        3,
+        194,
+        158,
+        33,
+        53,
+        12
+      ]
+    },
+    {
+      "name": "RegistryConfig",
+      "discriminator": [
+        23,
+        118,
+        10,
+        246,
+        173,
+        231,
+        243,
+        156
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ContractIdEmpty",
+      "msg": "contract_id must be non-empty"
+    },
+    {
+      "code": 6001,
+      "name": "ContractIdTooLong",
+      "msg": "contract_id exceeds the 32-byte PDA seed limit"
+    },
+    {
+      "code": 6002,
+      "name": "ProducerReferenceEmpty",
+      "msg": "producer_reference must be non-empty"
+    },
+    {
+      "code": 6003,
+      "name": "ProducerReferenceTooLong",
+      "msg": "producer_reference exceeds maximum length"
+    },
+    {
+      "code": 6004,
+      "name": "CropEmpty",
+      "msg": "crop must be non-empty"
+    },
+    {
+      "code": 6005,
+      "name": "CropTooLong",
+      "msg": "crop exceeds maximum length"
+    },
+    {
+      "code": 6006,
+      "name": "QualityClassEmpty",
+      "msg": "quality_class must be non-empty"
+    },
+    {
+      "code": 6007,
+      "name": "QualityClassTooLong",
+      "msg": "quality_class exceeds maximum length"
+    },
+    {
+      "code": 6008,
+      "name": "RegionEmpty",
+      "msg": "region must be non-empty"
+    },
+    {
+      "code": 6009,
+      "name": "RegionTooLong",
+      "msg": "region exceeds maximum length"
+    },
+    {
+      "code": 6010,
+      "name": "FieldAreaZero",
+      "msg": "field_area_hectares must be greater than zero"
+    },
+    {
+      "code": 6011,
+      "name": "VolumeZero",
+      "msg": "expected_volume_tonnes must be greater than zero"
+    },
+    {
+      "code": 6012,
+      "name": "InvalidSeason",
+      "msg": "season is outside the allowed demonstration range"
+    },
+    {
+      "code": 6013,
+      "name": "UnauthorizedVerifier",
+      "msg": "only the configured verification authority may perform this action"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidVerifyTransition",
+      "msg": "contract is not pending verification"
+    },
+    {
+      "code": 6015,
+      "name": "AlreadyVerified",
+      "msg": "contract is already verified"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidSuspendTransition",
+      "msg": "contract cannot be suspended from its current status"
+    }
+  ],
+  "types": [
+    {
+      "name": "ContractStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "PendingVerification"
+          },
+          {
+            "name": "Verified"
+          },
+          {
+            "name": "Suspended"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DigitalAgriculturalContractAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "contract_id",
+            "type": "string"
+          },
+          {
+            "name": "producer_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "producer_reference",
+            "type": "string"
+          },
+          {
+            "name": "crop",
+            "type": "string"
+          },
+          {
+            "name": "season",
+            "type": "u16"
+          },
+          {
+            "name": "field_area_hectares",
+            "type": "u64"
+          },
+          {
+            "name": "expected_volume_tonnes",
+            "type": "u64"
+          },
+          {
+            "name": "quality_class",
+            "type": "string"
+          },
+          {
+            "name": "region",
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "ContractStatus"
+              }
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "verification_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RegistryConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "upgrade_authority",
+            "docs": [
+              "Can later be replaced by a governance/multisig PDA."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "verification_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

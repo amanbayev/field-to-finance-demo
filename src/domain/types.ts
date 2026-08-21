@@ -176,6 +176,8 @@ export interface FinancingPosition {
   principal: Money;
 }
 
+export type AuditEventSource = "application" | "blockchain";
+
 export type AuditEventKey =
   | "contractCreated"
   | "producerVerified"
@@ -183,7 +185,9 @@ export type AuditEventKey =
   | "addedToPool"
   | "riskCompleted"
   | "coverageCalculated"
-  | "tokenPrepared";
+  | "tokenPrepared"
+  | "contractRegisteredOnChain"
+  | "contractVerifiedOnChain";
 
 export interface AuditEvent {
   id: string;
@@ -191,6 +195,8 @@ export interface AuditEvent {
   eventKey: AuditEventKey;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  source?: AuditEventSource;
+  reference?: string;
 }
 
 export interface DashboardMetrics {

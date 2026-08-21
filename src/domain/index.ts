@@ -2,6 +2,7 @@ export type {
   AgriculturalToken,
   AuditEvent,
   AuditEventKey,
+  AuditEventSource,
   BlockchainDeploymentStatus,
   CheckResult,
   ComplianceRecord,

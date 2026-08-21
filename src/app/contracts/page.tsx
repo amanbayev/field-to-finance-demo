@@ -15,6 +15,7 @@ import {
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatScore } from "@/lib/format";
+import { isOnChainDemoContract } from "@/adapters/blockchain";
 import { listContracts } from "@/services/contract-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -45,6 +46,7 @@ export default async function ContractsPage() {
             <TableHead className="text-right">{t("columns.volume")}</TableHead>
             <TableHead>{t("columns.region")}</TableHead>
             <TableHead className="text-right">{t("columns.score")}</TableHead>
+            <TableHead>{t("columns.proof")}</TableHead>
             <TableHead>{t("columns.status")}</TableHead>
           </TableRow>
         </TableHeader>
@@ -76,6 +78,13 @@ export default async function ContractsPage() {
               </TableCell>
               <TableCell className="text-right font-tabular">
                 {formatScore(producer.score.value, producer.score.maxValue)}
+              </TableCell>
+              <TableCell>
+                <StatusBadge
+                  value={
+                    isOnChainDemoContract(contract.id) ? "ON_CHAIN" : "OFF_CHAIN"
+                  }
+                />
               </TableCell>
               <TableCell>
                 <StatusBadge value={contract.status} />

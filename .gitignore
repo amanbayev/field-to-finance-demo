@@ -47,6 +47,11 @@ wallet.json
 *-wallet.json
 *-keypair.json
 .solana/
+solana/.wallets/
+solana/target/
+solana/.anchor/
+solana/test-ledger/
+solana/.surfpool/
 
 # vercel
 .vercel

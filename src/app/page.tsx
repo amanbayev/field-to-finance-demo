@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function DashboardPage() {
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
-  const { metrics } = getDashboardSnapshot();
+  const { metrics, network } = await getDashboardSnapshot();
 
   return (
     <div>
@@ -70,6 +70,34 @@ export default async function DashboardPage() {
         description={t("lifecycle.description")}
       >
         <LifecycleStrip />
+      </PageSection>
+
+      <PageSection
+        title={t("dashboard.infrastructure")}
+        description={t("dashboard.infrastructureNote")}
+      >
+        <MetricStrip className="sm:grid-cols-3">
+          <MetricCell
+            label={network.network}
+            value={
+              network.connected
+                ? t("header.connected")
+                : t("header.disconnected")
+            }
+          />
+          <MetricCell
+            label={t("dashboard.registryProgram")}
+            value={
+              network.registryProgramDeployed
+                ? t("status.DEPLOYED")
+                : t("status.NOT_YET_DEPLOYED")
+            }
+          />
+          <MetricCell
+            label={t("dashboard.onChainDemoContracts")}
+            value={formatInteger(network.onChainDemoContracts, locale)}
+          />
+        </MetricStrip>
       </PageSection>
     </div>
   );

@@ -1,4 +1,4 @@
-import { MockBlockchainProvider } from "@/adapters/blockchain";
+import { MockBlockchainProvider, SolanaBlockchainProvider } from "@/adapters/blockchain";
 import {
   MockKybProvider,
   MockKycProvider,
@@ -14,17 +14,12 @@ import type {
 } from "@/adapters/compliance";
 import type { FxProvider } from "@/adapters/fx";
 
-/**
- * Phase 0.2 always uses MockBlockchainProvider.
- * `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana` is reserved for Phase 1 and must
- * not take the public demo down if set early or if Solana env vars are absent.
- */
 function createBlockchainProvider(): BlockchainProvider {
   const { blockchainProvider: name } = getPublicEnv();
 
   switch (name) {
     case "solana":
-      return new MockBlockchainProvider();
+      return new SolanaBlockchainProvider();
     case "mock":
     default:
       return new MockBlockchainProvider();

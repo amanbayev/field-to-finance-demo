@@ -8,6 +8,8 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { productName } from "@/lib/navigation";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 const ibmPlexSans = IBM_Plex_Sans({
   variable: "--font-ibm-plex-sans",
   subsets: ["latin", "cyrillic"],

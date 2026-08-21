@@ -3,18 +3,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { FieldMapPlaceholder } from "@/components/contracts/field-map-placeholder";
+import { OnChainProofPanel } from "@/components/contracts/on-chain-proof-panel";
 import { AuditTrail } from "@/components/regulator/audit-trail";
 import { DataList } from "@/components/shared/data-list";
 import { FactStrip } from "@/components/shared/fact-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
-import { Panel, PanelBody } from "@/components/shared/panel";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { AppLocale } from "@/i18n/config";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { formatInteger, formatScore } from "@/lib/format";
+import { blockchainProvider } from "@/services/providers";
 import { getContract, listContractIds } from "@/services/contract-service";
-import { listAuditEvents } from "@/services/regulator-service";
+import { listLedgerEventsForContract } from "@/services/regulator-service";
 
 export const dynamicParams = false;
 
@@ -49,10 +50,9 @@ export default async function ContractDetailPage({
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
-  const relatedAudit = listAuditEvents().filter(
-    (event) =>
-      event.relatedEntityType === "contract" &&
-      event.relatedEntityId === contract.id,
+  const relatedAudit = await listLedgerEventsForContract(contract.id);
+  const onChain = await blockchainProvider.getDigitalAgriculturalContract(
+    contract.id,
   );
 
   return (
@@ -254,19 +254,7 @@ export default async function ContractDetailPage({
         <AuditTrail events={relatedAudit} />
       </PageSection>
 
-      <PageSection
-        title={t("sections.onChainProof")}
-        description={t("onChainReserved")}
-      >
-        <Panel>
-          <PanelBody className="space-y-3">
-            <StatusBadge value="NOT_YET_DEPLOYED" />
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              {t("onChainEmpty")}
-            </p>
-          </PanelBody>
-        </Panel>
-      </PageSection>
+      <OnChainProofPanel lookup={onChain} locale={locale} />
     </div>
   );
 }

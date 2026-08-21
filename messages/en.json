@@ -22,7 +22,7 @@
   },
   "header": {
     "badge": "PROTOTYPE · SOLANA DEVNET",
-    "phase": "Live public demo · Phase 0",
+    "phase": "Live public demo · Phase 1",
     "network": "Network",
     "system": "System",
     "connected": "Connected",
@@ -78,7 +78,11 @@
     "EXPERIMENTAL": "Experimental",
     "MOCK": "Mock",
     "CONNECTED": "Connected",
-    "DISCONNECTED": "Disconnected"
+    "DISCONNECTED": "Disconnected",
+    "ON_CHAIN": "On-chain",
+    "OFF_CHAIN": "Demo / Off-chain",
+    "VERIFIED_ON_CHAIN": "Verified On-Chain",
+    "PROOF_UNAVAILABLE": "Temporarily unavailable"
   },
   "units": {
     "tonnes": "{value} t",
@@ -129,7 +133,7 @@
   },
   "lifecycle": {
     "title": "Lifecycle",
-    "description": "Operating sequence from field record to financing. On-chain settlement is not active in Phase 0.",
+    "description": "Operating sequence from field record to financing. On-chain contract proof is live on Solana Devnet; token issuance is not active in Phase 1.",
     "field": "Field",
     "contract": "Contract",
     "pool": "Pool",
@@ -146,18 +150,26 @@
     "eligibleCoverage": "Eligible Coverage",
     "tokenizedVolume": "Tokenized Volume",
     "activeFinancing": "Active Financing",
-    "averageCoverageRatio": "Average Coverage Ratio"
+    "averageCoverageRatio": "Average Coverage Ratio",
+    "infrastructure": "Infrastructure",
+    "infrastructureNote": "Read-only Solana Devnet status. The business record above remains the operating view.",
+    "registryProgram": "Registry Program",
+    "onChainDemoContracts": "On-chain Demo Contracts"
   },
   "contracts": {
     "title": "Contracts",
     "eyebrow": "Digital Agricultural Contract Registry",
-    "description": "Mock digital agricultural contracts. Status, verification and production figures are demonstration data only.",
+    "description": "Digital agricultural contracts. One demonstration contract is proven on Solana Devnet; the others remain off-chain demo records.",
+    "businessRecord": "Business record · off-chain. Legal name and operational fields are not stored on-chain.",
+    "onChainEmpty": "No on-chain proof is recorded for this contract.",
+    "onChainReserved": "On-chain proof is a technical evidence layer, not the full business record.",
+    "onChainProofIntro": "Solana Devnet proof. On-chain values are not the full business record.",
+    "onChainUnavailable": "Blockchain proof is temporarily unavailable. The application business record above remains visible.",
+    "onChainOffchainOnly": "This contract is a demonstration record only. It has not been registered on Solana Devnet.",
+    "onChainNotBusinessRecord": "On-chain proof is not the full business record.",
     "detailEyebrow": "Digital Agricultural Contract",
     "producerScore": "Producer score",
-    "businessRecord": "Contract and production data.",
     "verificationEvidence": "Independent verification checks. Distinct from the business record above.",
-    "onChainEmpty": "No on-chain proof is recorded. Program ID, mint and transaction history will appear here after Solana deployment.",
-    "onChainReserved": "Reserved for a later phase. No blockchain identifiers are simulated.",
     "columns": {
       "contractId": "Contract ID",
       "producer": "Producer",
@@ -165,6 +177,7 @@
       "volume": "Volume",
       "region": "Region",
       "score": "Score",
+      "proof": "Proof",
       "status": "Status"
     },
     "sections": {
@@ -208,6 +221,23 @@
       "policyRef": "Policy ref",
       "field": "Field",
       "delivery": "Delivery"
+    },
+    "proof": {
+      "network": "Network",
+      "blockchainStatus": "Blockchain status",
+      "program": "Program",
+      "programId": "Program ID",
+      "pda": "Contract PDA",
+      "onChainStatus": "On-chain status",
+      "producerReference": "Producer reference",
+      "created": "Created",
+      "updated": "Last verification / update",
+      "createTx": "Create transaction",
+      "verifyTx": "Verification transaction",
+      "notRecorded": "—",
+      "viewContract": "View Contract on Solana Explorer",
+      "viewCreateTx": "View Creation Transaction",
+      "viewVerifyTx": "View Verification Transaction"
     },
     "map": {
       "title": "Field schematic",
@@ -367,7 +397,24 @@
   "regulator": {
     "title": "Regulator View",
     "eyebrow": "Supervisory / Oversight Console",
-    "description": "A dedicated read-only view of system provenance, coverage, token supply and compliance. Later records will cite Solana Devnet transactions.",
+    "description": "A dedicated read-only view of system provenance, coverage, token supply and compliance, with Solana Devnet proof for the demonstration contract.",
+    "auditIntro": "Application events and Solana Devnet blockchain events. Application timestamps for the 2027 wheat programme are demonstration records.",
+    "chainProofTitle": "On-chain proof",
+    "chainProofIntro": "Business record plus immutable technical evidence for DAC-2027-0001.",
+    "chainProofUnavailable": "Blockchain proof is temporarily unavailable. Application records remain visible.",
+    "chainProofMissing": "No on-chain proof is recorded for DAC-2027-0001.",
+    "chainProof": {
+      "contract": "Digital contract",
+      "applicationStatus": "Application status",
+      "blockchainProof": "Blockchain proof",
+      "programId": "Program ID",
+      "pda": "PDA",
+      "lastEvent": "Last blockchain event",
+      "eventVerified": "Contract Verified",
+      "explorer": "Explorer",
+      "viewTx": "View verification transaction",
+      "viewAccount": "View contract account"
+    },
     "overview": "System overview",
     "contracts": "Contracts",
     "pools": "Pools",
@@ -377,7 +424,6 @@
     "coverageAlerts": "Coverage alerts",
     "lenses": "Supervisory lenses",
     "auditTitle": "Audit trail",
-    "auditIntro": "Control events for the 2027 wheat programme. Timestamps are mock records. Solana transaction signature, program ID and PDA can be added to this ledger later.",
     "exceptions": "Exceptions / Alerts",
     "noCoverageBreaches": "No active coverage breaches",
     "blockedTitle": "Blocked participants",
@@ -402,6 +448,9 @@
   },
   "audit": {
     "actorApplication": "Application",
+    "actorSolanaDevnet": "Solana Devnet",
+    "kindApplication": "Application Event",
+    "kindBlockchain": "Blockchain Event",
     "statusCompleted": "Completed",
     "notRecorded": "—",
     "empty": "No audit events for this record.",
@@ -440,6 +489,14 @@
     "tokenPrepared": {
       "title": "Token issuance prepared",
       "detail": "WHEAT-2027 series prepared. On-chain issuance is not yet deployed."
+    },
+    "contractRegisteredOnChain": {
+      "title": "Contract Registered On-Chain",
+      "detail": "DAC-2027-0001 created on Solana Devnet."
+    },
+    "contractVerifiedOnChain": {
+      "title": "Contract Verified On-Chain",
+      "detail": "DAC-2027-0001 verified on Solana Devnet."
     }
   },
   "errors": {

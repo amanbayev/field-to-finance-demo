@@ -4,5 +4,6 @@ declare namespace NodeJS {
     NEXT_PUBLIC_SOLANA_NETWORK?: string;
     NEXT_PUBLIC_SOLANA_RPC_URL?: string;
     NEXT_PUBLIC_BLOCKCHAIN_PROVIDER?: string;
+    NEXT_PUBLIC_SOLANA_REGISTRY_PROGRAM_ID?: string;
   }
 }

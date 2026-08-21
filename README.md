@@ -12,13 +12,65 @@ Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
 ## Current phase
 
-**Phase 0.2 — Public deployment foundation**
+**Phase 1 — Solana Devnet foundation and first on-chain Digital Agricultural Contract**
 
-Phase 0 public UI and Phase 0.1 localization, plus a public Vercel deployment and documented environment configuration.
+`DAC-2027-0001` is registered and verified on **Solana Devnet** by the `agricultural_registry` program. The public contract page reads live proof. Token-2022 issuance, pools, DvP and financing remain off-chain placeholders.
 
-Phase 0 still uses **mock blockchain data**. Solana Devnet integration begins in Phase 1. The public URL stays the same as later phases are deployed.
+Phase 0–0.3 product UI is preserved. Production `https://f2f.amanbayev.pro` should keep serving that UI until this branch is preview-QA’d and then merged.
 
-Phase 1 (Solana Devnet connection) has not been started.
+## Solana workspace
+
+Anchor work lives in `solana/` and is compiled in **WSL Ubuntu**, not native Windows.
+
+```
+solana/
+  Anchor.toml
+  programs/agricultural_registry/
+  scripts/register-demo.mjs
+```
+
+Program: `agricultural_registry`  
+Network: Solana Devnet only  
+PDA seeds: `["digital_ag_contract", contract_id]`  
+Program ID: [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet)
+
+`DAC-2027-0001` on Devnet:
+
+| Item | Value |
+| --- | --- |
+| PDA | [`mbbSSan56m8GZ7Qd5W9qEs8ov5c3R7qH1TAvSgY2K1T`](https://explorer.solana.com/address/mbbSSan56m8GZ7Qd5W9qEs8ov5c3R7qH1TAvSgY2K1T?cluster=devnet) |
+| Create tx | [`3Nwom4n…UFfo`](https://explorer.solana.com/tx/3Nwom4nYQTNtwp8iSzPHEnHxK1F2L7phf6kRBUdGB2h7m1JJxsHuN8ygpQM3cmMZxeKMJQeCkuM3diyWmmigUFfo?cluster=devnet) |
+| Verify tx | [`bMy4TH3…vDy5`](https://explorer.solana.com/tx/bMy4TH3uosXjBR2CpchADUQiiCpkkAzUSGVKNJhjwF88d5UHnFiAUDsc6ENJPaSypqAemWwxDk8nGCDpZVfvDy5?cluster=devnet) |
+| On-chain status | Verified |
+| Producer reference | `PRODUCER-0001` (not the legal name) |
+
+On-chain proof is **not** the full business record. The chain stores a producer reference (`PRODUCER-0001`), crop, season, area, volume, quality class and region. It does **not** store legal names, BIN/IIN, KYC documents or financials.
+
+### WSL toolchain (inspected)
+
+- Ubuntu 26.04 on WSL2
+- rustc 1.89.0 (workspace `rust-toolchain.toml`) / host rustc 1.98.0
+- solana-cli 3.1.10
+- avm 1.1.2
+- anchor-cli 1.1.2
+
+Source of truth is this Git repository. Anchor `build`/`test`/`deploy` run from a Linux-native copy at `~/src/field-to-finance-demo/solana` because `/mnt/c` is slow for Rust.
+
+### Test / deploy / register
+
+```bash
+# WSL
+cd ~/src/field-to-finance-demo/solana
+anchor test
+anchor deploy --provider.cluster devnet --provider.wallet ~/.config/solana/id.json
+node /mnt/c/Users/user/field-to-finance-demo/solana/scripts/register-demo.mjs
+```
+
+Development wallets stay in `~/.config/solana/` and are never committed. Fund them with Devnet SOL only.
+
+Public app reads: `SolanaBlockchainProvider` via `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana`. It does **not** sign transactions. Admin create/verify runs from the script above.
+
+Explorer links always use `cluster=devnet`.
 
 ## Languages
 
@@ -89,6 +141,8 @@ Example:
 - shadcn/ui
 - next-intl
 - npm
+- `@solana/web3.js` (server-side Devnet reads)
+- Anchor 1.1.2 + Solana CLI 3.1.10 (WSL)
 
 Inspected local toolchain when this project was scaffolded:
 
@@ -121,12 +175,15 @@ src/
 ```ts
 interface BlockchainProvider {
   getNetworkStatus()
+  getDigitalAgriculturalContract(contractId)
+  createDigitalAgriculturalContract(...)
+  verifyDigitalAgriculturalContract(...)
+  getTransaction(signature)
   issueToken()
-  getTransaction()
 }
 ```
 
-Phase 0 and 0.2 use `MockBlockchainProvider`, selected by `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=mock` (the default). A later `SolanaBlockchainProvider` can implement the same interface without rewriting contracts, pools, coverage or UI flows. If the Solana provider name is set before Phase 1 exists, the app stays on mock and does not fail.
+`NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana` selects `SolanaBlockchainProvider` (read-only on Vercel). `mock` remains available for local fallback. Program ID, IDL and PDA derivation live in `src/adapters/blockchain/solana/`. Signing keypairs never appear in `NEXT_PUBLIC_*`.
 
 ### Compliance adapters
 
@@ -172,16 +229,7 @@ npm run start
 
 ## Future Solana architecture
 
-Target network: **Solana Devnet**.
-
-Planned split:
-
-1. Keep domain objects (`DigitalAgriculturalContract`, `ContractPool`, `AgriculturalToken`, `ContractCoverage`) chain-agnostic.
-2. Implement `SolanaBlockchainProvider` for network status, Token-2022 issuance, and transaction lookup.
-3. Attach Solana signatures to `AuditEvent` records when they exist.
-4. Keep the UI “Issue on Solana” action disabled until Phase 1.
-
-No program, wallet adapter, or transaction construction is included in Phase 0.
+Phase 1 is the registry/proof layer only. Later phases may add Token-2022 issuance, pools, DvP and financing **without** putting those instructions in `agricultural_registry`.
 
 ## Future compliance architecture
 
@@ -250,11 +298,12 @@ Public variables (safe to expose in the browser). Copy `.env.example` to `.env.l
 NEXT_PUBLIC_APP_ENV=demo
 NEXT_PUBLIC_SOLANA_NETWORK=devnet
 NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
-NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=mock
+NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana
+NEXT_PUBLIC_SOLANA_REGISTRY_PROGRAM_ID=E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT
 ```
 
 These are also set on the Vercel project for Production, Preview, and Development.
 
-Defaults live in `src/lib/public-env.ts`. The application must not crash if future Solana variables are absent: missing values fall back to the demo defaults above, and `MockBlockchainProvider` remains active in Phase 0.2.
+Defaults live in `src/lib/public-env.ts`. The application must not crash if Solana RPC is unreachable: pages still render the off-chain business record, and the proof panel shows a temporary unavailability state.
 
 Do not put private keys, seed phrases, wallet JSON, or secret API credentials in `NEXT_PUBLIC_*` variables. Those would be inlined into the client bundle.

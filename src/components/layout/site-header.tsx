@@ -6,7 +6,7 @@ import { productName } from "@/lib/navigation";
 
 export async function SiteHeader() {
   const t = await getTranslations();
-  const network = blockchainProvider.getNetworkStatus();
+  const network = await blockchainProvider.getNetworkStatus();
 
   return (
     <header className="border-b border-border bg-card">

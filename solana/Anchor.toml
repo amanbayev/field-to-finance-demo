@@ -1,0 +1,22 @@
+skip_local_validator = true
+
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+agricultural_registry = "E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT"
+
+[programs.devnet]
+agricultural_registry = "E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]

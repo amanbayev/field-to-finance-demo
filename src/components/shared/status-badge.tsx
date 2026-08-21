@@ -14,6 +14,8 @@ const positive = new Set([
   "CLEAR",
   "CONNECTED",
   "NORMAL",
+  "ON_CHAIN",
+  "VERIFIED_ON_CHAIN",
 ]);
 
 const caution = new Set([
@@ -29,6 +31,8 @@ const caution = new Set([
   "NOT_APPLICABLE",
   "MOCK",
   "NONE",
+  "OFF_CHAIN",
+  "PROOF_UNAVAILABLE",
 ]);
 
 const negative = new Set([

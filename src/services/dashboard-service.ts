@@ -8,9 +8,9 @@ export interface DashboardSnapshot {
   network: NetworkStatus;
 }
 
-export function getDashboardSnapshot(): DashboardSnapshot {
+export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
   return {
     metrics: dashboardMetrics,
-    network: blockchainProvider.getNetworkStatus(),
+    network: await blockchainProvider.getNetworkStatus(),
   };
 }

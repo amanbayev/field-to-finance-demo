@@ -2,15 +2,16 @@
  * Public runtime configuration for the Field to Finance demo.
  *
  * These values are safe to expose in the browser (`NEXT_PUBLIC_*`).
- * Missing variables must never crash the app — Phase 1 Solana settings are
- * optional until a real chain adapter is wired.
+ * Missing variables must never crash the app. Private keys must never appear
+ * in NEXT_PUBLIC_* values.
  */
 
 export const PUBLIC_ENV_DEFAULTS = {
   appEnv: "demo",
   solanaNetwork: "devnet",
   solanaRpcUrl: "https://api.devnet.solana.com",
-  blockchainProvider: "mock",
+  blockchainProvider: "solana",
+  registryProgramId: "E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT",
 } as const;
 
 export type PublicAppEnv = "demo" | "development" | "production" | (string & {});
@@ -26,6 +27,7 @@ export interface PublicEnv {
   solanaNetwork: PublicSolanaNetwork;
   solanaRpcUrl: string;
   blockchainProvider: PublicBlockchainProvider;
+  registryProgramId: string;
 }
 
 function readPublic(value: string | undefined, fallback: string): string {
@@ -50,6 +52,10 @@ export function getPublicEnv(): PublicEnv {
     blockchainProvider: readPublic(
       process.env.NEXT_PUBLIC_BLOCKCHAIN_PROVIDER,
       PUBLIC_ENV_DEFAULTS.blockchainProvider,
+    ),
+    registryProgramId: readPublic(
+      process.env.NEXT_PUBLIC_SOLANA_REGISTRY_PROGRAM_ID,
+      PUBLIC_ENV_DEFAULTS.registryProgramId,
     ),
   };
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
@@ -13,6 +15,7 @@ import type { AppLocale } from "@/i18n/config";
 import { formatLedgerTimestamp } from "@/lib/format";
 import { entityHref } from "@/lib/entity";
 import { lookupMessage } from "@/i18n/t-dynamic";
+import { explorerTxUrl, shortenKey } from "@/adapters/blockchain";
 import type { AuditEvent } from "@/domain";
 
 export function AuditTrail({ events }: { events: AuditEvent[] }) {
@@ -42,6 +45,8 @@ export function AuditTrail({ events }: { events: AuditEvent[] }) {
       <TableBody>
         {events.map((event) => {
           const href = entityHref(event.relatedEntityType, event.relatedEntityId);
+          const source = event.source ?? "application";
+          const reference = event.reference ?? event.id;
           return (
             <TableRow key={event.id}>
               <StickyCell className="font-tabular text-xs text-muted-foreground">
@@ -68,18 +73,35 @@ export function AuditTrail({ events }: { events: AuditEvent[] }) {
                   t("notRecorded")
                 )}
               </TableCell>
-              <TableCell>{t("actorApplication")}</TableCell>
+              <TableCell>
+                {source === "blockchain"
+                  ? t("actorSolanaDevnet")
+                  : t("actorApplication")}
+              </TableCell>
               <TableCell>
                 <span className="inline-flex items-center gap-1.5 text-xs">
                   <span
                     aria-hidden
                     className="size-1.5 shrink-0 rounded-full bg-primary"
                   />
-                  {t("statusCompleted")}
+                  {source === "blockchain"
+                    ? t("kindBlockchain")
+                    : t("kindApplication")}
                 </span>
               </TableCell>
-              <TableCell className="font-tabular text-xs uppercase">
-                {event.id}
+              <TableCell className="font-tabular text-xs">
+                {source === "blockchain" ? (
+                  <a
+                    href={explorerTxUrl(reference)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {shortenKey(reference, 6)}
+                  </a>
+                ) : (
+                  <span className="uppercase">{reference}</span>
+                )}
               </TableCell>
             </TableRow>
           );

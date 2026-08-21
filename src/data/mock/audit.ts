@@ -7,6 +7,8 @@ export const auditEvents: AuditEvent[] = [
     eventKey: "contractCreated",
     relatedEntityType: "contract",
     relatedEntityId: "DAC-2027-0001",
+    source: "application",
+    reference: "AUD-001",
   },
   {
     id: "aud-002",
