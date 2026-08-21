@@ -37,13 +37,26 @@
 //! - verification_authority: 32
 //! - bump:                   1
 //!
+//! ContractPoolAccount PDA: `[b"contract_pool", pool_id.as_bytes()]`
+//! ContractAllocationAccount PDA: `[b"contract_allocation", contract_id, pool_id]`
+//! ContractAllocationIndexAccount PDA: `[b"allocation_index", contract_id]`
+//!
+//! Allocation totals live on the index account, not on the Phase 1 contract
+//! layout, so existing DigitalAgriculturalContractAccount records remain
+//! readable after program upgrade.
+//!
 //! On-chain proof is not the full business record: no legal names, BIN/IIN,
-//! KYC documents, or financial statements are stored.
+//! KYC documents, or financial statements are stored. Coverage math stays
+//! off-chain; only a 32-byte snapshot hash is anchored on the pool.
 
 pub const CONTRACT_SEED: &[u8] = b"digital_ag_contract";
 pub const REGISTRY_SEED: &[u8] = b"registry_config";
+pub const POOL_SEED: &[u8] = b"contract_pool";
+pub const ALLOCATION_SEED: &[u8] = b"contract_allocation";
+pub const ALLOCATION_INDEX_SEED: &[u8] = b"allocation_index";
 
 pub const MAX_CONTRACT_ID: usize = 32;
+pub const MAX_POOL_ID: usize = 32;
 pub const MAX_PRODUCER_REFERENCE: usize = 32;
 pub const MAX_CROP: usize = 32;
 pub const MAX_QUALITY_CLASS: usize = 32;
@@ -51,3 +64,4 @@ pub const MAX_REGION: usize = 32;
 
 pub const MIN_SEASON: u16 = 2020;
 pub const MAX_SEASON: u16 = 2040;
+pub const MAX_HAIRCUT_BPS: u16 = 10_000;

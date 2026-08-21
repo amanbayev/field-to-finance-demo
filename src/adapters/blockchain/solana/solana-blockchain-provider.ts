@@ -5,13 +5,20 @@ import {
 } from "@solana/web3.js";
 import { getPublicEnv, solanaNetworkLabel } from "@/lib/public-env";
 import {
-  ON_CHAIN_DEMO_CONTRACT_ID,
+  ON_CHAIN_DEMO_CONTRACT_IDS,
+  ON_CHAIN_DEMO_POOL_ID,
 } from "./config";
 import {
+  decodeAllocationAccount,
+  decodeAllocationIndexAccount,
   decodeContractAccount,
+  decodePoolAccount,
+  deriveAllocationIndexPda,
+  deriveAllocationPda,
   deriveContractPda,
+  derivePoolPda,
 } from "./codec";
-import { recordedContractProof } from "./recorded-proof";
+import { recordedContractProof, recordedPoolProof } from "./recorded-proof";
 import type {
   BlockchainProvider,
   BlockchainTransaction,
@@ -19,7 +26,11 @@ import type {
   IssueTokenRequest,
   IssueTokenResult,
   NetworkStatus,
+  OnChainAllocationLookup,
   OnChainContractLookup,
+  OnChainCoverageProofLookup,
+  OnChainPoolContractsLookup,
+  OnChainPoolLookup,
   WriteInstructionResult,
 } from "../types";
 
@@ -48,19 +59,26 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
     try {
       const connection = this.connection();
       const programId = this.programId();
-      const [slot, programAccount, demo] = await Promise.all([
+      const lookups = await Promise.all([
         withTimeout(connection.getSlot("confirmed"), FETCH_MS),
         withTimeout(connection.getAccountInfo(programId, "confirmed"), FETCH_MS),
-        this.getDigitalAgriculturalContract(ON_CHAIN_DEMO_CONTRACT_ID),
+        ...ON_CHAIN_DEMO_CONTRACT_IDS.map((id) =>
+          this.getDigitalAgriculturalContract(id),
+        ),
       ]);
-
+      const slot = lookups[0] as number;
+      const programAccount = lookups[1] as Awaited<
+        ReturnType<Connection["getAccountInfo"]>
+      >;
+      const demos = lookups.slice(2) as OnChainContractLookup[];
       const registryProgramDeployed = Boolean(programAccount?.executable);
       return {
         network,
         connected: Number.isFinite(slot),
         blockchainDeployed: registryProgramDeployed,
         registryProgramDeployed,
-        onChainDemoContracts: demo.status === "found" ? 1 : 0,
+        onChainDemoContracts: demos.filter((item) => item.status === "found")
+          .length,
       };
     } catch {
       return {
@@ -115,6 +133,168 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
     } catch {
       return { status: "unavailable" };
     }
+  }
+
+  async getContractPool(poolId: string): Promise<OnChainPoolLookup> {
+    try {
+      const connection = this.connection();
+      const programId = this.programId();
+      const pda = derivePoolPda(programId, poolId);
+      const account = await withTimeout(
+        connection.getAccountInfo(pda, "confirmed"),
+        FETCH_MS,
+      );
+      if (!account) {
+        return { status: "missing" };
+      }
+      if (!account.owner.equals(programId)) {
+        return { status: "unavailable" };
+      }
+
+      const pool = decodePoolAccount(
+        Buffer.from(account.data),
+        pda.toBase58(),
+        programId.toBase58(),
+      );
+      const recorded = recordedPoolProof[poolId] ?? {};
+      return {
+        status: "found",
+        pool,
+        createSignature: recorded.createSignature,
+        coverageSignature: recorded.coverageSignature,
+        activateSignature: recorded.activateSignature,
+      };
+    } catch {
+      return { status: "unavailable" };
+    }
+  }
+
+  async getContractAllocation(
+    contractId: string,
+  ): Promise<OnChainAllocationLookup> {
+    try {
+      const connection = this.connection();
+      const programId = this.programId();
+      const contractPda = deriveContractPda(programId, contractId);
+      const indexPda = deriveAllocationIndexPda(programId, contractId);
+      const allocationPda = deriveAllocationPda(
+        programId,
+        contractId,
+        ON_CHAIN_DEMO_POOL_ID,
+      );
+
+      const [contractAccount, indexAccount, allocationAccount] =
+        await Promise.all([
+          withTimeout(connection.getAccountInfo(contractPda, "confirmed"), FETCH_MS),
+          withTimeout(connection.getAccountInfo(indexPda, "confirmed"), FETCH_MS),
+          withTimeout(
+            connection.getAccountInfo(allocationPda, "confirmed"),
+            FETCH_MS,
+          ),
+        ]);
+
+      if (!contractAccount) {
+        return { status: "missing" };
+      }
+      if (!contractAccount.owner.equals(programId)) {
+        return { status: "unavailable" };
+      }
+
+      const contract = decodeContractAccount(
+        Buffer.from(contractAccount.data),
+        contractPda.toBase58(),
+        programId.toBase58(),
+      );
+
+      const index =
+        indexAccount && indexAccount.owner.equals(programId)
+          ? decodeAllocationIndexAccount(
+              Buffer.from(indexAccount.data),
+              indexPda.toBase58(),
+              programId.toBase58(),
+            )
+          : undefined;
+      const allocation =
+        allocationAccount && allocationAccount.owner.equals(programId)
+          ? decodeAllocationAccount(
+              Buffer.from(allocationAccount.data),
+              allocationPda.toBase58(),
+              programId.toBase58(),
+            )
+          : undefined;
+
+      const allocated = index?.allocatedVolumeTonnes ?? 0;
+      const recorded = recordedContractProof[contractId] ?? {};
+
+      return {
+        status: "found",
+        allocation,
+        index,
+        expectedVolumeTonnes: contract.expectedVolumeTonnes,
+        remainingVolumeTonnes: Math.max(
+          0,
+          contract.expectedVolumeTonnes - allocated,
+        ),
+        allocateSignature: recorded.allocateSignature,
+      };
+    } catch {
+      return { status: "unavailable" };
+    }
+  }
+
+  async getPoolContracts(
+    poolId: string,
+    contractIds: string[],
+  ): Promise<OnChainPoolContractsLookup> {
+    try {
+      const connection = this.connection();
+      const programId = this.programId();
+      const accounts = await Promise.all(
+        contractIds.map(async (contractId) => {
+          const pda = deriveAllocationPda(programId, contractId, poolId);
+          const account = await withTimeout(
+            connection.getAccountInfo(pda, "confirmed"),
+            FETCH_MS,
+          );
+          if (!account || !account.owner.equals(programId)) {
+            return null;
+          }
+          return decodeAllocationAccount(
+            Buffer.from(account.data),
+            pda.toBase58(),
+            programId.toBase58(),
+          );
+        }),
+      );
+      return {
+        status: "found",
+        allocations: accounts.filter(
+          (item): item is NonNullable<typeof item> => item !== null,
+        ),
+      };
+    } catch {
+      return { status: "unavailable", allocations: [] };
+    }
+  }
+
+  async getCoverageProof(poolId: string): Promise<OnChainCoverageProofLookup> {
+    const lookup = await this.getContractPool(poolId);
+    if (lookup.status !== "found" || !lookup.pool) {
+      return {
+        status: lookup.status,
+        coverageModel: "off-chain",
+        snapshotAnchored: false,
+      };
+    }
+    const hash = lookup.pool.coverageSnapshotHash;
+    const snapshotAnchored = hash.some((byte) => byte !== 0);
+    return {
+      status: "found",
+      pool: lookup.pool,
+      snapshotHashHex: lookup.pool.coverageSnapshotHashHex,
+      coverageModel: "off-chain",
+      snapshotAnchored,
+    };
   }
 
   async createDigitalAgriculturalContract(

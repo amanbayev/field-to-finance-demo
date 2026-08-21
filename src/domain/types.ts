@@ -104,6 +104,11 @@ export interface RiskAdjustment {
   key: string;
   label: string;
   percentagePoints: number;
+  basisPoints: number;
+  source: string;
+  status: string;
+  lastUpdated: string;
+  evidenceReference: string;
 }
 
 export interface ContractCoverage {
@@ -111,10 +116,15 @@ export interface ContractCoverage {
   grossVolumeTonnes: number;
   adjustments: RiskAdjustment[];
   totalHaircutPercent: number;
+  totalHaircutBps: number;
   eligibleCoverageTonnes: number;
   maximumTokenIssuance: number;
   outstandingTokens: number;
-  coverageRatioPercent: number;
+  coverageRatioPercent: number | null;
+  tokenIssuanceStarted: boolean;
+  snapshotHashHex?: string;
+  snapshotVersion: number;
+  calculatedAt: string;
   status: CoverageStatus;
 }
 
@@ -187,7 +197,10 @@ export type AuditEventKey =
   | "coverageCalculated"
   | "tokenPrepared"
   | "contractRegisteredOnChain"
-  | "contractVerifiedOnChain";
+  | "contractVerifiedOnChain"
+  | "poolCreatedOnChain"
+  | "contractAllocatedOnChain"
+  | "coverageSnapshotAnchored";
 
 export interface AuditEvent {
   id: string;
@@ -201,11 +214,15 @@ export interface AuditEvent {
 
 export interface DashboardMetrics {
   digitalContracts: number;
+  verifiedOnChainContracts: number;
+  contractPools: number;
   contractVolumeTonnes: number;
+  grossPoolVolumeTonnes: number;
   eligibleCoverageTonnes: number;
   tokenizedVolumeTonnes: number;
+  tokenIssuanceStarted: boolean;
   activeFinancing: Money;
-  averageCoverageRatioPercent: number;
+  averageCoverageRatioPercent: number | null;
 }
 
 export interface SystemOverview {

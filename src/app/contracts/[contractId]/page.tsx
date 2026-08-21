@@ -16,6 +16,7 @@ import { formatInteger, formatScore } from "@/lib/format";
 import { blockchainProvider } from "@/services/providers";
 import { getContract, listContractIds } from "@/services/contract-service";
 import { listLedgerEventsForContract } from "@/services/regulator-service";
+import { PoolAllocationPanel } from "@/components/contracts/pool-allocation-panel";
 
 export const dynamicParams = false;
 
@@ -54,6 +55,7 @@ export default async function ContractDetailPage({
   const onChain = await blockchainProvider.getDigitalAgriculturalContract(
     contract.id,
   );
+  const allocation = await blockchainProvider.getContractAllocation(contract.id);
 
   return (
     <div>
@@ -253,6 +255,12 @@ export default async function ContractDetailPage({
       <PageSection title={t("sections.audit")}>
         <AuditTrail events={relatedAudit} />
       </PageSection>
+
+      <PoolAllocationPanel
+        lookup={allocation}
+        locale={locale}
+        expectedVolumeTonnes={contract.production.expectedProductionTonnes}
+      />
 
       <OnChainProofPanel lookup={onChain} locale={locale} />
     </div>

@@ -49,10 +49,10 @@ export default async function TokensPage() {
               </Link>
             ),
           },
-          {
-            label: t("fields.issued"),
-            value: formatInteger(token.issued, locale),
-          },
+            {
+              label: t("fields.issued"),
+              value: t("issuanceNotStarted"),
+            },
           {
             label: t("fields.maximumIssuance"),
             value: formatInteger(token.maximumIssuance, locale),

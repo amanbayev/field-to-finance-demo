@@ -9,20 +9,20 @@ export const producers: Producer[] = [
   },
   {
     id: "prd-kostanay-grain",
-    legalName: "Kostanay Grain LLP",
+    legalName: "Steppe Grain LLP",
     region: "Kostanay",
     score: { value: 79, maxValue: 100, asOf: "2026-06-01" },
   },
   {
     id: "prd-north-steppe",
-    legalName: "North Steppe Farming JSC",
+    legalName: "North Fields LLP",
     region: "North Kazakhstan",
     score: { value: 88, maxValue: 100, asOf: "2026-06-01" },
   },
   {
     id: "prd-pavlodar-harvest",
-    legalName: "Pavlodar Harvest LLP",
-    region: "Pavlodar",
+    legalName: "Saryarka Agro LLP",
+    region: "Akmola",
     score: { value: 76, maxValue: 100, asOf: "2026-06-01" },
   },
   {

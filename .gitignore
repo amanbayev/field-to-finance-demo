@@ -52,6 +52,7 @@ solana/target/
 solana/.anchor/
 solana/test-ledger/
 solana/.surfpool/
+solana/scripts/phase2-evidence.json
 
 # vercel
 .vercel

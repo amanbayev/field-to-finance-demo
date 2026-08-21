@@ -16,7 +16,7 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatScore } from "@/lib/format";
 import {
-  ON_CHAIN_DEMO_CONTRACT_ID,
+  ON_CHAIN_DEMO_CONTRACT_IDS,
   isOnChainDemoContract,
   type OnChainContractLookup,
 } from "@/adapters/blockchain";
@@ -34,9 +34,16 @@ export default async function ContractsPage() {
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
   const items = listContracts();
-  const demoProof = await blockchainProvider.getDigitalAgriculturalContract(
-    ON_CHAIN_DEMO_CONTRACT_ID,
+  const proofEntries = await Promise.all(
+    ON_CHAIN_DEMO_CONTRACT_IDS.map(
+      async (id) =>
+        [id, await blockchainProvider.getDigitalAgriculturalContract(id)] as const,
+    ),
   );
+  const proofs = Object.fromEntries(proofEntries) as Record<
+    string,
+    OnChainContractLookup
+  >;
 
   return (
     <div>
@@ -89,7 +96,7 @@ export default async function ContractsPage() {
               </TableCell>
               <TableCell>
                 <StatusBadge
-                  value={proofStatusForContract(contract.id, demoProof)}
+                  value={proofStatusForContract(contract.id, proofs)}
                 />
               </TableCell>
               <TableCell>
@@ -105,18 +112,19 @@ export default async function ContractsPage() {
 
 function proofStatusForContract(
   contractId: string,
-  demoProof: OnChainContractLookup,
+  proofs: Record<string, OnChainContractLookup>,
 ): string {
   if (!isOnChainDemoContract(contractId)) {
     return "OFF_CHAIN";
   }
-  if (demoProof.status === "unavailable") {
+  const proof = proofs[contractId];
+  if (!proof || proof.status === "unavailable") {
     return "PROOF_UNAVAILABLE";
   }
-  if (demoProof.status !== "found" || !demoProof.contract) {
+  if (proof.status !== "found" || !proof.contract) {
     return "OFF_CHAIN";
   }
-  return demoProof.contract.status === "Verified"
+  return proof.contract.status === "Verified"
     ? "VERIFIED_ON_CHAIN"
     : "ON_CHAIN";
 }

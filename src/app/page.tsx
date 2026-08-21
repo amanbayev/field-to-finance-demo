@@ -6,7 +6,7 @@ import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import type { AppLocale } from "@/i18n/config";
-import { formatInteger, formatPercent } from "@/lib/format";
+import { formatInteger } from "@/lib/format";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -37,10 +37,8 @@ export default async function DashboardPage() {
         />
         <MetricCell
           emphasis="primary"
-          label={t("dashboard.tokenizedVolume")}
-          value={t("units.tonnes", {
-            value: formatInteger(metrics.tokenizedVolumeTonnes, locale),
-          })}
+          label={t("dashboard.tokenIssuance")}
+          value={t("dashboard.tokenIssuanceNotStarted")}
         />
         <MetricCell
           emphasis="primary"
@@ -48,20 +46,24 @@ export default async function DashboardPage() {
           value={<DualMoney value={metrics.activeFinancing} />}
         />
       </MetricStrip>
-      <MetricStrip className="sm:grid-cols-3">
+      <MetricStrip className="sm:grid-cols-4">
         <MetricCell
-          label={t("dashboard.digitalContracts")}
-          value={formatInteger(metrics.digitalContracts, locale)}
+          label={t("dashboard.verifiedOnChain")}
+          value={formatInteger(metrics.verifiedOnChainContracts, locale)}
         />
         <MetricCell
-          label={t("dashboard.contractVolume")}
+          label={t("dashboard.contractPool")}
+          value={formatInteger(metrics.contractPools, locale)}
+        />
+        <MetricCell
+          label={t("dashboard.grossPoolVolume")}
           value={t("units.tonnes", {
-            value: formatInteger(metrics.contractVolumeTonnes, locale),
+            value: formatInteger(metrics.grossPoolVolumeTonnes, locale),
           })}
         />
         <MetricCell
-          label={t("dashboard.averageCoverageRatio")}
-          value={formatPercent(metrics.averageCoverageRatioPercent, locale)}
+          label={t("dashboard.digitalContracts")}
+          value={formatInteger(metrics.digitalContracts, locale)}
         />
       </MetricStrip>
 

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { CoveragePanel } from "@/components/pools/coverage-panel";
+import { DoubleUseControl } from "@/components/pools/double-use-control";
+import { PoolProofPanel } from "@/components/pools/pool-proof-panel";
 import { FactStrip } from "@/components/shared/fact-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
@@ -18,8 +20,8 @@ import {
 } from "@/components/ui/table";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
-import { formatInteger, formatScore } from "@/lib/format";
-import { getPool, listPoolIds } from "@/services/pool-service";
+import { formatInteger } from "@/lib/format";
+import { getPoolSnapshot, listPoolIds } from "@/services/pool-service";
 
 export const dynamicParams = false;
 
@@ -30,9 +32,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { poolId } = await params;
   const tCatalog = await getTranslations("catalog");
-  const detail = getPool(poolId);
   return {
-    title: detail ? lookupMessage(tCatalog, `pools.${detail.pool.id}`) : poolId,
+    title: lookupMessage(tCatalog, `pools.${poolId}`) || poolId,
   };
 }
 
@@ -46,18 +47,20 @@ export default async function PoolDetailPage({
   params: Promise<{ poolId: string }>;
 }) {
   const { poolId } = await params;
-  const detail = getPool(poolId);
+  const snapshot = await getPoolSnapshot(poolId);
 
-  if (!detail) {
+  if (!snapshot) {
     notFound();
   }
 
+  const { detail, onChainPool, coverageProof, poolContracts } = snapshot;
   const { pool, members, producerCount } = detail;
   const t = await getTranslations("pools");
   const tNav = await getTranslations("nav");
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
+  const verifiedCount = members.length;
 
   return (
     <div>
@@ -83,12 +86,12 @@ export default async function PoolDetailPage({
         items={[
           { label: t("columns.pool"), value: pool.id },
           {
-            label: t("contracts"),
-            value: formatInteger(pool.contractIds.length, locale),
+            label: t("cropSeason"),
+            value: `${pool.crop} · ${pool.season}`,
           },
           {
-            label: t("producers"),
-            value: formatInteger(producerCount, locale),
+            label: t("verifiedContracts"),
+            value: formatInteger(verifiedCount, locale),
           },
           {
             label: t("grossVolume"),
@@ -98,26 +101,32 @@ export default async function PoolDetailPage({
           },
           {
             label: t("columns.status"),
-            value: <StatusBadge value={pool.coverage.status} />,
+            value: (
+              <StatusBadge
+                value={
+                  onChainPool.pool
+                    ? onChainPool.pool.status.toUpperCase()
+                    : pool.coverage.status
+                }
+              />
+            ),
           },
         ]}
       />
 
-      <CoveragePanel coverage={pool.coverage} />
-
-      <PageSection title={t("composition")}>
+      <PageSection title={t("layers.pool")} description={t("layers.poolNote")}>
+        <div className="mb-4">
+          <DoubleUseControl />
+        </div>
         <Table className="min-w-[52rem]">
           <TableHeader>
             <TableRow>
               <StickyHead>{t("columns.contract")}</StickyHead>
               <TableHead>{t("columns.producer")}</TableHead>
-              <TableHead className="text-right">{t("columns.volume")}</TableHead>
-              <TableHead className="text-right">
-                {t("columns.producerScore")}
-              </TableHead>
-              <TableHead>{t("columns.monitoring")}</TableHead>
-              <TableHead>{t("columns.insurance")}</TableHead>
-              <TableHead>{t("columns.eligibility")}</TableHead>
+              <TableHead className="text-right">{t("columns.expected")}</TableHead>
+              <TableHead className="text-right">{t("columns.allocated")}</TableHead>
+              <TableHead>{t("columns.status")}</TableHead>
+              <TableHead>{t("columns.proof")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -140,25 +149,45 @@ export default async function PoolDetailPage({
                   })}
                 </TableCell>
                 <TableCell className="text-right font-tabular">
-                  {formatScore(
-                    member.producer.score.value,
-                    member.producer.score.maxValue,
-                  )}
+                  {tUnits("tonnes", {
+                    value: formatInteger(
+                      member.allocatedVolumeTonnes ?? member.volumeTonnes,
+                      locale,
+                    ),
+                  })}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge value={member.contract.monitoring.satellite} />
+                  <StatusBadge value={member.contract.status} />
                 </TableCell>
                 <TableCell>
-                  <StatusBadge value={member.contract.insurance.status} />
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={member.eligibility} />
+                  <StatusBadge
+                    value={
+                      poolContracts.status === "unavailable"
+                        ? "PROOF_UNAVAILABLE"
+                        : member.allocatedVolumeTonnes != null
+                          ? "ON_CHAIN"
+                          : "OFF_CHAIN"
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </PageSection>
+
+      <PageSection
+        title={t("layers.coverage")}
+        description={t("layers.coverageNote")}
+      >
+        <CoveragePanel coverage={pool.coverage} />
+      </PageSection>
+
+      <PoolProofPanel
+        lookup={onChainPool}
+        coverage={coverageProof}
+        locale={locale}
+      />
     </div>
   );
 }

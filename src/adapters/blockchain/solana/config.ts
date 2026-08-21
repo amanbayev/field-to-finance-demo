@@ -3,13 +3,24 @@ export const REGISTRY_PROGRAM_ID =
 
 export const CONTRACT_PDA_SEED = "digital_ag_contract";
 export const REGISTRY_PDA_SEED = "registry_config";
+export const POOL_PDA_SEED = "contract_pool";
+export const ALLOCATION_PDA_SEED = "contract_allocation";
+export const ALLOCATION_INDEX_PDA_SEED = "allocation_index";
 
 export const ON_CHAIN_DEMO_CONTRACT_ID = "DAC-2027-0001";
+export const ON_CHAIN_DEMO_CONTRACT_IDS = [
+  "DAC-2027-0001",
+  "DAC-2027-0002",
+  "DAC-2027-0003",
+  "DAC-2027-0004",
+] as const;
+
+export const ON_CHAIN_DEMO_POOL_ID = "POOL-WHEAT-2027-01";
 
 export const PROGRAM_NAME = "agricultural_registry";
 
 export function isOnChainDemoContract(contractId: string): boolean {
-  return contractId === ON_CHAIN_DEMO_CONTRACT_ID;
+  return (ON_CHAIN_DEMO_CONTRACT_IDS as readonly string[]).includes(contractId);
 }
 
 export function explorerAddressUrl(

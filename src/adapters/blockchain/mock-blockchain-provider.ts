@@ -6,7 +6,11 @@ import type {
   IssueTokenRequest,
   IssueTokenResult,
   NetworkStatus,
+  OnChainAllocationLookup,
   OnChainContractLookup,
+  OnChainCoverageProofLookup,
+  OnChainPoolContractsLookup,
+  OnChainPoolLookup,
   WriteInstructionResult,
 } from "./types";
 
@@ -30,6 +34,36 @@ export class MockBlockchainProvider implements BlockchainProvider {
   ): Promise<OnChainContractLookup> {
     void contractId;
     return { status: "missing" };
+  }
+
+  async getContractPool(poolId: string): Promise<OnChainPoolLookup> {
+    void poolId;
+    return { status: "missing" };
+  }
+
+  async getContractAllocation(
+    contractId: string,
+  ): Promise<OnChainAllocationLookup> {
+    void contractId;
+    return { status: "missing" };
+  }
+
+  async getPoolContracts(
+    poolId: string,
+    contractIds: string[],
+  ): Promise<OnChainPoolContractsLookup> {
+    void poolId;
+    void contractIds;
+    return { status: "missing", allocations: [] };
+  }
+
+  async getCoverageProof(poolId: string): Promise<OnChainCoverageProofLookup> {
+    void poolId;
+    return {
+      status: "missing",
+      coverageModel: "off-chain",
+      snapshotAnchored: false,
+    };
   }
 
   async createDigitalAgriculturalContract(

@@ -19,11 +19,12 @@ import {
 } from "@/components/ui/table";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
-import { formatInteger } from "@/lib/format";
+import { formatInteger, formatPercent } from "@/lib/format";
 import { listParticipantCompliance } from "@/services/compliance-service";
 import {
   explorerAddressUrl,
   explorerTxUrl,
+  ON_CHAIN_DEMO_POOL_ID,
   shortenKey,
 } from "@/adapters/blockchain";
 import { blockchainProvider } from "@/services/providers";
@@ -33,6 +34,8 @@ import {
   listLedgerEvents,
 } from "@/services/regulator-service";
 import { getPrimaryToken } from "@/services/token-service";
+import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
+import { DoubleUseControl } from "@/components/pools/double-use-control";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("regulator");
@@ -52,9 +55,12 @@ export default async function RegulatorPage() {
     (row) => row.record.eligibility === "BLOCKED",
   );
   const demoContract = getContract("DAC-2027-0001");
-  const onChain = await blockchainProvider.getDigitalAgriculturalContract(
-    "DAC-2027-0001",
-  );
+  const coverage = wheatPoolCoverageFromEngine();
+  const [onChain, poolLookup, network] = await Promise.all([
+    blockchainProvider.getDigitalAgriculturalContract("DAC-2027-0001"),
+    blockchainProvider.getContractPool(ON_CHAIN_DEMO_POOL_ID),
+    blockchainProvider.getNetworkStatus(),
+  ]);
 
   return (
     <div>
@@ -67,22 +73,44 @@ export default async function RegulatorPage() {
       <PageSection title={t("overview")} className="mt-0">
         <MetricStrip className="sm:grid-cols-2 lg:grid-cols-4">
           <MetricCell
-            label={t("contracts")}
-            value={formatInteger(overview.contracts, locale)}
+            label={t("verifiedContracts")}
+            value={formatInteger(network.onChainDemoContracts, locale)}
           />
           <MetricCell
-            label={t("pools")}
-            value={formatInteger(overview.pools, locale)}
+            label={t("activePools")}
+            value={formatInteger(1, locale)}
           />
           <MetricCell
-            label={t("tokenSeries")}
-            value={formatInteger(overview.tokenSeries, locale)}
+            label={t("grossVolume")}
+            value={formatInteger(coverage.grossVolumeTonnes, locale)}
           />
           <MetricCell
-            label={t("participants")}
-            value={formatInteger(overview.participants, locale)}
+            label={t("eligibleCoverage")}
+            value={formatInteger(coverage.eligibleCoverageTonnes, locale)}
           />
         </MetricStrip>
+        <MetricStrip className="mt-px sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCell
+            label={t("coverageHaircut")}
+            value={formatPercent(coverage.totalHaircutPercent, locale)}
+          />
+          <MetricCell
+            label={t("doubleUseExceptions")}
+            value={formatInteger(0, locale)}
+          />
+          <MetricCell
+            label={t("coverageBreaches")}
+            value={formatInteger(0, locale)}
+          />
+          <MetricCell
+            label={t("catalogContracts")}
+            value={formatInteger(overview.contracts, locale)}
+          />
+        </MetricStrip>
+      </PageSection>
+
+      <PageSection title={t("doubleUseTitle")}>
+        <DoubleUseControl />
       </PageSection>
 
       <PageSection title={t("exceptions")}>
@@ -142,7 +170,7 @@ export default async function RegulatorPage() {
             { label: tTokens("fields.instrument"), value: token.symbol },
             {
               label: tTokens("fields.issued"),
-              value: formatInteger(token.issued, locale),
+              value: t("tokenIssuanceNotStarted"),
             },
             {
               label: tTokens("fields.maximumIssuance"),
@@ -163,6 +191,73 @@ export default async function RegulatorPage() {
             value: <StatusBadge value={row.record.eligibility} />,
           }))}
         />
+      </PageSection>
+
+      <PageSection
+        title={t("poolProofTitle")}
+        description={t("poolProofIntro")}
+      >
+        {poolLookup.status === "found" && poolLookup.pool ? (
+          <DataList
+            items={[
+              {
+                label: t("poolProof.pool"),
+                value: (
+                  <Link
+                    href={`/pools/${ON_CHAIN_DEMO_POOL_ID}`}
+                    className="font-tabular text-xs text-primary hover:underline"
+                  >
+                    {ON_CHAIN_DEMO_POOL_ID}
+                  </Link>
+                ),
+              },
+              {
+                label: t("poolProof.pda"),
+                value: (
+                  <a
+                    href={explorerAddressUrl(poolLookup.pool.pda)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-tabular text-xs text-primary hover:underline"
+                  >
+                    {shortenKey(poolLookup.pool.pda)}
+                  </a>
+                ),
+              },
+              {
+                label: t("poolProof.snapshotHash"),
+                value: (
+                  <span className="break-all font-tabular text-xs">
+                    {poolLookup.pool.coverageSnapshotHashHex}
+                  </span>
+                ),
+              },
+              {
+                label: t("poolProof.updated"),
+                value: new Date(poolLookup.pool.updatedAt * 1000).toISOString(),
+              },
+              {
+                label: t("poolProof.explorer"),
+                value: (
+                  <a
+                    href={explorerAddressUrl(poolLookup.pool.pda)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {t("chainProof.viewAccount")}
+                  </a>
+                ),
+              },
+            ]}
+          />
+        ) : (
+          <EmptyState>
+            {poolLookup.status === "unavailable"
+              ? t("chainProofUnavailable")
+              : t("poolProofMissing")}
+          </EmptyState>
+        )}
       </PageSection>
 
       <PageSection
