@@ -84,9 +84,11 @@ export function AuditTrail({ events }: { events: AuditEvent[] }) {
                     aria-hidden
                     className="size-1.5 shrink-0 rounded-full bg-primary"
                   />
-                  {source === "blockchain"
-                    ? t("kindBlockchain")
-                    : t("kindApplication")}
+                  {event.displayStatus === "simulationOnly"
+                    ? t("kindSimulationOnly")
+                    : source === "blockchain"
+                      ? t("kindBlockchain")
+                      : t("kindApplication")}
                 </span>
               </TableCell>
               <TableCell className="font-tabular text-xs">

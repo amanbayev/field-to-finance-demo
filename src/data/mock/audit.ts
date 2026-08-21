@@ -51,5 +51,8 @@ export const auditEvents: AuditEvent[] = [
     eventKey: "tokenPrepared",
     relatedEntityType: "token",
     relatedEntityId: "tok-wheat-2027",
+    source: "application",
+    displayStatus: "simulationOnly",
+    reference: "AUD-007",
   },
 ];

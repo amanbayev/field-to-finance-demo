@@ -188,6 +188,8 @@ export interface FinancingPosition {
 
 export type AuditEventSource = "application" | "blockchain";
 
+export type AuditDisplayStatus = "application" | "blockchain" | "simulationOnly";
+
 export type AuditEventKey =
   | "contractCreated"
   | "producerVerified"
@@ -209,6 +211,7 @@ export interface AuditEvent {
   relatedEntityType?: string;
   relatedEntityId?: string;
   source?: AuditEventSource;
+  displayStatus?: AuditDisplayStatus;
   reference?: string;
 }
 

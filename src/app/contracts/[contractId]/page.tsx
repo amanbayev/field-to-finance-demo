@@ -51,11 +51,11 @@ export default async function ContractDetailPage({
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
+  const [onChain, allocation] = await Promise.all([
+    blockchainProvider.getDigitalAgriculturalContract(contract.id),
+    blockchainProvider.getContractAllocation(contract.id),
+  ]);
   const relatedAudit = await listLedgerEventsForContract(contract.id);
-  const onChain = await blockchainProvider.getDigitalAgriculturalContract(
-    contract.id,
-  );
-  const allocation = await blockchainProvider.getContractAllocation(contract.id);
 
   return (
     <div>
