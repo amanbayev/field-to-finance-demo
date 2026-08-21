@@ -109,7 +109,7 @@ export async function OnChainProofPanel({
           {
             label: t("proof.programId"),
             value: (
-              <ExplorerLink href={explorerAddressUrl(contract.programId)}>
+              <ExplorerLink href={explorerAddressUrl(contract.programId)} full>
                 {contract.programId}
               </ExplorerLink>
             ),
@@ -117,7 +117,7 @@ export async function OnChainProofPanel({
           {
             label: t("proof.pda"),
             value: (
-              <ExplorerLink href={explorerAddressUrl(contract.pda)}>
+              <ExplorerLink href={explorerAddressUrl(contract.pda)} full>
                 {contract.pda}
               </ExplorerLink>
             ),
@@ -225,9 +225,11 @@ export async function OnChainProofPanel({
 function ExplorerLink({
   href,
   children,
+  full = false,
 }: {
   href: string;
   children: string;
+  full?: boolean;
 }) {
   return (
     <a
@@ -237,7 +239,7 @@ function ExplorerLink({
       className="break-all font-tabular text-xs text-primary hover:underline"
       title={children}
     >
-      {shortenKey(children, 6)}
+      {full ? children : shortenKey(children, 6)}
     </a>
   );
 }
