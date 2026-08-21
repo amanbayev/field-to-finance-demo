@@ -15,8 +15,13 @@ import {
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatScore } from "@/lib/format";
-import { isOnChainDemoContract } from "@/adapters/blockchain";
+import {
+  ON_CHAIN_DEMO_CONTRACT_ID,
+  isOnChainDemoContract,
+  type OnChainContractLookup,
+} from "@/adapters/blockchain";
 import { listContracts } from "@/services/contract-service";
+import { blockchainProvider } from "@/services/providers";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("contracts");
@@ -29,6 +34,9 @@ export default async function ContractsPage() {
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
   const items = listContracts();
+  const demoProof = await blockchainProvider.getDigitalAgriculturalContract(
+    ON_CHAIN_DEMO_CONTRACT_ID,
+  );
 
   return (
     <div>
@@ -81,9 +89,7 @@ export default async function ContractsPage() {
               </TableCell>
               <TableCell>
                 <StatusBadge
-                  value={
-                    isOnChainDemoContract(contract.id) ? "ON_CHAIN" : "OFF_CHAIN"
-                  }
+                  value={proofStatusForContract(contract.id, demoProof)}
                 />
               </TableCell>
               <TableCell>
@@ -95,4 +101,22 @@ export default async function ContractsPage() {
       </Table>
     </div>
   );
+}
+
+function proofStatusForContract(
+  contractId: string,
+  demoProof: OnChainContractLookup,
+): string {
+  if (!isOnChainDemoContract(contractId)) {
+    return "OFF_CHAIN";
+  }
+  if (demoProof.status === "unavailable") {
+    return "PROOF_UNAVAILABLE";
+  }
+  if (demoProof.status !== "found" || !demoProof.contract) {
+    return "OFF_CHAIN";
+  }
+  return demoProof.contract.status === "Verified"
+    ? "VERIFIED_ON_CHAIN"
+    : "ON_CHAIN";
 }

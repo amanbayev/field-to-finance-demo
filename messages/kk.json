@@ -191,6 +191,7 @@
       "monitoring": "Мониторинг",
       "insurance": "Сақтандыру",
       "audit": "Аудит",
+      "businessRecord": "Шаруашылық жазба",
       "onChainProof": "Ончейн дәлел"
     },
     "fields": {
@@ -235,6 +236,7 @@
       "createTx": "Құру транзакциясы",
       "verifyTx": "Растау транзакциясы",
       "notRecorded": "—",
+      "viewProgram": "Бағдарламаны Solana Explorer-де қарау",
       "viewContract": "Solana Explorer-де шартты қарау",
       "viewCreateTx": "Құру транзакциясын қарау",
       "viewVerifyTx": "Растау транзакциясын қарау"
@@ -405,8 +407,9 @@
     "chainProofMissing": "DAC-2027-0001 үшін ончейн дәлел жазылмаған.",
     "chainProof": {
       "contract": "Цифрлық шарт",
-      "applicationStatus": "Қолданба мәртебесі",
+      "applicationStatus": "Шаруашылық мәртебесі",
       "blockchainProof": "Блокчейн дәлелі",
+      "verifiedOnDevnet": "Solana Devnet-те расталған",
       "programId": "Program ID",
       "pda": "PDA",
       "lastEvent": "Соңғы блокчейн оқиғасы",

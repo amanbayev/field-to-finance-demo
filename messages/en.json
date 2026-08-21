@@ -191,6 +191,7 @@
       "monitoring": "Monitoring",
       "insurance": "Insurance",
       "audit": "Audit",
+      "businessRecord": "Business record",
       "onChainProof": "On-chain proof"
     },
     "fields": {
@@ -235,6 +236,7 @@
       "createTx": "Create transaction",
       "verifyTx": "Verification transaction",
       "notRecorded": "—",
+      "viewProgram": "View Program on Solana Explorer",
       "viewContract": "View Contract on Solana Explorer",
       "viewCreateTx": "View Creation Transaction",
       "viewVerifyTx": "View Verification Transaction"
@@ -405,8 +407,9 @@
     "chainProofMissing": "No on-chain proof is recorded for DAC-2027-0001.",
     "chainProof": {
       "contract": "Digital contract",
-      "applicationStatus": "Application status",
+      "applicationStatus": "Business status",
       "blockchainProof": "Blockchain proof",
+      "verifiedOnDevnet": "Verified on Solana Devnet",
       "programId": "Program ID",
       "pda": "PDA",
       "lastEvent": "Last blockchain event",

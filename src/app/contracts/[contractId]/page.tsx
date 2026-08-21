@@ -103,7 +103,7 @@ export default async function ContractDetailPage({
       />
 
       <PageSection
-        title={t("sections.asset")}
+        title={t("sections.businessRecord")}
         description={t("businessRecord")}
       >
         <div className="grid gap-6 lg:grid-cols-2">

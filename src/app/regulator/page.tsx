@@ -187,21 +187,21 @@ export default async function RegulatorPage() {
                 label: t("chainProof.applicationStatus"),
                 value: (
                   <StatusBadge
-                    value={demoContract?.contract.status ?? "VERIFIED"}
+                    value={
+                      demoContract?.contract.verification.landRights ??
+                      "VERIFIED"
+                    }
                   />
                 ),
               },
               {
                 label: t("chainProof.blockchainProof"),
-                value: (
-                  <StatusBadge
-                    value={
-                      onChain.contract.status === "Verified"
-                        ? "VERIFIED_ON_CHAIN"
-                        : "ON_CHAIN"
-                    }
-                  />
-                ),
+                value:
+                  onChain.contract.status === "Verified" ? (
+                    t("chainProof.verifiedOnDevnet")
+                  ) : (
+                    <StatusBadge value="ON_CHAIN" />
+                  ),
               },
               {
                 label: t("chainProof.programId"),

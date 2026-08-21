@@ -191,6 +191,7 @@
       "monitoring": "Мониторинг",
       "insurance": "Страхование",
       "audit": "Аудит",
+      "businessRecord": "Хозяйственная запись",
       "onChainProof": "Ончейн-подтверждение"
     },
     "fields": {
@@ -235,6 +236,7 @@
       "createTx": "Транзакция создания",
       "verifyTx": "Транзакция верификации",
       "notRecorded": "—",
+      "viewProgram": "Открыть программу в Solana Explorer",
       "viewContract": "Открыть контракт в Solana Explorer",
       "viewCreateTx": "Открыть транзакцию создания",
       "viewVerifyTx": "Открыть транзакцию верификации"
@@ -405,8 +407,9 @@
     "chainProofMissing": "Ончейн-подтверждение для DAC-2027-0001 не записано.",
     "chainProof": {
       "contract": "Цифровой контракт",
-      "applicationStatus": "Статус в приложении",
+      "applicationStatus": "Хозяйственный статус",
       "blockchainProof": "Блокчейн-доказательство",
+      "verifiedOnDevnet": "Подтверждено в Solana Devnet",
       "programId": "Program ID",
       "pda": "PDA",
       "lastEvent": "Последнее блокчейн-событие",

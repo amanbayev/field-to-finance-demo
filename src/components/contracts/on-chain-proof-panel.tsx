@@ -11,7 +11,7 @@ import { DataList } from "@/components/shared/data-list";
 import { PageSection } from "@/components/shared/page-section";
 import { Panel, PanelBody } from "@/components/shared/panel";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatLedgerTimestamp } from "@/lib/format";
+import { formatInteger, formatLedgerTimestamp } from "@/lib/format";
 import type { AppLocale } from "@/i18n/config";
 
 function onChainStatusValue(
@@ -35,6 +35,7 @@ export async function OnChainProofPanel({
   locale: AppLocale;
 }) {
   const t = await getTranslations("contracts");
+  const tUnits = await getTranslations("units");
 
   if (lookup.status === "unavailable") {
     return (
@@ -133,6 +134,22 @@ export async function OnChainProofPanel({
               </span>
             ),
           },
+          { label: t("fields.crop"), value: contract.crop },
+          { label: t("fields.season"), value: String(contract.season) },
+          {
+            label: t("fields.fieldArea"),
+            value: tUnits("hectaresShort", {
+              value: formatInteger(contract.fieldAreaHectares, locale),
+            }),
+          },
+          {
+            label: t("fields.expectedProduction"),
+            value: tUnits("tonnes", {
+              value: formatInteger(contract.expectedVolumeTonnes, locale),
+            }),
+          },
+          { label: t("fields.quality"), value: contract.qualityClass },
+          { label: t("fields.region"), value: contract.region },
           {
             label: t("proof.created"),
             value: `${formatLedgerTimestamp(createdIso, locale)} UTC`,
@@ -164,6 +181,14 @@ export async function OnChainProofPanel({
         ]}
       />
       <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:flex-wrap sm:gap-x-6">
+        <Link
+          href={explorerAddressUrl(contract.programId)}
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary hover:underline"
+        >
+          {t("proof.viewProgram")}
+        </Link>
         <Link
           href={explorerAddressUrl(contract.pda)}
           target="_blank"
