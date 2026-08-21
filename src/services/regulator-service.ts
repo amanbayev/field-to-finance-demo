@@ -5,6 +5,11 @@ import {
   ON_CHAIN_DEMO_CONTRACT_IDS,
   ON_CHAIN_DEMO_POOL_ID,
 } from "@/adapters/blockchain";
+import type {
+  OnChainAllocationLookup,
+  OnChainContractLookup,
+  OnChainPoolLookup,
+} from "@/adapters/blockchain";
 import type { AuditEvent, SystemOverview } from "@/domain";
 
 export function getSystemOverview(): SystemOverview {
@@ -25,35 +30,58 @@ export async function listLedgerEvents(): Promise<AuditEvent[]> {
 export async function listLedgerEventsForContract(
   contractId: string,
 ): Promise<AuditEvent[]> {
-  const events = await listLedgerEvents();
-  return events.filter(
+  const local = auditEvents.filter(
     (event) =>
       event.relatedEntityType === "contract" &&
       event.relatedEntityId === contractId,
   );
+  const [lookup, allocation] = await Promise.all([
+    blockchainProvider.getDigitalAgriculturalContract(contractId),
+    blockchainProvider.getContractAllocation(contractId),
+  ]);
+  const chain = eventsForContract(contractId, lookup, allocation);
+  return [...local, ...chain].sort((a, b) =>
+    a.timestamp.localeCompare(b.timestamp),
+  );
 }
 
 async function listBlockchainAuditEvents(): Promise<AuditEvent[]> {
-  const events: AuditEvent[] = [];
-  const [contractLookups, poolLookup] = await Promise.all([
+  const [contractLookups, poolLookup, allocations] = await Promise.all([
     Promise.all(
       ON_CHAIN_DEMO_CONTRACT_IDS.map((id) =>
         blockchainProvider.getDigitalAgriculturalContract(id),
       ),
     ),
     blockchainProvider.getContractPool(ON_CHAIN_DEMO_POOL_ID),
+    Promise.all(
+      ON_CHAIN_DEMO_CONTRACT_IDS.map((id) =>
+        blockchainProvider.getContractAllocation(id),
+      ),
+    ),
   ]);
 
+  const events: AuditEvent[] = [];
   for (const [index, lookup] of contractLookups.entries()) {
     const contractId = ON_CHAIN_DEMO_CONTRACT_IDS[index];
-    if (lookup.status !== "found" || !lookup.contract) {
-      continue;
-    }
+    events.push(
+      ...eventsForContract(contractId, lookup, allocations[index]),
+    );
+  }
+  events.push(...eventsForPool(poolLookup));
+  return events;
+}
+
+function eventsForContract(
+  contractId: string,
+  lookup: OnChainContractLookup,
+  allocation?: OnChainAllocationLookup,
+): AuditEvent[] {
+  const events: AuditEvent[] = [];
+  if (lookup.status === "found" && lookup.contract) {
     if (lookup.createSignature) {
-      const tx = await blockchainProvider.getTransaction(lookup.createSignature);
       events.push({
         id: `sol-reg-${contractId}`,
-        timestamp: tx?.timestamp ?? unixToIso(lookup.contract.createdAt),
+        timestamp: unixToIso(lookup.contract.createdAt),
         eventKey: "contractRegisteredOnChain",
         relatedEntityType: "contract",
         relatedEntityId: contractId,
@@ -62,10 +90,9 @@ async function listBlockchainAuditEvents(): Promise<AuditEvent[]> {
       });
     }
     if (lookup.verifySignature) {
-      const tx = await blockchainProvider.getTransaction(lookup.verifySignature);
       events.push({
         id: `sol-ver-${contractId}`,
-        timestamp: tx?.timestamp ?? unixToIso(lookup.contract.updatedAt),
+        timestamp: unixToIso(lookup.contract.updatedAt),
         eventKey: "contractVerifiedOnChain",
         relatedEntityType: "contract",
         relatedEntityId: contractId,
@@ -74,62 +101,51 @@ async function listBlockchainAuditEvents(): Promise<AuditEvent[]> {
       });
     }
   }
-
-  if (poolLookup.status === "found" && poolLookup.pool) {
-    if (poolLookup.createSignature) {
-      const tx = await blockchainProvider.getTransaction(
-        poolLookup.createSignature,
-      );
-      events.push({
-        id: `sol-pool-${ON_CHAIN_DEMO_POOL_ID}`,
-        timestamp: tx?.timestamp ?? unixToIso(poolLookup.pool.createdAt),
-        eventKey: "poolCreatedOnChain",
-        relatedEntityType: "pool",
-        relatedEntityId: ON_CHAIN_DEMO_POOL_ID,
-        source: "blockchain",
-        reference: poolLookup.createSignature,
-      });
-    }
-    if (poolLookup.coverageSignature) {
-      const tx = await blockchainProvider.getTransaction(
-        poolLookup.coverageSignature,
-      );
-      events.push({
-        id: `sol-cov-${ON_CHAIN_DEMO_POOL_ID}`,
-        timestamp: tx?.timestamp ?? unixToIso(poolLookup.pool.updatedAt),
-        eventKey: "coverageSnapshotAnchored",
-        relatedEntityType: "pool",
-        relatedEntityId: ON_CHAIN_DEMO_POOL_ID,
-        source: "blockchain",
-        reference: poolLookup.coverageSignature,
-      });
-    }
-  }
-
-  const allocations = await Promise.all(
-    ON_CHAIN_DEMO_CONTRACT_IDS.map((id) =>
-      blockchainProvider.getContractAllocation(id),
-    ),
-  );
-  for (const [index, lookup] of allocations.entries()) {
-    const contractId = ON_CHAIN_DEMO_CONTRACT_IDS[index];
-    if (lookup.status !== "found" || !lookup.allocateSignature) {
-      continue;
-    }
-    const tx = await blockchainProvider.getTransaction(lookup.allocateSignature);
+  if (allocation?.status === "found" && allocation.allocateSignature) {
     events.push({
       id: `sol-alloc-${contractId}`,
-      timestamp:
-        tx?.timestamp ??
-        (lookup.allocation ? unixToIso(lookup.allocation.createdAt) : new Date(0).toISOString()),
+      timestamp: allocation.allocation
+        ? unixToIso(allocation.allocation.createdAt)
+        : lookup.contract
+          ? unixToIso(lookup.contract.updatedAt)
+          : new Date().toISOString(),
       eventKey: "contractAllocatedOnChain",
       relatedEntityType: "contract",
       relatedEntityId: contractId,
       source: "blockchain",
-      reference: lookup.allocateSignature,
+      reference: allocation.allocateSignature,
     });
   }
+  return events;
+}
 
+function eventsForPool(poolLookup: OnChainPoolLookup): AuditEvent[] {
+  if (poolLookup.status !== "found" || !poolLookup.pool) {
+    return [];
+  }
+  const events: AuditEvent[] = [];
+  if (poolLookup.createSignature) {
+    events.push({
+      id: `sol-pool-${ON_CHAIN_DEMO_POOL_ID}`,
+      timestamp: unixToIso(poolLookup.pool.createdAt),
+      eventKey: "poolCreatedOnChain",
+      relatedEntityType: "pool",
+      relatedEntityId: ON_CHAIN_DEMO_POOL_ID,
+      source: "blockchain",
+      reference: poolLookup.createSignature,
+    });
+  }
+  if (poolLookup.coverageSignature) {
+    events.push({
+      id: `sol-cov-${ON_CHAIN_DEMO_POOL_ID}`,
+      timestamp: unixToIso(poolLookup.pool.updatedAt),
+      eventKey: "coverageSnapshotAnchored",
+      relatedEntityType: "pool",
+      relatedEntityId: ON_CHAIN_DEMO_POOL_ID,
+      source: "blockchain",
+      reference: poolLookup.coverageSignature,
+    });
+  }
   return events;
 }
 
