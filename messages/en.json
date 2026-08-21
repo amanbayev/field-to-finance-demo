@@ -367,7 +367,7 @@
   "tokens": {
     "title": "Tokens",
     "eyebrow": "Agricultural token series",
-    "description": "Token issuance is prepared in the product layer. Solana Devnet deployment is reserved for a later phase.",
+    "description": "Token issuance is not started. On-chain deployment is reserved for a later phase.",
     "issue": "Issue on Solana",
     "issueTooltip": "Solana issuance will be activated in the next development phase.",
     "underlyingPool": "Underlying pool",
@@ -539,6 +539,7 @@
     "actorSolanaDevnet": "Solana Devnet",
     "kindApplication": "Application Event",
     "kindBlockchain": "Blockchain Event",
+    "kindSimulationOnly": "Simulation Only · Not Deployed",
     "statusCompleted": "Completed",
     "notRecorded": "—",
     "empty": "No audit events for this record.",
@@ -575,8 +576,8 @@
       "detail": "Eligible contract coverage set at 8,300 tonnes against 10,000 tonnes gross."
     },
     "tokenPrepared": {
-      "title": "Token issuance prepared",
-      "detail": "WHEAT-2027 series prepared. On-chain issuance is not yet deployed."
+      "title": "Token issuance workflow configured",
+      "detail": "Simulation only. No tokens issued. On-chain issuance is not deployed."
     },
     "contractRegisteredOnChain": {
       "title": "Contract Registered",

@@ -3,6 +3,7 @@ export type {
   AuditEvent,
   AuditEventKey,
   AuditEventSource,
+  AuditDisplayStatus,
   BlockchainDeploymentStatus,
   CheckResult,
   ComplianceRecord,
