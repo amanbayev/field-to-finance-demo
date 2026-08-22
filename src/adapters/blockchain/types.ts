@@ -76,12 +76,15 @@ export interface OnChainTokenMint {
   supply: number;
   mintAuthority?: string;
   freezeAuthority?: string;
+  holder?: string;
+  holderOwner?: string;
 }
 
 export interface OnChainTokenMintLookup {
   status: OnChainLookupStatus;
   mint?: OnChainTokenMint;
   createSignature?: string;
+  mintToSignature?: string;
 }
 
 export interface CreateContractRequest {

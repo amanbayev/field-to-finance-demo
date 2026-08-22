@@ -38,7 +38,13 @@ export default async function DashboardPage() {
         <MetricCell
           emphasis="primary"
           label={t("dashboard.tokenIssuance")}
-          value={t("dashboard.tokenIssuanceNotStarted")}
+          value={
+            metrics.tokenIssuanceStarted
+              ? t("units.tonnes", {
+                  value: formatInteger(metrics.tokenizedVolumeTonnes, locale),
+                })
+              : t("dashboard.tokenIssuanceNotStarted")
+          }
         />
         <MetricCell
           emphasis="primary"

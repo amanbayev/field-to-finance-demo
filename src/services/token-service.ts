@@ -8,6 +8,7 @@ import type {
   IssuanceTranche,
 } from "@/domain";
 import { remainingIssuanceCapacity } from "@/domain";
+import type { OnChainTokenMintLookup } from "@/adapters/blockchain";
 import { scasProvider } from "./providers";
 
 export interface TokenDetail {
@@ -65,8 +66,18 @@ export function getPrimaryToken(): TokenDetail {
   return detail;
 }
 
+export function liveOutstanding(
+  lookup: OnChainTokenMintLookup,
+  fallbackIssued: number,
+): number {
+  return lookup.status === "found" && lookup.mint
+    ? lookup.mint.supply
+    : fallbackIssued;
+}
+
 export function getIssuanceDesk(options?: {
   mintDeployed?: boolean;
+  outstandingTokens?: number;
   tranches?: IssuanceTranche[];
 }): IssuanceDesk {
   const { token, pool } = getPrimaryToken();
@@ -85,12 +96,13 @@ export function getIssuanceDesk(options?: {
       item.status === "ATTESTED",
   );
   const mintDeployed = options?.mintDeployed ?? Boolean(token.mintAddress);
+  const outstandingTokens = options?.outstandingTokens ?? token.issued;
   const reserved = (options?.tranches ?? [])
     .filter((item) => item.status === "PREPARED")
     .reduce((sum, item) => sum + item.volumeTonnes, 0);
   const remaining = remainingIssuanceCapacity({
     eligibleCoverageTonnes: coverage.eligibleCoverageTonnes,
-    outstandingTokens: token.issued,
+    outstandingTokens,
     reservedTokens: reserved,
   });
 
@@ -106,7 +118,7 @@ export function getIssuanceDesk(options?: {
       { key: "termsRecorded", passed: true },
       {
         key: "coverageCap",
-        passed: token.issued + reserved <= coverage.eligibleCoverageTonnes,
+        passed: outstandingTokens + reserved <= coverage.eligibleCoverageTonnes,
       },
       { key: "registrarMint", passed: true },
       { key: "token2022Mint", passed: mintDeployed },

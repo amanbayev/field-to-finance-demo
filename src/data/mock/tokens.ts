@@ -10,7 +10,7 @@ export const tokens: AgriculturalToken[] = [
     tokenUnitDescription: "1 token = claim for 1 tonne of Wheat Class 3",
     poolId: "POOL-WHEAT-2027-01",
     maximumIssuance: 8300,
-    issued: 0,
+    issued: 1000,
     network: "Solana Devnet",
     blockchainStatus: "DEPLOYED",
     mintAddress: "D6Zy1doAzHJmQie7S5tUhJWFVZSY5CtJxYYWGJsV6QuF",

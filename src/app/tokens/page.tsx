@@ -13,7 +13,7 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { blockchainProvider } from "@/services/providers";
-import { getIssuanceDesk } from "@/services/token-service";
+import { getIssuanceDesk, getPrimaryToken, liveOutstanding } from "@/services/token-service";
 import { ON_CHAIN_DEMO_TOKEN_ID } from "@/adapters/blockchain";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,7 +28,14 @@ export default async function TokensPage() {
   const locale = (await getLocale()) as AppLocale;
   const mintLookup = await blockchainProvider.getTokenMint(ON_CHAIN_DEMO_TOKEN_ID);
   const mintDeployed = mintLookup.status === "found";
-  const desk = getIssuanceDesk({ mintDeployed });
+  const issued = liveOutstanding(
+    mintLookup,
+    getPrimaryToken().token.issued,
+  );
+  const desk = getIssuanceDesk({
+    mintDeployed,
+    outstandingTokens: issued,
+  });
   const { token, pool, coverage } = desk;
 
   return (
@@ -58,7 +65,12 @@ export default async function TokensPage() {
           },
           {
             label: t("fields.issued"),
-            value: t("issuanceNotStarted"),
+            value:
+              issued > 0
+                ? tUnits("tonnes", {
+                    value: formatInteger(issued, locale),
+                  })
+                : t("issuanceNotStarted"),
           },
           {
             label: t("fields.maximumIssuance"),
@@ -132,7 +144,7 @@ export default async function TokensPage() {
           <MetricCell
             label={t("cap.outstanding")}
             value={tUnits("tonnes", {
-              value: formatInteger(token.issued, locale),
+              value: formatInteger(issued, locale),
             })}
           />
           <MetricCell
@@ -148,7 +160,7 @@ export default async function TokensPage() {
         <IssuanceDesk
           tokenId={token.id}
           eligibleCoverageTonnes={coverage.eligibleCoverageTonnes}
-          outstandingTokens={token.issued}
+          outstandingTokens={issued}
           mintDeployed={desk.mintDeployed}
           gates={desk.gates}
         />

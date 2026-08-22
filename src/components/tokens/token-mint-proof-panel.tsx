@@ -78,7 +78,10 @@ export async function TokenMintProofPanel({
               },
               {
                 label: t("fields.issued"),
-                value: t("issuanceNotStarted"),
+                value:
+                  mint.supply > 0
+                    ? formatInteger(mint.supply, locale)
+                    : t("issuanceNotStarted"),
               },
               {
                 label: t("mintProof.program"),
@@ -115,6 +118,26 @@ export async function TokenMintProofPanel({
                 ),
               },
               {
+                label: t("mintProof.holder"),
+                value: mint.holder ? (
+                  <ExplorerLink href={explorerAddressUrl(mint.holder)}>
+                    {mint.holder}
+                  </ExplorerLink>
+                ) : (
+                  t("notRecorded")
+                ),
+              },
+              {
+                label: t("mintProof.mintToTx"),
+                value: lookup.mintToSignature ? (
+                  <ExplorerLink href={explorerTxUrl(lookup.mintToSignature)}>
+                    {lookup.mintToSignature}
+                  </ExplorerLink>
+                ) : (
+                  t("notRecorded")
+                ),
+              },
+              {
                 label: t("mintProof.createTx"),
                 value: lookup.createSignature ? (
                   <ExplorerLink href={explorerTxUrl(lookup.createSignature)}>
@@ -126,6 +149,7 @@ export async function TokenMintProofPanel({
               },
             ]}
           />
+          <p className="text-xs text-muted-foreground">{t("mintProof.holdingNote")}</p>
           <p className="text-xs text-muted-foreground">{t("issueNote")}</p>
           <IssueTokenButton />
         </PanelBody>

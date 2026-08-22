@@ -4,6 +4,16 @@
     "createSignature": "34HWbTMjgPAKusyx1Vhogp48wwEXVUMwniSBoGFCuG6UQ8jYhVmckuFz9UVsC4A5p67epMQp2zaMxNmQTZz1UWYF",
     "decimals": 0,
     "tokenProgramId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-    "supply": 0
+    "supply": 1000,
+    "holder": "321J7bc83M7D3E128tZkiGieg4MaQD5oBpHzHLFSjhQQ",
+    "holderOwner": "AYbJghAZ6r3VgjC8trRDgeAHmJjYhUHBZCKJfKYpW7ZD",
+    "tranches": [
+      {
+        "id": "ISS-001",
+        "volumeTonnes": 1000,
+        "signature": "xDXzCoineDonY63yL5VFMQdaka4jp5m6DPJBeVdVCVXTDD6JTAXvbwdEJGRtmzhL3R8Xnq57F7THDgMfPsQYpnr",
+        "destination": "321J7bc83M7D3E128tZkiGieg4MaQD5oBpHzHLFSjhQQ"
+      }
+    ]
   }
 }

@@ -79,7 +79,16 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
             />
             <ScheduleRow
               label={t("tokenIssuance")}
-              value={t("tokenIssuanceNotStarted")}
+              value={
+                coverage.tokenIssuanceStarted
+                  ? tUnits("tonnes", {
+                      value: formatInteger(
+                        coverage.outstandingTokens,
+                        locale,
+                      ),
+                    })
+                  : t("tokenIssuanceNotStarted")
+              }
               strong
             />
             <ScheduleRow

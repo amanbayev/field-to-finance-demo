@@ -4,11 +4,13 @@ import { blockchainProvider } from "@/services/providers";
 import {
   ON_CHAIN_DEMO_CONTRACT_IDS,
   ON_CHAIN_DEMO_POOL_ID,
+  ON_CHAIN_DEMO_TOKEN_ID,
 } from "@/adapters/blockchain";
 import type {
   OnChainAllocationLookup,
   OnChainContractLookup,
   OnChainPoolLookup,
+  OnChainTokenMintLookup,
 } from "@/adapters/blockchain";
 import type { AuditEvent, SystemOverview } from "@/domain";
 
@@ -46,7 +48,7 @@ export async function listLedgerEventsForContract(
 }
 
 async function listBlockchainAuditEvents(): Promise<AuditEvent[]> {
-  const [contractLookups, poolLookup, allocations] = await Promise.all([
+  const [contractLookups, poolLookup, allocations, mintLookup] = await Promise.all([
     Promise.all(
       ON_CHAIN_DEMO_CONTRACT_IDS.map((id) =>
         blockchainProvider.getDigitalAgriculturalContract(id),
@@ -58,6 +60,7 @@ async function listBlockchainAuditEvents(): Promise<AuditEvent[]> {
         blockchainProvider.getContractAllocation(id),
       ),
     ),
+    blockchainProvider.getTokenMint(ON_CHAIN_DEMO_TOKEN_ID),
   ]);
 
   const events: AuditEvent[] = [];
@@ -68,6 +71,7 @@ async function listBlockchainAuditEvents(): Promise<AuditEvent[]> {
     );
   }
   events.push(...eventsForPool(poolLookup));
+  events.push(...(await eventsForToken(mintLookup)));
   return events;
 }
 
@@ -151,4 +155,24 @@ function eventsForPool(poolLookup: OnChainPoolLookup): AuditEvent[] {
 
 function unixToIso(seconds: number): string {
   return new Date(seconds * 1000).toISOString();
+}
+
+async function eventsForToken(
+  lookup: OnChainTokenMintLookup,
+): Promise<AuditEvent[]> {
+  if (lookup.status !== "found" || !lookup.mintToSignature) {
+    return [];
+  }
+  const tx = await blockchainProvider.getTransaction(lookup.mintToSignature);
+  return [
+    {
+      id: `sol-mint-${ON_CHAIN_DEMO_TOKEN_ID}`,
+      timestamp: tx?.timestamp ?? new Date().toISOString(),
+      eventKey: "tokenMintedOnChain",
+      relatedEntityType: "token",
+      relatedEntityId: ON_CHAIN_DEMO_TOKEN_ID,
+      source: "blockchain",
+      reference: lookup.mintToSignature,
+    },
+  ];
 }

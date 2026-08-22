@@ -11,8 +11,8 @@ export const dashboardMetrics: DashboardMetrics = {
   contractVolumeTonnes: 24800,
   grossPoolVolumeTonnes: wheatCoverage.grossVolumeTonnes,
   eligibleCoverageTonnes: wheatCoverage.eligibleVolumeTonnes,
-  tokenizedVolumeTonnes: 0,
-  tokenIssuanceStarted: false,
+  tokenizedVolumeTonnes: 1000,
+  tokenIssuanceStarted: true,
   activeFinancing: money(620_000_000, "KZT"),
   averageCoverageRatioPercent: null,
 };

@@ -149,7 +149,7 @@
   },
   "lifecycle": {
     "title": "Lifecycle",
-    "description": "Operating sequence from field record to financing. Four wheat contracts, the 2027 pool, and a Token-2022 mint are proven on Solana Devnet. Token supply is 0; issuance is not started.",
+    "description": "Operating sequence from field record to financing. Four wheat contracts, the 2027 pool, and Token-2022 WHEAT-2027 are proven on Solana Devnet. Outstanding issuance is 1,000 t against 8,300 t eligible coverage.",
     "field": "Field",
     "contract": "Contract",
     "pool": "Pool",
@@ -379,12 +379,12 @@
   "tokens": {
     "title": "Tokens",
     "eyebrow": "Registrar issuance desk",
-    "description": "Phase 3: Token-2022 mint exists on Solana Devnet with 0 supply. Issuance has not started. The public app does not mint or burn.",
+    "description": "Phase 3: ISS-001 issued 1,000 t of WHEAT-2027. Outstanding is held by the Registrar pending placement. Cap 8,300 t. The public app does not mint or burn.",
     "hypothesis": "Demo working hypothesis — not a legally approved term sheet. Partner answers on instrument type, issuer and redemption remain open.",
     "issue": "Mint (Registrar)",
-    "issueTooltip": "The mint account exists. The public app does not sign. Minting tokens stays with the Registrar.",
+    "issueTooltip": "Tokens are outstanding. The public app does not sign. Further minting stays with the Registrar.",
     "burn": "Burn (Registrar)",
-    "burnTooltip": "Nothing is in circulation. Burn is a Registrar action after redemption.",
+    "burnTooltip": "Burn is a Registrar action after redemption. The public app does not burn.",
     "underlyingPool": "Underlying pool",
     "issueNote": "Mint and burn are Registrar actions. They stay disabled in the public app. Administrative mint creation runs from a WSL script.",
     "notDeployedNote": "No Token-2022 mint, mint authority or issuance transaction is recorded.",
@@ -393,13 +393,16 @@
     "issuanceNotStarted": "Not Started",
     "mintProof": {
       "title": "Token-2022 mint",
-      "intro": "Mint identity on Solana Devnet. Supply stays 0 until the Registrar mints.",
-      "foundIntro": "Mint account exists. No tokens have been issued. The public app does not mint.",
+      "intro": "Mint identity on Solana Devnet. Live supply is outstanding issuance.",
+      "foundIntro": "Mint account exists. ISS-001 is outstanding. The public app does not mint.",
       "unavailable": "Blockchain proof is temporarily unavailable.",
       "program": "Token-2022 program",
       "decimals": "Decimals",
       "supply": "On-chain supply",
       "mintAuthority": "Mint authority",
+      "holder": "Registrar holding account",
+      "mintToTx": "Issuance transaction",
+      "holdingNote": "Outstanding tokens sit in the Registrar holding account until primary placement. They are not investor balances.",
       "createTx": "Create transaction"
     },
     "termsTitle": "Issue terms",
@@ -551,7 +554,7 @@
       "registrar": "Registrar",
       "registrarValue": "Registry, accounts, mint, burn, MTF matching",
       "issuance": "Token issuance",
-      "issuanceValue": "Not started · not an SCAS action"
+      "issuanceValue": "Registrar issued 1,000 t · not an SCAS action"
     },
     "metrics": {
       "lockedContracts": "Locked in pool",
@@ -795,6 +798,10 @@
     "tokenPrepared": {
       "title": "Token issuance workflow configured",
       "detail": "Simulation only. No tokens issued. On-chain issuance is not deployed."
+    },
+    "tokenMintedOnChain": {
+      "title": "Token Tranche Minted",
+      "detail": "ISS-001 of 1,000 WHEAT-2027 minted to the Registrar holding account on Solana Devnet."
     },
     "contractRegisteredOnChain": {
       "title": "Contract Registered",

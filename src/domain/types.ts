@@ -227,6 +227,7 @@ export type AuditEventKey =
   | "riskCompleted"
   | "coverageCalculated"
   | "tokenPrepared"
+  | "tokenMintedOnChain"
   | "contractRegisteredOnChain"
   | "contractVerifiedOnChain"
   | "poolCreatedOnChain"

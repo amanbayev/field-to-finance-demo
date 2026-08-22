@@ -34,7 +34,7 @@ import {
   getSystemOverview,
   listLedgerEvents,
 } from "@/services/regulator-service";
-import { getPrimaryToken } from "@/services/token-service";
+import { getPrimaryToken, liveOutstanding } from "@/services/token-service";
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { DoubleUseControl } from "@/components/pools/double-use-control";
 
@@ -48,6 +48,7 @@ export default async function RegulatorPage() {
   const tCompliance = await getTranslations("compliance");
   const tStatus = await getTranslations("status");
   const tTokens = await getTranslations("tokens");
+  const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
   const overview = getSystemOverview();
   const events = await listLedgerEvents();
@@ -64,6 +65,7 @@ export default async function RegulatorPage() {
     blockchainProvider.getTokenMint(ON_CHAIN_DEMO_TOKEN_ID),
   ]);
   const mintDeployed = mintLookup.status === "found";
+  const issued = liveOutstanding(mintLookup, token.issued);
 
   return (
     <div>
@@ -173,7 +175,12 @@ export default async function RegulatorPage() {
             { label: tTokens("fields.instrument"), value: token.symbol },
             {
               label: tTokens("fields.issued"),
-              value: t("tokenIssuanceNotStarted"),
+              value:
+                issued > 0
+                  ? tUnits("tonnes", {
+                      value: formatInteger(issued, locale),
+                    })
+                  : t("tokenIssuanceNotStarted"),
             },
             {
               label: tTokens("fields.maximumIssuance"),

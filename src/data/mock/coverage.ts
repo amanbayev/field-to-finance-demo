@@ -4,9 +4,11 @@ import {
   percentFromBps,
   phase2WheatPoolCoverage,
 } from "@/domain/coverage-engine";
+import { tokens } from "./tokens";
 
 export function wheatPoolCoverageFromEngine(): ContractCoverage {
   const { snapshot, snapshotHashHex } = phase2WheatPoolCoverage();
+  const outstandingTokens = tokens[0]?.issued ?? 0;
   return {
     poolId: snapshot.poolId,
     grossVolumeTonnes: snapshot.grossVolumeTonnes,
@@ -24,9 +26,9 @@ export function wheatPoolCoverageFromEngine(): ContractCoverage {
     totalHaircutBps: snapshot.totalHaircutBps,
     eligibleCoverageTonnes: snapshot.eligibleVolumeTonnes,
     maximumTokenIssuance: snapshot.eligibleVolumeTonnes,
-    outstandingTokens: 0,
+    outstandingTokens,
     coverageRatioPercent: null,
-    tokenIssuanceStarted: false,
+    tokenIssuanceStarted: outstandingTokens > 0,
     snapshotHashHex,
     snapshotVersion: snapshot.version,
     calculatedAt: snapshot.calculatedAt,

@@ -338,6 +338,7 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
         return {
           status: "found",
           createSignature: recorded.createSignature || undefined,
+          mintToSignature: recorded.tranches?.at(-1)?.signature,
           mint: {
             tokenId,
             mint: mintPk.toBase58(),
@@ -346,6 +347,8 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
             supply: Number(mint.supply),
             mintAuthority: mint.mintAuthority?.toBase58(),
             freezeAuthority: mint.freezeAuthority?.toBase58(),
+            holder: recorded.holder,
+            holderOwner: recorded.holderOwner,
           },
         };
       } catch {
