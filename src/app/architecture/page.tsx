@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { DistributionDiagram } from "@/components/market-core/distribution-diagram";
 import { LevelsPanel } from "@/components/market-core/levels-panel";
+import { PlatformOperatorStack } from "@/components/market-core/platform-operator-stack";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import { requirePermission } from "@/lib/auth/guard";
@@ -22,14 +23,17 @@ export default async function ArchitecturePage() {
         title={t("architectureTitle")}
         description={t("architectureIntro")}
       />
-      <LevelsPanel
-        title={t("levelsTitle")}
-        levels={[
-          { label: t("levelPlatform"), detail: t("notTokenType") },
-          { label: t("levelProtocol"), detail: t("notInstrument") },
-          { label: t("levelInstrument"), detail: t("notProtocol") },
-        ]}
-      />
+      <PlatformOperatorStack />
+      <div className="mt-8">
+        <LevelsPanel
+          title={t("levelsTitle")}
+          levels={[
+            { label: t("levelPlatform"), detail: t("platformNotToken") },
+            { label: t("levelProtocol"), detail: t("notInstrument") },
+            { label: t("levelInstrument"), detail: t("notProtocol") },
+          ]}
+        />
+      </div>
       <PageSection title={t("architectureTitle")}>
         <DistributionDiagram
           title={t("architectureTitle")}

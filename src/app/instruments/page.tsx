@@ -20,7 +20,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function InstrumentsPage() {
   await requirePermission("issuance.read", "market.read");
   const t = await getTranslations("marketCore");
-  const assets = listAssetInstruments();
+  const issued = listAssetInstruments().filter((item) => item.status === "ISSUED");
+  const structuringAssets = listAssetInstruments().filter((item) => item.status !== "ISSUED");
   const protocolInvestments = listProtocolInvestments();
 
   return (
@@ -30,11 +31,10 @@ export default async function InstrumentsPage() {
         title={t("instrumentsTitle")}
         description={t("instrumentsIntro")}
       />
-      <p className="mb-5 text-sm">{t("protocolInvestmentNote")}</p>
 
-      <PageSection title={t("assetFamily")}>
+      <PageSection title={t("issuedInstruments")}>
         <ul className="grid gap-3">
-          {assets.map((item) => (
+          {issued.map((item) => (
             <li key={item.id} className="border border-border bg-card px-4 py-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <Link
@@ -44,7 +44,7 @@ export default async function InstrumentsPage() {
                   {item.symbol}
                 </Link>
                 <MarketStatusChip
-                  label={lookupMessage(t, `status${item.status}`)}
+                  label={t("issuedDemonstratorInstrument")}
                   tone={item.status}
                 />
               </div>
@@ -58,19 +58,23 @@ export default async function InstrumentsPage() {
         </ul>
       </PageSection>
 
-      <PageSection title={t("protocolFamily")}>
+      <PageSection title={t("conceptsStructuring")}>
+        <p className="mb-3 text-sm text-muted-foreground">{t("protocolInvestmentNote")}</p>
         <p className="mb-3 text-sm text-muted-foreground">{t("noFakeEconomics")}</p>
         <ul className="grid gap-3">
-          {protocolInvestments.map((item) => (
+          {[...structuringAssets, ...protocolInvestments].map((item) => (
             <li key={item.id} className="border border-dashed border-border bg-card px-4 py-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <Link
                   href={`/instruments/${item.id}`}
                   className="font-medium text-primary hover:underline"
                 >
-                  {item.name}
+                  {item.instrumentType === "PROTOCOL_INVESTMENT" ? item.name : item.symbol}
                 </Link>
-                <MarketStatusChip label={t("protocolInvestmentStatus")} tone="FUTURE" />
+                <div className="flex flex-wrap gap-2">
+                  <MarketStatusChip label={t("protocolInvestmentStatus")} tone="STRUCTURING" />
+                  <MarketStatusChip label={t("protocolInvestmentFlags")} tone="FUTURE" />
+                </div>
               </div>
             </li>
           ))}

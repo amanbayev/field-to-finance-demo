@@ -81,7 +81,9 @@ export default async function RegistryPage({
         title={t("registryTitle")}
         description={t("registryIntro")}
       />
-      <p className="mb-4 text-xs text-muted-foreground">{t("unresolvedCustody")}</p>
+      <p className="mb-4 text-xs text-muted-foreground">
+        {t("unresolvedCustody")} {t("issuedHoldingsProof")}
+      </p>
       {registrar && investor ? (
         <MetricStrip className="mb-6">
           <MetricCell

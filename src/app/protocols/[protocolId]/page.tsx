@@ -23,6 +23,7 @@ import {
   MODULE_KEYS,
   PROTOCOL_INVESTMENT_MODEL_KEYS,
   f2fModuleHref,
+  protocolStatusKey,
   protocolWorldKey,
 } from "@/lib/market-core/presentation";
 import { getPlacementSnapshot } from "@/services/placement-service";
@@ -85,7 +86,7 @@ export default async function ProtocolDetailPage({
       />
       <div className="mb-6 flex flex-wrap gap-3">
         <MarketStatusChip
-          label={lookupMessage(t, `status${protocol.status}`)}
+          label={lookupMessage(t, protocolStatusKey(protocol.status))}
           tone={protocol.status}
         />
         <span className="text-xs text-muted-foreground">
@@ -110,6 +111,12 @@ export default async function ProtocolDetailPage({
           {lookupMessage(t, protocolWorldKey(protocol.id))}
         </p>
       </PageSection>
+
+      {protocol.id === "F2F" ? (
+        <p className="mt-4 text-xs text-muted-foreground">
+          {t("notTokenType")} {t("notMarket")}
+        </p>
+      ) : null}
 
       {protocol.lifecycle.length > 0 ? (
         <PageSection title={t("protocolPath")}>
@@ -205,23 +212,28 @@ export default async function ProtocolDetailPage({
       <PageSection title={t("instrumentFamilies")}>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="border border-border bg-card px-4 py-3">
-            <p className="label-caps text-muted-foreground">{t("assetFamily")}</p>
-            {assetInstruments.length > 0 ? (
+            <p className="label-caps text-muted-foreground">{t("issuedInstruments")}</p>
+            {assetInstruments.filter((item) => item.status === "ISSUED").length > 0 ? (
               <ul className="mt-2 space-y-1 text-sm">
-                {assetInstruments.map((item) => (
-                  <li key={item.id}>
-                    <Link href={`/instruments/${item.id}`} className="text-primary hover:underline">
-                      {item.symbol}
-                    </Link>
-                  </li>
-                ))}
+                {assetInstruments
+                  .filter((item) => item.status === "ISSUED")
+                  .map((item) => (
+                    <li key={item.id}>
+                      <Link href={`/instruments/${item.id}`} className="text-primary hover:underline">
+                        {item.symbol}
+                      </Link>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {t("issuedDemonstratorInstrument")}
+                      </span>
+                    </li>
+                  ))}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">{t("noAdmittedInstruments")}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t("noIssuedInstruments")}</p>
             )}
           </div>
-          <div className="border border-border bg-card px-4 py-3">
-            <p className="label-caps text-muted-foreground">{t("protocolFamily")}</p>
+          <div className="border border-dashed border-border bg-card px-4 py-3">
+            <p className="label-caps text-muted-foreground">{t("conceptsStructuring")}</p>
             <p className="mt-2 text-sm">{t("protocolInvestmentNote")}</p>
             {protocolInvestments.length > 0 ? (
               <ul className="mt-2 space-y-1 text-sm">
@@ -233,9 +245,12 @@ export default async function ProtocolDetailPage({
                     <span className="ml-2">
                       <MarketStatusChip
                         label={t("protocolInvestmentStatus")}
-                        tone="FUTURE"
+                        tone="STRUCTURING"
                       />
                     </span>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t("protocolInvestmentFlags")}
+                    </p>
                   </li>
                 ))}
               </ul>

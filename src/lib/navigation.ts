@@ -1,4 +1,5 @@
-export const productName = "Field to Finance";
+export const productName = "Investment Token Platform";
+export const legalOperatorName = "CommoChain Ltd";
 export const contactEmail = "amanbayev@gmail.com";
 
 export const navGroups = [

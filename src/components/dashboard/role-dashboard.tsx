@@ -7,7 +7,7 @@ import { getInvestorPortfolio } from "@/services/portfolio-service";
 import { loadAdminOverview } from "@/services/admin-service";
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { remainingCoverageCapacity } from "@/services/workspace-view";
-import { listAssetInstruments } from "@/services/market-core-service";
+import { listAssetInstruments, listProtocolInvestments } from "@/services/market-core-service";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { formatInteger } from "@/lib/format";
@@ -78,7 +78,11 @@ async function RegulatorHome() {
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
   const { metrics } = await getDashboardSnapshot();
-  const admitted = listAssetInstruments().filter((item) => item.status === "ISSUED");
+  const issued = listAssetInstruments().filter((item) => item.status === "ISSUED");
+  const concepts = [
+    ...listAssetInstruments().filter((item) => item.status !== "ISSUED"),
+    ...listProtocolInvestments(),
+  ];
   return (
     <div>
       <PageHeader
@@ -93,8 +97,12 @@ async function RegulatorHome() {
           value={t("marketCore.closedSecondary")}
         />
         <MetricCell
-          label={t("marketCore.admittedInstruments")}
-          value={formatInteger(admitted.length, locale)}
+          label={t("marketCore.issuedInstruments")}
+          value={formatInteger(issued.length, locale)}
+        />
+        <MetricCell
+          label={t("marketCore.conceptsStructuring")}
+          value={formatInteger(concepts.length, locale)}
         />
         <MetricCell
           label={t("dashboard.primaryPlacement")}

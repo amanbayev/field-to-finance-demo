@@ -158,7 +158,7 @@ export const marketInstruments: MarketInstrument[] = [
     eligibilityPolicy: "Not assessed",
     settlementPolicy: "Not open",
     custodyPolicy: "Not structured",
-    status: "FUTURE",
+    status: "STRUCTURING",
   },
 ];
 

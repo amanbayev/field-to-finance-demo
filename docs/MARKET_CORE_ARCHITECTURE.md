@@ -1,12 +1,16 @@
 # Market Core architecture — Phase 5A
 
-Legal operator: **CommoChain Ltd**. Product name remains **Field to Finance**. This document records what is implemented, what is an architecture foundation, and what is future. It does not claim AFSA permission.
+Legal operator: **CommoChain Ltd**. Field to Finance is the **Agriculture Asset Protocol**, not the universal platform/product name. The platform brand is temporary / unassigned (`Investment Token Platform`). This document records what is implemented, what is an architecture foundation, and what is future. It does not claim AFSA permission.
+
+Architecture:
+
+CommoChain Ltd → operates Platform → Platform contains Market Core → Market Core supports Asset Protocols → Field to Finance is one Asset Protocol.
 
 ## Layers (never mix)
 
 1. **Platform / Market Core** — markets, issuances, clearing, registry, participants, compliance, supervision, audit.
 2. **Asset protocol** — Field to Finance (Agriculture, active demonstrator); Water and Music Rights (structuring); Gaming Assets (concept).
-3. **Investment instrument** — WHEAT-2027 (`ASSET_TOKEN`, issued). Field to Finance Protocol Investment is `PROTOCOL_INVESTMENT`, future / structuring, not offered.
+3. **Investment instrument** — WHEAT-2027 (`ASSET_TOKEN`, issued demonstrator). Field to Finance Protocol Investment is `PROTOCOL_INVESTMENT`, CONCEPT / STRUCTURING, no offering, not issued, not admitted.
 
 ISS-001 is an issuance of WHEAT-2027, not a token type. POOL-WHEAT-2027-01 is backing infrastructure, not a market. DAC / pool / coverage are Field to Finance modules, not global platform concepts.
 
@@ -33,7 +37,7 @@ No fake admitted Water / Music / Gaming tokens exist.
 ## Instrument families
 
 - **ASSET_TOKEN** — claim against the issuer, backed by a protocol-specific economic basis. WHEAT-2027 is the only issued instance.
-- **PROTOCOL_INVESTMENT** — investment in the protocol / vehicle itself. Different rights and risks. Field to Finance Protocol Investment is **FUTURE / STRUCTURING**. No offer, price, yield, term, or chain state.
+- **PROTOCOL_INVESTMENT** — investment in the protocol / vehicle itself. Different rights and risks. Field to Finance Protocol Investment is **CONCEPT / STRUCTURING**. No offering, not issued, not admitted. No offer, price, yield, term, or chain state.
 
 An investment in an asset and an investment in the protocol itself are different instruments.
 
@@ -77,7 +81,7 @@ All channels must route into the **same Market Core**.
 | Retail app | **FUTURE** |
 | API / brokers | **FUTURE** |
 
-Binance is a **future custody / gateway adapter**, not the trading engine. No Binance SDK, credentials, or environment variables are configured. Commodity Chain retail, if built, is a distribution channel — not a second order book.
+Binance is a **future custody / gateway adapter**, not the trading engine. No Binance SDK, credentials, or environment variables are configured. A future retail frontend, if built, is a distribution channel — not a second order book.
 
 Settlement adapters (`BankSettlementProvider`, `StablecoinSettlementProvider`) are interfaces only (`implemented: false`).
 
@@ -110,7 +114,7 @@ Asset Protocol → SPV / Issuer → Investment Instrument → Market Core
 ### C. Instrument-level screens
 
 - `/instruments/WHEAT-2027` — universal sections; agriculture basis is adapter-specific
-- `/instruments/F2F-PROTOCOL-INVESTMENT` — future / no fake economics
+- `/instruments/F2F-PROTOCOL-INVESTMENT` — CONCEPT / STRUCTURING · no offering · not issued · not admitted
 - `/tokens/WHEAT-2027` redirects to the instrument page
 
 ### D. Role workspaces

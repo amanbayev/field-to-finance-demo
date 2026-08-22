@@ -35,6 +35,7 @@ export default async function IssuancesPage() {
         title={t("issuanceRegistryTitle")}
         description={t("issuanceRegistryIntro")}
       />
+      <p className="mb-4 text-xs text-muted-foreground">{t("issuanceRegistryNote")}</p>
       <PageSection title={t("issuanceRegistryTitle")}>
         {snapshot.supply.mintedSupply <= 0 ? (
           <EmptyState>{t("emptyIssuances")}</EmptyState>

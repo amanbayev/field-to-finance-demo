@@ -4,7 +4,7 @@ import { MainNav, MobileNav } from "@/components/layout/main-nav";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { AccountMenu } from "@/components/identity/account-menu";
 import { PersonaSwitcher } from "@/components/identity/persona-switcher";
-import { productName } from "@/lib/navigation";
+import { legalOperatorName, productName } from "@/lib/navigation";
 import { getOptionalActor } from "@/lib/auth/load-actor";
 import { navGroupsForActor } from "@/lib/auth/nav";
 import { PERSONA_GROUPS, principalCan, type PersonaGroup } from "@/domain/identity";
@@ -114,6 +114,9 @@ export async function SiteHeader() {
               >
                 {productName}
               </Link>
+              <p className="mt-0.5 hidden text-[10px] leading-snug text-muted-foreground sm:block">
+                {t("brand.operatedBy", { operator: legalOperatorName })}
+              </p>
             </div>
             <div className="hidden min-w-0 flex-1 lg:block">
               {personaSwitcherDesktop}
@@ -147,6 +150,8 @@ export async function SiteHeader() {
               {productName}
             </Link>
             <p className="mt-1 hidden max-w-xs text-[10px] leading-snug tracking-wide text-muted-foreground uppercase sm:block">
+              {t("brand.operatedBy", { operator: legalOperatorName })}
+              {" · "}
               {t("brand.subtitle")}
             </p>
           </div>

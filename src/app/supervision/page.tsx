@@ -10,13 +10,14 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatPercent } from "@/lib/format";
 import { requirePermission } from "@/lib/auth/guard";
-import { ASSET_CLASS_KEYS } from "@/lib/market-core/presentation";
+import { ASSET_CLASS_KEYS, protocolStatusKey } from "@/lib/market-core/presentation";
 import { listParticipantCompliance } from "@/services/compliance-service";
 import { listAuditEvents } from "@/services/regulator-service";
 import {
   listAssetInstruments,
   listAssetProtocols,
   listHoldings,
+  listProtocolInvestments,
 } from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -29,7 +30,11 @@ export default async function SupervisionPage() {
   const t = await getTranslations("marketCore");
   const locale = (await getLocale()) as AppLocale;
   const protocols = listAssetProtocols();
-  const admitted = listAssetInstruments().filter((item) => item.status === "ISSUED");
+  const issued = listAssetInstruments().filter((item) => item.status === "ISSUED");
+  const concepts = [
+    ...listAssetInstruments().filter((item) => item.status !== "ISSUED"),
+    ...listProtocolInvestments(),
+  ];
   const holdings = listHoldings({ instrumentId: "WHEAT-2027" });
   const totalOwned = holdings.reduce((sum, row) => sum + row.buckets.owned, 0);
   const blocked = listParticipantCompliance().filter(
@@ -45,23 +50,45 @@ export default async function SupervisionPage() {
         description={t("supervisionIntro")}
       />
 
-      <MetricStrip className="sm:grid-cols-2 lg:grid-cols-4">
+      <MetricStrip className="sm:grid-cols-2 lg:grid-cols-5">
         <MetricCell label={t("marketStatus")} value={t("closedSecondary")} />
         <MetricCell
-          label={t("admittedInstruments")}
-          value={formatInteger(admitted.length, locale)}
+          label={t("issuedInstruments")}
+          value={formatInteger(issued.length, locale)}
+        />
+        <MetricCell
+          label={t("conceptsStructuring")}
+          value={formatInteger(concepts.length, locale)}
         />
         <MetricCell label={t("tradingActivity")} value={t("idle")} />
         <MetricCell label={t("clearingStatus")} value={t("primaryEvidence")} />
       </MetricStrip>
 
-      <PageSection title={t("admittedInstruments")}>
+      <PageSection title={t("issuedInstruments")}>
         <ul className="space-y-2 text-sm">
-          {admitted.map((item) => (
+          {issued.map((item) => (
             <li key={item.id}>
               <Link href={`/instruments/${item.id}`} className="text-primary hover:underline">
                 {item.symbol}
               </Link>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {t("issuedDemonstratorInstrument")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </PageSection>
+
+      <PageSection title={t("conceptsStructuring")}>
+        <ul className="space-y-2 text-sm">
+          {concepts.map((item) => (
+            <li key={item.id}>
+              <Link href={`/instruments/${item.id}`} className="text-primary hover:underline">
+                {item.instrumentType === "PROTOCOL_INVESTMENT" ? item.name : item.symbol}
+              </Link>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {t("protocolInvestmentStatus")} · {t("protocolInvestmentFlags")}
+              </span>
             </li>
           ))}
         </ul>
@@ -71,7 +98,7 @@ export default async function SupervisionPage() {
         <EmptyState>{t("none")}</EmptyState>
       </PageSection>
 
-      <PageSection title={t("coverageExceptions")}>
+      <PageSection title={t("backingExceptions")}>
         <EmptyState>{t("none")}</EmptyState>
       </PageSection>
 
@@ -88,7 +115,7 @@ export default async function SupervisionPage() {
         )}
       </PageSection>
 
-      <PageSection title={t("concentration")}>
+      <PageSection title={`${t("issuedInstrumentConcentration")} · WHEAT-2027`}>
         <DataList
           items={holdings.map((row) => ({
             label: row.holderName,
@@ -128,7 +155,7 @@ export default async function SupervisionPage() {
                   {protocol.name}
                 </Link>
                 <MarketStatusChip
-                  label={lookupMessage(t, `status${protocol.status}`)}
+                  label={lookupMessage(t, protocolStatusKey(protocol.status))}
                   tone={protocol.status}
                 />
               </div>

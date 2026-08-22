@@ -80,7 +80,9 @@ export default async function IssuanceDetailPage({
         title={issuanceId}
         description={t("issuanceIntro")}
       />
-      <p className="mb-5 text-xs text-muted-foreground">{t("noCommercialTerms")}</p>
+      <p className="mb-5 text-xs text-muted-foreground">
+        {t("noCommercialTerms")} {tCore("notTokenType")}
+      </p>
       <DataList
         items={[
           { label: t("issuanceEyebrow"), value: issuanceId },

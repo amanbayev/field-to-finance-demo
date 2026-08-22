@@ -4,6 +4,7 @@ import {
   type AssetClass,
   type InstrumentSection,
   type ProtocolInvestmentModel,
+  type ProtocolStatus,
 } from "@/domain/market-core";
 
 export const INSTRUMENT_SECTION_KEYS: Record<InstrumentSection, string> = {
@@ -57,6 +58,19 @@ export const ASSET_CLASS_KEYS: Record<AssetClass, string> = {
   MUSIC_RIGHTS: "classMUSIC_RIGHTS",
   GAMING_ASSETS: "classGAMING_ASSETS",
 };
+
+export function protocolStatusKey(status: ProtocolStatus): string {
+  switch (status) {
+    case "ACTIVE":
+      return "activeProtocol";
+    case "STRUCTURING":
+      return "protocolStructuring";
+    case "CONCEPT":
+      return "statusCONCEPT";
+    default:
+      return `status${status}`;
+  }
+}
 
 export function protocolWorldKey(protocolId: string): string {
   switch (protocolId) {

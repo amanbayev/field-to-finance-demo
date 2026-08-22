@@ -123,18 +123,33 @@ export default async function InstrumentDetailPage({
         description={instrument.name}
       />
       <div className="mb-4 flex flex-wrap gap-3">
-        <MarketStatusChip
-          label={lookupMessage(t, `type${instrument.instrumentType}`)}
-          tone={instrument.instrumentType === "ASSET_TOKEN" ? "ACTIVE" : "FUTURE"}
-        />
-        <MarketStatusChip
-          label={lookupMessage(t, `status${instrument.status}`)}
-          tone={instrument.status}
-        />
+        {protocolInvestment ? (
+          <>
+            <MarketStatusChip label={t("protocolInvestmentStatus")} tone="STRUCTURING" />
+            <MarketStatusChip label={t("noOffering")} tone="FUTURE" />
+            <MarketStatusChip label={t("notIssued")} tone="FUTURE" />
+            <MarketStatusChip label={t("notAdmitted")} tone="FUTURE" />
+          </>
+        ) : (
+          <>
+            <MarketStatusChip
+              label={lookupMessage(t, `type${instrument.instrumentType}`)}
+              tone="ACTIVE"
+            />
+            <MarketStatusChip
+              label={
+                instrument.status === "ISSUED"
+                  ? t("issuedDemonstratorInstrument")
+                  : lookupMessage(t, `status${instrument.status}`)
+              }
+              tone={instrument.status}
+            />
+          </>
+        )}
       </div>
       {protocolInvestment ? (
         <p className="mb-4 rounded-sm border border-border bg-card px-3 py-2 text-sm">
-          {t("protocolInvestmentNote")}
+          {t("protocolInvestmentNote")} {t("protocolInvestmentFlags")}
         </p>
       ) : null}
 

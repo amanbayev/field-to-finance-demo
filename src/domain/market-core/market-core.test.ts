@@ -52,7 +52,9 @@ describe("market core boundaries", () => {
     expect(wheat.instrumentType).toBe("ASSET_TOKEN");
     expect(protocolInvestment.instrumentType).toBe("PROTOCOL_INVESTMENT");
     expect(wheat.instrumentType).not.toBe(protocolInvestment.instrumentType);
-    expect(protocolInvestment.status).toBe("FUTURE");
+    expect(protocolInvestment.status).toBe("STRUCTURING");
+    expect(protocolInvestment.status).not.toBe("ISSUED");
+    expect(protocolInvestment.status).not.toBe("ADMITTED");
     expect(protocolInvestment.issuanceId).toBeNull();
   });
 
