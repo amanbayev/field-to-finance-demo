@@ -6,4 +6,6 @@ export { participants } from "./participants";
 export { complianceRecords } from "./compliance";
 export { financingModules } from "./financing";
 export { auditEvents } from "./audit";
+export { scasAttestations, scasOperatorLabel } from "./scas";
+export { scasBids, scasListings } from "./scas-matching";
 export { dashboardMetrics, systemOverview } from "./system";

@@ -1,0 +1,85 @@
+import type { ScasBid, ScasListing } from "@/domain";
+
+export const scasListings: ScasListing[] = [
+  {
+    id: "LST-OFFER-0005",
+    side: "OFFER",
+    ownerId: "prd-karaganda-fields",
+    crop: "Wheat",
+    quality: "Class 3",
+    season: 2027,
+    volumeTonnes: 1500,
+    region: "Karaganda",
+    relatedContractId: "DAC-2027-0005",
+    deliveryPeriod: "Sep–Oct 2027",
+    indicativePriceKztPerTonne: 85_000,
+    status: "OPEN",
+    termsKey: "offerKaraganda",
+  },
+  {
+    id: "LST-OFFER-0006",
+    side: "OFFER",
+    ownerId: "prd-aktobe-grain",
+    crop: "Wheat",
+    quality: "Class 3",
+    season: 2027,
+    volumeTonnes: 2100,
+    region: "Aktobe",
+    relatedContractId: "DAC-2027-0006",
+    deliveryPeriod: "Aug–Sep 2027",
+    indicativePriceKztPerTonne: 82_000,
+    status: "OPEN",
+    termsKey: "offerAktobe",
+  },
+  {
+    id: "LST-DEMAND-001",
+    side: "DEMAND",
+    ownerId: "iss-demo-agro",
+    crop: "Wheat",
+    quality: "Class 3",
+    season: 2027,
+    volumeTonnes: 2000,
+    region: "Akmola",
+    deliveryPeriod: "Aug–Oct 2027",
+    indicativePriceKztPerTonne: 88_000,
+    status: "OPEN",
+    termsKey: "demandIssuer",
+  },
+];
+
+export const scasBids: ScasBid[] = [
+  {
+    id: "BID-2026-011",
+    listingId: "LST-OFFER-0005",
+    bidderId: "iss-demo-agro",
+    volumeTonnes: 1500,
+    priceKztPerTonne: 85_000,
+    deliveryPeriod: "Sep–Oct 2027",
+    status: "OPEN",
+    messages: [
+      {
+        id: "MSG-011-1",
+        authorId: "iss-demo-agro",
+        bodyKey: "issuerBidOffer",
+        at: "2026-08-18T08:40:00.000Z",
+      },
+    ],
+  },
+  {
+    id: "BID-2026-012",
+    listingId: "LST-DEMAND-001",
+    bidderId: "prd-aktobe-grain",
+    volumeTonnes: 2000,
+    priceKztPerTonne: 86_000,
+    deliveryPeriod: "Aug–Sep 2027",
+    status: "OPEN",
+    messages: [
+      {
+        id: "MSG-012-1",
+        authorId: "prd-aktobe-grain",
+        bodyKey: "producerBidDemand",
+        at: "2026-08-19T11:05:00.000Z",
+      },
+    ],
+  },
+];

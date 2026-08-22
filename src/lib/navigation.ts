@@ -22,6 +22,7 @@ export const navGroups = [
     key: "control",
     items: [
       { href: "/compliance", key: "compliance" },
+      { href: "/scas", key: "scas" },
       { href: "/regulator", key: "regulator" },
     ],
   },

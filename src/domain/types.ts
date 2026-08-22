@@ -236,3 +236,73 @@ export interface SystemOverview {
   blockedParticipants: number;
   coverageAlerts: number;
 }
+
+export type ScasAttestationKind =
+  | "fieldContour"
+  | "satellite"
+  | "soilMoisture"
+  | "producerScore"
+  | "poolLock"
+  | "coverageSnapshot";
+
+export type ScasSubjectType = "contract" | "pool" | "producer";
+
+export type ScasAttestationStatus =
+  | "PENDING_ATTESTATION"
+  | "ATTESTED"
+  | "REJECTED";
+
+export interface ScasAttestation {
+  id: string;
+  kind: ScasAttestationKind;
+  subjectType: ScasSubjectType;
+  subjectId: string;
+  status: ScasAttestationStatus;
+  evidenceKey: string;
+  attestedAt?: string;
+  operatorNote?: string;
+}
+
+export type ScasListingSide = "OFFER" | "DEMAND";
+
+export type ScasListingStatus = "OPEN" | "MATCHED" | "CLOSED";
+
+export type ScasBidStatus = "OPEN" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
+
+export type ScasActorRole = "issuer" | "producer";
+
+export interface ScasThreadMessage {
+  id: string;
+  authorId: string;
+  bodyKey?: string;
+  body?: string;
+  at: string;
+}
+
+export interface ScasListing {
+  id: string;
+  side: ScasListingSide;
+  ownerId: string;
+  crop: string;
+  quality: string;
+  season: number;
+  volumeTonnes: number;
+  region: string;
+  relatedContractId?: string;
+  deliveryPeriod: string;
+  indicativePriceKztPerTonne: number;
+  status: ScasListingStatus;
+  termsKey: string;
+}
+
+export interface ScasBid {
+  id: string;
+  listingId: string;
+  bidderId: string;
+  volumeTonnes: number;
+  priceKztPerTonne: number;
+  deliveryPeriod: string;
+  status: ScasBidStatus;
+  messages: ScasThreadMessage[];
+  resultingContractId?: string;
+}

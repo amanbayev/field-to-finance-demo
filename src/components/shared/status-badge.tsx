@@ -17,6 +17,10 @@ const positive = new Set([
   "ON_CHAIN",
   "VERIFIED_ON_CHAIN",
   "PROTECTED_ON_CHAIN",
+  "ATTESTED",
+  "LOCKED",
+  "MATCHED",
+  "ACCEPTED",
 ]);
 
 const caution = new Set([
@@ -35,6 +39,9 @@ const caution = new Set([
   "OFF_CHAIN",
   "PROOF_UNAVAILABLE",
   "CLOSED",
+  "PENDING_ATTESTATION",
+  "OPEN",
+  "WITHDRAWN",
 ]);
 
 const negative = new Set([
@@ -47,6 +54,7 @@ const negative = new Set([
   "HIT",
   "INELIGIBLE",
   "EXCESS",
+  "REJECTED",
 ]);
 
 function markerClass(value: string): string {

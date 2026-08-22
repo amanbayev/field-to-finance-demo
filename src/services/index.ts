@@ -10,10 +10,12 @@ export {
   getSystemOverview,
   listAuditEvents,
 } from "./regulator-service";
+export { getScasSnapshot } from "./scas-service";
 export {
   blockchainProvider,
   fxProvider,
   kybProvider,
   kycProvider,
   kytProvider,
+  scasProvider,
 } from "./providers";

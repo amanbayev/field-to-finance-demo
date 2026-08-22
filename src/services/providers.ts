@@ -13,6 +13,8 @@ import type {
   KytProvider,
 } from "@/adapters/compliance";
 import type { FxProvider } from "@/adapters/fx";
+import { MockScasProvider } from "@/adapters/scas";
+import type { ScasProvider } from "@/adapters/scas";
 
 function createBlockchainProvider(): BlockchainProvider {
   const { blockchainProvider: name } = getPublicEnv();
@@ -32,5 +34,6 @@ export const blockchainProvider: BlockchainProvider =
 export const kycProvider: KycProvider = new MockKycProvider();
 export const kybProvider: KybProvider = new MockKybProvider();
 export const kytProvider: KytProvider = new MockKytProvider();
+export const scasProvider: ScasProvider = new MockScasProvider();
 export { fxProvider };
-export type { FxProvider };
+export type { FxProvider, ScasProvider };
