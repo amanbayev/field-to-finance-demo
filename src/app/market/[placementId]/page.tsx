@@ -18,6 +18,7 @@ import {
   getPlacementSnapshot,
   placementFromSnapshot,
 } from "@/services/placement-service";
+import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata({
   params,
@@ -37,6 +38,12 @@ export default async function PlacementDetailPage({
   if (placementId !== ON_CHAIN_DEMO_PLACEMENT_ID) {
     notFound();
   }
+  const actor = await requirePermission(
+    "placement.read.all",
+    "placement.read.own",
+    "market.read",
+  );
+  void actor;
   const t = await getTranslations("market");
   const tTokens = await getTranslations("tokens");
   const locale = (await getLocale()) as AppLocale;

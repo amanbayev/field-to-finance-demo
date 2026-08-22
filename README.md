@@ -12,13 +12,17 @@ Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
 ## Current state
 
-**Phase 4 primary placement is proven on Solana Devnet.** Production (`main`) still serves Phase 3 until this feature branch is reviewed. Do not merge until Production review.
+**Phase 4 primary placement is complete in Production** (`main`, `https://f2f.amanbayev.pro`).
+
+This branch (`cursor/phase-4-5-auth-rbac-demo-personas`) adds Phase 4.5: users, organisations, roles, server-side authorization and a Demo Persona Switcher. It must **not** mint, burn, transfer, redeploy programs, or change WHEAT-2027 / pool / DAC state.
+
+Do **not** merge to `main` until review.
 
 | Item | Value |
 | --- | --- |
 | Public demo | https://f2f.amanbayev.pro |
-| Production branch | `main` (Phase 3; do not merge Phase 4 automatically) |
-| Feature branch | `cursor/phase-4-primary-placement` |
+| Production branch | `main` (Phase 4) |
+| Feature branch | `cursor/phase-4-5-auth-rbac-demo-personas` |
 | Network | Solana Devnet (read-only in the public app) |
 | Registry program | `agricultural_registry` |
 | Registry Program ID | [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet) |
@@ -397,3 +401,25 @@ Vercel Preview and Production keep `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana`. Loc
 Defaults live in `src/lib/public-env.ts`.
 
 Do not put private keys, seed phrases, wallet JSON, or secret API credentials in `NEXT_PUBLIC_*` variables.
+
+### Phase 4.5 — authentication (this branch)
+
+The app uses **Supabase Auth + Postgres** for persistent users, organisations, memberships and RLS. There is **no dedicated Field to Finance Supabase project in this repository yet**. Do not reuse unrelated projects (`personal-os` or similarly named accounts).
+
+Required Preview/local values (publishable only in `NEXT_PUBLIC_*`):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=
+```
+
+Optional server-only: `SUPABASE_SERVICE_ROLE_KEY` (never `NEXT_PUBLIC_*`).
+
+Apply `supabase/migrations/20260822120000_identity.sql` then `supabase/seed.sql`. After the presenter signs up, bootstrap once:
+
+```sql
+select public.grant_system_admin_if_none('presenter@example.com');
+```
+
+That function fails if a SYSTEM_ADMIN already exists. Demo persona switching is server-validated (`assume_demo_persona` RPC) and writes `DEMO_CONTEXT` audit events. It is not on-chain.

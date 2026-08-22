@@ -22,6 +22,7 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { getPoolSnapshot, listPoolIds } from "@/services/pool-service";
+import { requirePermission } from "@/lib/auth/guard";
 
 export const dynamicParams = false;
 
@@ -47,6 +48,7 @@ export default async function PoolDetailPage({
   params: Promise<{ poolId: string }>;
 }) {
   const { poolId } = await params;
+  await requirePermission("pools.read");
   const snapshot = await getPoolSnapshot(poolId);
 
   if (!snapshot) {

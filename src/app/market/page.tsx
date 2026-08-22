@@ -19,6 +19,7 @@ import {
   getPrimaryTokenWithSupply,
   placementFromSnapshot,
 } from "@/services/placement-service";
+import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("market");
@@ -26,6 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function MarketPage() {
+  await requirePermission("market.read");
   const t = await getTranslations("market");
   const tTokens = await getTranslations("tokens");
   const tCatalog = await getTranslations("catalog");
@@ -43,6 +45,9 @@ export default async function MarketPage() {
         description={t("description")}
       />
       <p className="mb-5 text-xs text-muted-foreground">{t("demonstrator")}</p>
+      <p className="mb-5 rounded-sm border border-border bg-card p-3 text-sm text-muted-foreground">
+        {t("secondaryClosed")}
+      </p>
 
       <PageSection title={token.symbol} description={t("instrumentIntro")}>
         <FactStrip

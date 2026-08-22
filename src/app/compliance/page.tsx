@@ -14,6 +14,8 @@ import {
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { cn } from "@/lib/utils";
 import { listParticipantCompliance } from "@/services/compliance-service";
+import { requirePermission } from "@/lib/auth/guard";
+import { actorCan } from "@/domain/identity";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("compliance");
@@ -21,9 +23,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CompliancePage() {
+  const actor = await requirePermission("compliance.read");
   const t = await getTranslations("compliance");
   const tStatus = await getTranslations("status");
-  const rows = listParticipantCompliance();
+  const rows = listParticipantCompliance().filter((row) => {
+    if (actorCan(actor, "compliance.manage") || actorCan(actor, "regulator.read")) {
+      return true;
+    }
+    return (
+      row.participant.id === "inv-0001" &&
+      actor.effective.investorReference === "INVESTOR-0001"
+    );
+  });
 
   return (
     <div>

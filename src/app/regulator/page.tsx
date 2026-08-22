@@ -41,6 +41,7 @@ import {
 import { getPrimaryToken } from "@/services/token-service";
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { DoubleUseControl } from "@/components/pools/double-use-control";
+import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("regulator");
@@ -48,6 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RegulatorPage() {
+  await requirePermission("regulator.read");
   const t = await getTranslations("regulator");
   const tCompliance = await getTranslations("compliance");
   const tStatus = await getTranslations("status");

@@ -21,6 +21,7 @@ import {
   getPrimaryTokenWithSupply,
   placementFromSnapshot,
 } from "@/services/placement-service";
+import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("tokens");
@@ -28,6 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function TokensPage() {
+  await requirePermission("issuance.read");
   const t = await getTranslations("tokens");
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");

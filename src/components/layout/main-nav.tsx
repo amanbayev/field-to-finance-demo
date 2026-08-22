@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/sheet";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { lookupMessage } from "@/i18n/t-dynamic";
-import { navGroups, productName } from "@/lib/navigation";
+import { productName } from "@/lib/navigation";
+import type { PermissionNavGroup } from "@/lib/auth/nav";
 import { cn } from "@/lib/utils";
 
 function isActive(pathname: string, href: string): boolean {
@@ -24,13 +25,13 @@ function isActive(pathname: string, href: string): boolean {
     : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function MainNav() {
+export function MainNav({ groups }: { groups: PermissionNavGroup[] }) {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
   return (
     <nav aria-label={t("primary")} className="hidden min-w-0 flex-1 items-end gap-4 overflow-x-auto lg:flex">
-      {navGroups.map((group, index) => (
+      {groups.map((group, index) => (
         <div
           key={group.key}
           className={cn(
@@ -61,7 +62,7 @@ export function MainNav() {
   );
 }
 
-export function MobileNav() {
+export function MobileNav({ groups }: { groups: PermissionNavGroup[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const t = useTranslations("nav");
@@ -87,7 +88,7 @@ export function MobileNav() {
           </SheetTitle>
         </SheetHeader>
         <nav aria-label={t("primary")} className="flex flex-col gap-5 px-2 pb-6">
-          {navGroups.map((group) => (
+          {groups.map((group) => (
             <div key={group.key}>
               <p className="label-caps mb-1.5 px-2">
                 {lookupMessage(t, `groups.${group.key}`)}

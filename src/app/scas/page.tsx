@@ -23,6 +23,7 @@ import { issuerScore } from "@/data/mock/pools";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatScore } from "@/lib/format";
 import { getScasSnapshot } from "@/services/scas-service";
+import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("scas");
@@ -30,6 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ScasPage() {
+  await requirePermission("scas.read");
   const t = await getTranslations("scas");
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;

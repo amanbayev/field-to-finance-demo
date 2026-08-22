@@ -4,6 +4,7 @@ import { MatchingBoard } from "@/components/scas/matching-board";
 import { ScasSubnav } from "@/components/scas/scas-subnav";
 import { PageHeader } from "@/components/shared/page-header";
 import { getScasSnapshot } from "@/services/scas-service";
+import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("scas.matching");
@@ -11,6 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ScasMatchingPage() {
+  await requirePermission("scas.match");
   const t = await getTranslations("scas");
   const snapshot = getScasSnapshot();
 

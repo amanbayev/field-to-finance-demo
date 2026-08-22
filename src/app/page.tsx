@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { LifecycleStrip } from "@/components/dashboard/lifecycle-strip";
+import { RoleDashboard } from "@/components/dashboard/role-dashboard";
 import { DualMoney } from "@/components/shared/dual-money";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
+import { getOptionalActor } from "@/lib/auth/load-actor";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,6 +17,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function DashboardPage() {
+  const actor = await getOptionalActor().catch(() => null);
+  if (actor) {
+    return <RoleDashboard actor={actor} />;
+  }
+
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
   const { metrics, network } = await getDashboardSnapshot();

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, forbidden } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { FieldMapPlaceholder } from "@/components/contracts/field-map-placeholder";
 import { OnChainProofPanel } from "@/components/contracts/on-chain-proof-panel";
@@ -14,7 +14,9 @@ import type { AppLocale } from "@/i18n/config";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { formatInteger, formatScore } from "@/lib/format";
 import { blockchainProvider } from "@/services/providers";
-import { getContract, listContractIds } from "@/services/contract-service";
+import { getContractForActor } from "@/services/access-service";
+import { requirePermission } from "@/lib/auth/guard";
+import { listContractIds } from "@/services/contract-service";
 import { listLedgerEventsForContract } from "@/services/regulator-service";
 import { PoolAllocationPanel } from "@/components/contracts/pool-allocation-panel";
 
@@ -39,7 +41,12 @@ export default async function ContractDetailPage({
   params: Promise<{ contractId: string }>;
 }) {
   const { contractId } = await params;
-  const item = getContract(contractId);
+  const actor = await requirePermission("contracts.read.all", "contracts.read.own");
+  const item = getContractForActor(actor, contractId);
+
+  if (item === "forbidden") {
+    forbidden();
+  }
 
   if (!item) {
     notFound();

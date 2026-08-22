@@ -20,7 +20,8 @@ import {
   isOnChainDemoContract,
   type OnChainContractLookup,
 } from "@/adapters/blockchain";
-import { listContracts } from "@/services/contract-service";
+import { listContractsForActor } from "@/services/access-service";
+import { requirePermission } from "@/lib/auth/guard";
 import { blockchainProvider } from "@/services/providers";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -29,11 +30,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContractsPage() {
+  const actor = await requirePermission("contracts.read.all", "contracts.read.own");
   const t = await getTranslations("contracts");
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
-  const items = listContracts();
+  const items = listContractsForActor(actor);
   const proofEntries = await Promise.all(
     ON_CHAIN_DEMO_CONTRACT_IDS.map(
       async (id) =>

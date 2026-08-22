@@ -16,6 +16,7 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { getPool, listPoolIds, type PoolDetail } from "@/services/pool-service";
+import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pools");
@@ -23,6 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PoolsPage() {
+  await requirePermission("pools.read");
   const t = await getTranslations("pools");
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
