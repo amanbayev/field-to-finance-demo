@@ -56,6 +56,17 @@ export async function requireAnyPermission(permissions: Permission[]) {
   return requirePermission(...permissions);
 }
 
+export async function requireRegistrarOrRegulator() {
+  const actor = await requirePermission("regulator.read", "issuance.manage");
+  if (actorCan(actor, "regulator.read")) {
+    return actor;
+  }
+  if (actorCan(actor, "issuance.manage") && actorCan(actor, "audit.read")) {
+    return actor;
+  }
+  forbidden();
+}
+
 export async function requireOwnProducerWorkspace(options?: {
   manage?: boolean;
 }) {

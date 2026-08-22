@@ -104,7 +104,7 @@ export default async function PlacementsPage() {
                 <TableCell>{placement.issuanceId}</TableCell>
                 <TableCell>
                   <Link
-                    href={`/tokens/${placement.instrumentSymbol}`}
+                    href={`/instruments/${placement.instrumentSymbol}`}
                     className="text-primary hover:underline"
                   >
                     {placement.instrumentSymbol}

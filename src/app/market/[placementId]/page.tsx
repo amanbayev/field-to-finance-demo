@@ -69,7 +69,7 @@ export default async function PlacementDetailPage({
             {
               label: tTokens("fields.instrument"),
               value: (
-                <Link href="/tokens/WHEAT-2027" className="text-primary hover:underline">
+                <Link href="/instruments/WHEAT-2027" className="text-primary hover:underline">
                   {placement.instrumentSymbol}
                 </Link>
               ),

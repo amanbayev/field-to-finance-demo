@@ -14,7 +14,7 @@ import {
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { ON_CHAIN_DEMO_ISSUANCE_ID } from "@/adapters/blockchain";
-import { requireAllPermissions } from "@/lib/auth/guard";
+import { requireRegistrarOrRegulator } from "@/lib/auth/guard";
 import { getPlacementSnapshot } from "@/services/placement-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function IssuancesPage() {
-  await requireAllPermissions("issuance.manage", "audit.read");
+  await requireRegistrarOrRegulator();
   const t = await getTranslations("workspace");
   const locale = (await getLocale()) as AppLocale;
   const snapshot = await getPlacementSnapshot();
@@ -61,7 +61,7 @@ export default async function IssuancesPage() {
                 </TableCell>
                 <TableCell>
                   <Link
-                    href="/tokens/WHEAT-2027"
+                    href="/instruments/WHEAT-2027"
                     className="text-primary hover:underline"
                   >
                     WHEAT-2027

@@ -19,7 +19,17 @@ import { productName } from "@/lib/navigation";
 import type { PermissionNavGroup } from "@/lib/auth/nav";
 import { cn } from "@/lib/utils";
 
-const PREFIX_ACTIVE_HREFS = new Set(["/contracts", "/pools", "/market"]);
+const PREFIX_ACTIVE_HREFS = new Set([
+  "/contracts",
+  "/pools",
+  "/market",
+  "/instruments",
+  "/protocols",
+  "/markets",
+  "/registry",
+  "/clearing",
+  "/supervision",
+]);
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") {

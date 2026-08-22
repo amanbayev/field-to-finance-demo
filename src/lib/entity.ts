@@ -14,7 +14,7 @@ export function entityHref(
     case "coverage":
       return "/coverage";
     case "token":
-      return "/tokens/WHEAT-2027";
+      return "/instruments/WHEAT-2027";
     case "issuance":
       return `/issuances/${id}`;
     case "placement":

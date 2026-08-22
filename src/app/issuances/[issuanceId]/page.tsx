@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
+import { PlatformBreadcrumb } from "@/components/market-core/platform-breadcrumb";
 import { IssuanceDesk } from "@/components/tokens/issuance-desk";
 import { TokenMintProofPanel } from "@/components/tokens/token-mint-proof-panel";
 import { DataList } from "@/components/shared/data-list";
@@ -53,6 +54,7 @@ export default async function IssuanceDetailPage({
     "regulator.read",
   );
   const t = await getTranslations("workspace");
+  const tCore = await getTranslations("marketCore");
   const locale = (await getLocale()) as AppLocale;
   const snapshot = await getPlacementSnapshot();
   const placement = placementFromSnapshot(snapshot);
@@ -64,6 +66,15 @@ export default async function IssuanceDetailPage({
 
   return (
     <div>
+      <PlatformBreadcrumb
+        items={[
+          { href: "/markets", label: tCore("breadcrumbMarkets") },
+          { label: tCore("classAGRICULTURE") },
+          { href: "/protocols/F2F", label: "Field to Finance" },
+          { href: "/instruments/WHEAT-2027", label: "WHEAT-2027" },
+          { label: issuanceId },
+        ]}
+      />
       <PageHeader
         eyebrow={t("issuanceEyebrow")}
         title={issuanceId}
@@ -77,7 +88,7 @@ export default async function IssuanceDetailPage({
             label: t("instrumentKind"),
             value: (
               <Link
-                href="/tokens/WHEAT-2027"
+                href="/instruments/WHEAT-2027"
                 className="text-primary hover:underline"
               >
                 WHEAT-2027

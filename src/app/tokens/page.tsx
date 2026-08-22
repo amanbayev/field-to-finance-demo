@@ -52,7 +52,7 @@ export default async function TokensRegistryPage() {
             <TableRow key={token.id}>
               <TableCell>
                 <Link
-                  href={`/tokens/${token.symbol}`}
+                  href={`/instruments/${token.symbol}`}
                   className="font-medium text-primary hover:underline"
                 >
                   {token.symbol}

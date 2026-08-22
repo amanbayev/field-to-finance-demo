@@ -24,6 +24,21 @@ export {
 } from "./regulator-service";
 export { getScasSnapshot } from "./scas-service";
 export {
+  getAssetProtocol,
+  getInstrumentMarketContext,
+  getMarketInstrument,
+  getProtocolContext,
+  listAdmission,
+  listAssetInstruments,
+  listAssetProtocols,
+  listEligibility,
+  listHoldings,
+  listMarketInstruments,
+  listProtocolInvestments,
+  marketCoreSnapshot,
+  tradeDecision,
+} from "./market-core-service";
+export {
   blockchainProvider,
   fxProvider,
   kybProvider,

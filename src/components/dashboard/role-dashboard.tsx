@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import Link from "next/link";
 import type { ActorContext } from "@/domain/identity";
 import { listContractsForActor } from "@/services/access-service";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
@@ -6,6 +7,7 @@ import { getInvestorPortfolio } from "@/services/portfolio-service";
 import { loadAdminOverview } from "@/services/admin-service";
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { remainingCoverageCapacity } from "@/services/workspace-view";
+import { listAssetInstruments } from "@/services/market-core-service";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { formatInteger } from "@/lib/format";
@@ -76,30 +78,38 @@ async function RegulatorHome() {
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
   const { metrics } = await getDashboardSnapshot();
+  const admitted = listAssetInstruments().filter((item) => item.status === "ISSUED");
   return (
     <div>
       <PageHeader
-        eyebrow={t("nav.regulator")}
+        eyebrow={t("nav.supervision")}
         title={t("nav.dashboard")}
         description={t("dashboard.regulatorIntro")}
       />
       <MetricStrip>
         <MetricCell
           emphasis="primary"
-          label={t("dashboard.eligibleCoverage")}
-          value={t("units.tonnes", {
-            value: formatInteger(metrics.eligibleCoverageTonnes, locale),
-          })}
+          label={t("marketCore.marketStatus")}
+          value={t("marketCore.closedSecondary")}
         />
         <MetricCell
-          label={t("dashboard.wheatMinted")}
-          value={formatInteger(metrics.wheatMintedSupply, locale)}
+          label={t("marketCore.admittedInstruments")}
+          value={formatInteger(admitted.length, locale)}
         />
         <MetricCell
           label={t("dashboard.primaryPlacement")}
           value={formatInteger(metrics.primaryPlacementVolume, locale)}
         />
       </MetricStrip>
+      <p className="mt-4 text-sm text-muted-foreground">
+        <Link href="/supervision" className="text-primary hover:underline">
+          {t("nav.supervision")}
+        </Link>
+        {" · "}
+        <Link href="/markets" className="text-primary hover:underline">
+          {t("nav.markets")}
+        </Link>
+      </p>
     </div>
   );
 }
@@ -281,16 +291,13 @@ async function InvestorHome({ actor }: { actor: ActorContext }) {
         />
         <MetricCell label={t("portfolio.placement")} value={portfolio?.placementId ?? "—"} />
         <MetricCell
-          label={t("dashboard.eligibleCoverage")}
-          value={
-            portfolio
-              ? t("units.tonnes", {
-                  value: formatInteger(portfolio.coverage, locale),
-                })
-              : "—"
-          }
+          label={t("marketCore.sectionMarket")}
+          value={t("marketCore.secondaryNotOpen")}
         />
       </MetricStrip>
+      <p className="mt-4 text-sm text-muted-foreground">
+        {t("marketCore.protocolInvestmentNote")}
+      </p>
     </div>
   );
 }
@@ -300,13 +307,14 @@ async function TraderHome() {
   return (
     <div>
       <PageHeader
-        eyebrow={t("nav.marketPage")}
+        eyebrow={t("nav.markets")}
         title={t("nav.dashboard")}
         description={t("dashboard.traderIntro")}
       />
       <p className="rounded-sm border border-border bg-card p-4 text-sm text-muted-foreground">
-        {t("workspace.secondaryBody")}
+        {t("marketCore.clearingDistinct")}
       </p>
+      <p className="mt-3 text-sm text-muted-foreground">{t("workspace.secondaryBody")}</p>
     </div>
   );
 }

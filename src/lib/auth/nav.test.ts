@@ -136,29 +136,34 @@ describe("effective navigation", () => {
       "iss001",
       "primaryPlacements",
     ]);
-    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/tokens/WHEAT-2027");
+    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/instruments/WHEAT-2027");
     expect(hrefsOf("DEMO-ISSUER-001")).toContain("/issuances/ISS-001");
     expect(hrefsOf("DEMO-ISSUER-001")).toContain("/placements");
     expect(hrefsOf("DEMO-ISSUER-001")).not.toContain("/ownership");
+    expect(hrefsOf("DEMO-ISSUER-001")).not.toContain("/markets");
   });
 
   it("registrar nav is registry-scoped", () => {
     expect(keysOf("DEMO-REGISTRAR-001")).toEqual([
       "dashboard",
+      "markets",
       "backing",
       "tokens",
       "issuance",
       "placements",
-      "holdingsRegistry",
+      "registry",
+      "clearing",
       "audit",
     ]);
     expect(hrefsOf("DEMO-REGISTRAR-001")).toEqual([
       "/",
+      "/markets",
       "/backing",
       "/tokens",
       "/issuances",
       "/placements",
-      "/ownership",
+      "/registry",
+      "/clearing",
       "/audit",
     ]);
   });
@@ -166,23 +171,33 @@ describe("effective navigation", () => {
   it("investor nav drops duplicate market items", () => {
     expect(keysOf("DEMO-FUND-001")).toEqual([
       "dashboard",
+      "markets",
       "instruments",
       "portfolio",
       "placementsOwn",
+      "secondary",
       "myCompliance",
     ]);
     expect(hrefsOf("DEMO-FUND-001")).not.toContain("/market");
     expect(hrefsOf("DEMO-FUND-001")).toContain("/instruments");
     expect(hrefsOf("DEMO-FUND-001")).toContain("/placements");
+    expect(hrefsOf("DEMO-FUND-001")).toContain("/markets");
+    expect(hrefsOf("DEMO-FUND-001")).toContain("/secondary");
   });
 
   it("trader nav is overview, instruments and closed secondary market", () => {
     expect(keysOf("DEMO-TRADER-001")).toEqual([
       "dashboard",
+      "markets",
       "traderInstruments",
       "secondary",
     ]);
-    expect(hrefsOf("DEMO-TRADER-001")).toEqual(["/", "/instruments", "/secondary"]);
+    expect(hrefsOf("DEMO-TRADER-001")).toEqual([
+      "/",
+      "/markets",
+      "/instruments",
+      "/secondary",
+    ]);
   });
 
   it("compliance nav splits checks from the overview", () => {
@@ -202,20 +217,35 @@ describe("effective navigation", () => {
     ]);
   });
 
-  it("regulator nav has a single overview and shared coverage", () => {
+  it("regulator nav is platform infrastructure, not agriculture modules", () => {
     expect(keysOf("DEMO-REGULATOR-001")).toEqual([
       "dashboard",
+      "markets",
+      "instruments",
+      "issuance",
+      "clearing",
+      "registry",
       "participants",
-      "contracts",
-      "pools",
-      "coverage",
-      "tokens",
-      "placements",
       "compliance",
-      "audit",
+      "supervision",
+      "reports",
+    ]);
+    expect(hrefsOf("DEMO-REGULATOR-001")).toEqual([
+      "/",
+      "/markets",
+      "/instruments",
+      "/issuances",
+      "/clearing",
+      "/registry",
+      "/participants",
+      "/compliance",
+      "/supervision",
+      "/audit",
     ]);
     expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/regulator");
-    expect(hrefsOf("DEMO-REGULATOR-001")).toContain("/coverage");
+    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/contracts");
+    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/pools");
+    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/coverage");
     expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/admin");
   });
 

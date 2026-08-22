@@ -1,90 +1,81 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
-import { DataList } from "@/components/shared/data-list";
+import { getTranslations } from "next-intl/server";
+import { MarketStatusChip } from "@/components/market-core/market-status-chip";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
-import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
-import type { AppLocale } from "@/i18n/config";
-import { formatInteger, formatPercent } from "@/lib/format";
-import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
+import { lookupMessage } from "@/i18n/t-dynamic";
 import { requirePermission } from "@/lib/auth/guard";
-import { getPlacementSnapshot } from "@/services/placement-service";
-import { listTokens } from "@/services/token-service";
+import { ASSET_CLASS_KEYS } from "@/lib/market-core/presentation";
+import {
+  listAssetInstruments,
+  listProtocolInvestments,
+} from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("workspace");
+  const t = await getTranslations("marketCore");
   return { title: t("instrumentsTitle") };
 }
 
 export default async function InstrumentsPage() {
   await requirePermission("issuance.read", "market.read");
-  const t = await getTranslations("workspace");
-  const locale = (await getLocale()) as AppLocale;
-  const snapshot = await getPlacementSnapshot();
-  const coverage = wheatPoolCoverageFromEngine();
-  const tokens = listTokens();
+  const t = await getTranslations("marketCore");
+  const assets = listAssetInstruments();
+  const protocolInvestments = listProtocolInvestments();
 
   return (
     <div>
       <PageHeader
-        eyebrow={t("instrumentsEyebrow")}
+        eyebrow={t("levelInstrument")}
         title={t("instrumentsTitle")}
         description={t("instrumentsIntro")}
       />
-      <p className="mb-5 text-sm text-muted-foreground">{t("noBuy")}</p>
-      {tokens.map((token) => (
-        <PageSection key={token.id} title={token.symbol}>
-          <DataList
-            items={[
-              { label: t("instrumentKind"), value: token.type },
-              { label: t("holderRight"), value: t("holderRightValue") },
-              { label: t("unitClaim"), value: t("unitClaim") },
-              { label: t("deliveryWindow"), value: token.terms.redemptionWindow },
-              {
-                label: t("underlyingPool"),
-                value: (
-                  <Link
-                    href={`/pools/${token.poolId}`}
-                    className="font-tabular text-xs text-primary hover:underline"
-                  >
-                    {token.poolId}
-                  </Link>
-                ),
-              },
-              {
-                label: token.symbol,
-                value: (
-                  <Link
-                    href={`/tokens/${token.symbol}`}
-                    className="text-primary hover:underline"
-                  >
-                    {token.symbol}
-                  </Link>
-                ),
-              },
-            ]}
-          />
-          <MetricStrip className="mt-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCell
-              label={t("eligibleCoverage")}
-              value={formatInteger(coverage.eligibleCoverageTonnes, locale)}
-            />
-            <MetricCell
-              label={t("riskHaircut")}
-              value={formatPercent(coverage.totalHaircutPercent, locale)}
-            />
-            <MetricCell
-              label={t("minted")}
-              value={formatInteger(snapshot.supply.mintedSupply, locale)}
-            />
-            <MetricCell
-              label={t("placed")}
-              value={formatInteger(snapshot.supply.placed, locale)}
-            />
-          </MetricStrip>
-        </PageSection>
-      ))}
+      <p className="mb-5 text-sm">{t("protocolInvestmentNote")}</p>
+
+      <PageSection title={t("assetFamily")}>
+        <ul className="grid gap-3">
+          {assets.map((item) => (
+            <li key={item.id} className="border border-border bg-card px-4 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <Link
+                  href={`/instruments/${item.id}`}
+                  className="font-heading text-lg tracking-tight text-primary hover:underline"
+                >
+                  {item.symbol}
+                </Link>
+                <MarketStatusChip
+                  label={lookupMessage(t, `status${item.status}`)}
+                  tone={item.status}
+                />
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">{item.name}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {lookupMessage(t, ASSET_CLASS_KEYS[item.assetClass])} ·{" "}
+                {lookupMessage(t, `type${item.instrumentType}`)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </PageSection>
+
+      <PageSection title={t("protocolFamily")}>
+        <p className="mb-3 text-sm text-muted-foreground">{t("noFakeEconomics")}</p>
+        <ul className="grid gap-3">
+          {protocolInvestments.map((item) => (
+            <li key={item.id} className="border border-dashed border-border bg-card px-4 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <Link
+                  href={`/instruments/${item.id}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {item.name}
+                </Link>
+                <MarketStatusChip label={t("protocolInvestmentStatus")} tone="FUTURE" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </PageSection>
     </div>
   );
 }
