@@ -36,7 +36,11 @@ export function PersonaSwitcher({
   }));
 
   return (
-    <form action={assumePersonaAction} className="min-w-0">
+    <form
+      action={assumePersonaAction}
+      className="min-w-0"
+      key={currentPersonaId ?? "none"}
+    >
       <div className={compact ? "flex min-w-0 items-center gap-2" : "min-w-0"}>
         {isImpersonating ? (
           <span className="shrink-0 text-[10px] font-medium tracking-[0.16em] text-primary uppercase">
