@@ -8,7 +8,7 @@ export function PageSection({
   children,
   className,
 }: {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
   children: ReactNode;

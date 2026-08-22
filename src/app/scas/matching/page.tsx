@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { MatchingBoard } from "@/components/scas/matching-board";
-import { ScasSubnav } from "@/components/scas/scas-subnav";
 import { PageHeader } from "@/components/shared/page-header";
 import { getScasSnapshot } from "@/services/scas-service";
 import { requirePermission } from "@/lib/auth/guard";
@@ -26,7 +25,6 @@ export default async function ScasMatchingPage() {
       <p className="mb-3 text-xs tracking-wide text-muted-foreground">
         {snapshot.operatorLabel}
       </p>
-      <ScasSubnav />
       <MatchingBoard
         initialListings={snapshot.listings}
         initialBids={snapshot.bids}

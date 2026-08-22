@@ -4,6 +4,8 @@ import { listContractsForActor } from "@/services/access-service";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
 import { getInvestorPortfolio } from "@/services/portfolio-service";
 import { loadAdminOverview } from "@/services/admin-service";
+import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
+import { remainingCoverageCapacity } from "@/services/workspace-view";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { formatInteger } from "@/lib/format";
@@ -20,7 +22,10 @@ export async function RoleDashboard({ actor }: { actor: ActorContext }) {
   if (role === "SCAS_OPERATOR") {
     return <ScasHome actor={actor} />;
   }
-  if (role === "REGISTRAR_OPERATOR" || role === "ISSUER_OPERATOR") {
+  if (role === "ISSUER_OPERATOR") {
+    return <IssuerHome />;
+  }
+  if (role === "REGISTRAR_OPERATOR") {
     return <RegistrarHome />;
   }
   if (role === "PRODUCER_ADMIN") {
@@ -45,7 +50,7 @@ async function AdminHome() {
     <div>
       <PageHeader
         eyebrow={t("admin.eyebrow")}
-        title={t("admin.dashboardTitle")}
+        title={t("nav.dashboard")}
         description={t("admin.dashboardIntro")}
       />
       <MetricStrip className="sm:grid-cols-4">
@@ -75,7 +80,7 @@ async function RegulatorHome() {
     <div>
       <PageHeader
         eyebrow={t("nav.regulator")}
-        title={t("dashboard.regulatorTitle")}
+        title={t("nav.dashboard")}
         description={t("dashboard.regulatorIntro")}
       />
       <MetricStrip>
@@ -99,6 +104,64 @@ async function RegulatorHome() {
   );
 }
 
+async function IssuerHome() {
+  const t = await getTranslations();
+  const locale = (await getLocale()) as AppLocale;
+  const { metrics } = await getDashboardSnapshot();
+  const coverage = wheatPoolCoverageFromEngine();
+  const remaining = remainingCoverageCapacity(coverage, metrics.wheatMintedSupply);
+  return (
+    <div>
+      <PageHeader
+        eyebrow={t("dashboard.issuerEyebrow")}
+        title={t("nav.dashboard")}
+        description={t("workspace.issuerOverviewIntro")}
+      />
+      <MetricStrip className="sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCell
+          emphasis="primary"
+          label={t("workspace.eligibleBacking")}
+          value={t("units.tonnes", {
+            value: formatInteger(coverage.eligibleCoverageTonnes, locale),
+          })}
+        />
+        <MetricCell
+          label={t("workspace.availableIssuance")}
+          value={t("units.tonnes", {
+            value: formatInteger(remaining, locale),
+          })}
+        />
+        <MetricCell
+          label={t("workspace.tokenProgramme")}
+          value="WHEAT-2027"
+        />
+        <MetricCell
+          label={t("workspace.minted")}
+          value={formatInteger(metrics.wheatMintedSupply, locale)}
+        />
+        <MetricCell
+          label={t("dashboard.registrarInventory")}
+          value={formatInteger(metrics.registrarInventory, locale)}
+        />
+        <MetricCell
+          label={t("workspace.placementProgress")}
+          value={formatInteger(metrics.primaryPlacementVolume, locale)}
+        />
+        <MetricCell
+          label={t("dashboard.circulating")}
+          value={formatInteger(metrics.circulatingSupply, locale)}
+        />
+        <MetricCell
+          label={t("workspace.grossVolume")}
+          value={t("units.tonnes", {
+            value: formatInteger(coverage.grossVolumeTonnes, locale),
+          })}
+        />
+      </MetricStrip>
+    </div>
+  );
+}
+
 async function RegistrarHome() {
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
@@ -107,7 +170,7 @@ async function RegistrarHome() {
     <div>
       <PageHeader
         eyebrow={t("dashboard.registrarEyebrow")}
-        title={t("dashboard.registrarTitle")}
+        title={t("nav.dashboard")}
         description={t("dashboard.registrarIntro")}
       />
       <MetricStrip className="sm:grid-cols-4">
@@ -153,7 +216,7 @@ async function ProducerHome({ actor }: { actor: ActorContext }) {
     <div>
       <PageHeader
         eyebrow={actor.effective.organization?.name}
-        title={t("dashboard.producerTitle")}
+        title={t("nav.dashboard")}
         description={t("dashboard.producerIntro")}
       />
       <MetricStrip>
@@ -182,7 +245,7 @@ async function ScasHome({ actor }: { actor: ActorContext }) {
     <div>
       <PageHeader
         eyebrow={t("nav.scas")}
-        title={t("dashboard.scasTitle")}
+        title={t("nav.dashboard")}
         description={t("dashboard.scasIntro")}
       />
       <MetricStrip>
@@ -203,7 +266,7 @@ async function InvestorHome({ actor }: { actor: ActorContext }) {
     <div>
       <PageHeader
         eyebrow={actor.effective.organization?.name}
-        title={t("dashboard.investorTitle")}
+        title={t("nav.dashboard")}
         description={t("dashboard.investorIntro")}
       />
       <MetricStrip>
@@ -238,11 +301,11 @@ async function TraderHome() {
     <div>
       <PageHeader
         eyebrow={t("nav.marketPage")}
-        title={t("dashboard.traderTitle")}
+        title={t("nav.dashboard")}
         description={t("dashboard.traderIntro")}
       />
       <p className="rounded-sm border border-border bg-card p-4 text-sm text-muted-foreground">
-        {t("market.secondaryClosed")}
+        {t("workspace.secondaryBody")}
       </p>
     </div>
   );
@@ -254,7 +317,7 @@ async function ComplianceHome() {
     <div>
       <PageHeader
         eyebrow={t("nav.compliance")}
-        title={t("dashboard.complianceTitle")}
+        title={t("nav.dashboard")}
         description={t("dashboard.complianceIntro")}
       />
     </div>

@@ -78,53 +78,55 @@ describe("effective navigation", () => {
       persona: undefined,
       personaOrganization: undefined,
     });
-    const keys = visibleNavKeys(actor);
-    expect(keys).toEqual([
+    expect(visibleNavKeys(actor)).toEqual([
       "dashboard",
       "users",
       "organizations",
-      "memberships",
+      "access",
       "roleRequests",
       "demoPersonas",
       "adminAudit",
       "system",
     ]);
-    expect(keys).not.toContain("regulator");
-    expect(keys).not.toContain("attestation");
-    expect(keys).not.toContain("portfolio");
-    expect(visibleNavHrefs(actor)).not.toContain("/regulator");
   });
 
-  it("farmer nav is producer-scoped and hides control planes", () => {
+  it("farmer nav is producer-scoped", () => {
     expect(keysOf("DEMO-FARM-001")).toEqual([
       "dashboard",
       "myFields",
       "myContracts",
       "monitoring",
-      "documentsStatus",
+      "documents",
       "finance",
     ]);
+    expect(hrefsOf("DEMO-FARM-001")).toEqual([
+      "/",
+      "/fields",
+      "/contracts",
+      "/monitoring",
+      "/documents",
+      "/finance",
+    ]);
+    expect(hrefsOf("DEMO-FARM-001")).not.toContain("/pools");
     expect(hrefsOf("DEMO-FARM-001")).not.toContain("/regulator");
-    expect(hrefsOf("DEMO-FARM-001")).not.toContain("/admin");
-    expect(hrefsOf("DEMO-FARM-001")).not.toContain("/scas");
-    expect(keysOf("DEMO-FARM-001")).not.toContain("system");
   });
 
-  it("SCAS nav includes attestation and matching, not admin", () => {
+  it("SCAS nav uses dedicated monitoring and coverage", () => {
     expect(keysOf("DEMO-SCAS-001")).toEqual([
       "dashboard",
       "attestation",
       "matching",
-      "contracts",
       "scasMonitoring",
+      "contracts",
       "pools",
       "coverage",
     ]);
-    expect(hrefsOf("DEMO-SCAS-001")).not.toContain("/admin");
-    expect(hrefsOf("DEMO-SCAS-001")).not.toContain("/regulator");
+    expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/monitoring");
+    expect(hrefsOf("DEMO-SCAS-001")).toContain("/coverage");
+    expect(hrefsOf("DEMO-SCAS-001")).not.toContain("/pools/POOL-WHEAT-2027-01");
   });
 
-  it("issuer nav includes issuance context without regulator or admin", () => {
+  it("issuer nav points instrument and issuance to distinct routes", () => {
     expect(keysOf("DEMO-ISSUER-001")).toEqual([
       "dashboard",
       "contracts",
@@ -132,76 +134,77 @@ describe("effective navigation", () => {
       "coverage",
       "wheat2027",
       "iss001",
-      "placements",
+      "primaryPlacements",
     ]);
-    expect(keysOf("DEMO-ISSUER-001")).not.toContain("attestation");
-    expect(keysOf("DEMO-ISSUER-001")).not.toContain("regulator");
-    expect(keysOf("DEMO-ISSUER-001")).not.toContain("system");
+    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/tokens/WHEAT-2027");
+    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/issuances/ISS-001");
+    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/placements");
+    expect(hrefsOf("DEMO-ISSUER-001")).not.toContain("/ownership");
   });
 
-  it("registrar nav includes holdings and audit, not SCAS attestation", () => {
+  it("registrar nav is registry-scoped", () => {
     expect(keysOf("DEMO-REGISTRAR-001")).toEqual([
       "dashboard",
-      "contracts",
-      "pools",
-      "coverage",
+      "backing",
       "tokens",
       "issuance",
       "placements",
       "holdingsRegistry",
       "audit",
     ]);
-    expect(keysOf("DEMO-REGISTRAR-001")).not.toContain("attestation");
-    expect(keysOf("DEMO-REGISTRAR-001")).not.toContain("matching");
-    expect(keysOf("DEMO-REGISTRAR-001")).not.toContain("system");
-    expect(keysOf("DEMO-REGISTRAR-001")).not.toContain("regulator");
+    expect(hrefsOf("DEMO-REGISTRAR-001")).toEqual([
+      "/",
+      "/backing",
+      "/tokens",
+      "/issuances",
+      "/placements",
+      "/ownership",
+      "/audit",
+    ]);
   });
 
-  it("investor nav includes portfolio and hides other planes", () => {
+  it("investor nav drops duplicate market items", () => {
     expect(keysOf("DEMO-FUND-001")).toEqual([
       "dashboard",
       "instruments",
-      "myOrders",
       "portfolio",
       "placementsOwn",
       "myCompliance",
     ]);
-    expect(hrefsOf("DEMO-FUND-001")).not.toContain("/admin");
-    expect(hrefsOf("DEMO-FUND-001")).not.toContain("/scas");
-    expect(hrefsOf("DEMO-FUND-001")).not.toContain("/regulator");
+    expect(hrefsOf("DEMO-FUND-001")).not.toContain("/market");
+    expect(hrefsOf("DEMO-FUND-001")).toContain("/instruments");
+    expect(hrefsOf("DEMO-FUND-001")).toContain("/placements");
   });
 
-  it("trader nav stays on the closed secondary market", () => {
+  it("trader nav is overview, instruments and closed secondary market", () => {
     expect(keysOf("DEMO-TRADER-001")).toEqual([
       "dashboard",
       "traderInstruments",
-      "positions",
-      "orders",
-      "secondaryClosed",
+      "secondary",
     ]);
-    expect(hrefsOf("DEMO-TRADER-001")).not.toContain("/admin");
-    expect(hrefsOf("DEMO-TRADER-001")).not.toContain("/portfolio");
+    expect(hrefsOf("DEMO-TRADER-001")).toEqual(["/", "/instruments", "/secondary"]);
   });
 
-  it("compliance nav is KYC/KYB scoped without mint or admin", () => {
+  it("compliance nav splits checks from the overview", () => {
     expect(keysOf("DEMO-COMPLIANCE-001")).toEqual([
       "dashboard",
-      "participants",
-      "kycKyb",
-      "sanctions",
-      "kytAlerts",
+      "complianceParticipants",
+      "checks",
       "eligibility",
-      "walletOwnership",
+      "alerts",
     ]);
-    expect(hrefsOf("DEMO-COMPLIANCE-001")).not.toContain("/scas");
-    expect(hrefsOf("DEMO-COMPLIANCE-001")).not.toContain("/admin");
-    expect(hrefsOf("DEMO-COMPLIANCE-001")).not.toContain("/tokens");
+    expect(hrefsOf("DEMO-COMPLIANCE-001")).toEqual([
+      "/",
+      "/compliance",
+      "/compliance/checks",
+      "/compliance/eligibility",
+      "/compliance/alerts",
+    ]);
   });
 
-  it("regulator nav is supervisory and hides admin and SCAS write", () => {
+  it("regulator nav has a single overview and shared coverage", () => {
     expect(keysOf("DEMO-REGULATOR-001")).toEqual([
       "dashboard",
-      "regulator",
       "participants",
       "contracts",
       "pools",
@@ -211,17 +214,8 @@ describe("effective navigation", () => {
       "compliance",
       "audit",
     ]);
-    expect(keysOf("DEMO-REGULATOR-001")).not.toContain("attestation");
-    expect(keysOf("DEMO-REGULATOR-001")).not.toContain("matching");
-    expect(keysOf("DEMO-REGULATOR-001")).not.toContain("system");
-    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/admin");
-    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/scas");
-  });
-
-  it("does not grey-out forbidden hrefs — they are omitted", () => {
-    expect(hrefsOf("DEMO-FARM-001")).not.toContain("/regulator");
-    expect(hrefsOf("DEMO-FARM-001")).not.toContain("/admin");
-    expect(hrefsOf("DEMO-FUND-001")).not.toContain("/admin");
+    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/regulator");
+    expect(hrefsOf("DEMO-REGULATOR-001")).toContain("/coverage");
     expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/admin");
   });
 });

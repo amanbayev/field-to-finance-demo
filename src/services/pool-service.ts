@@ -110,3 +110,13 @@ export function listPoolIds(): string[] {
   return pools.map((pool) => pool.id);
 }
 
+export function poolMembershipForContract(contractId: string) {
+  for (const pool of pools) {
+    const member = pool.members.find((item) => item.contractId === contractId);
+    if (member) {
+      return { pool, member };
+    }
+  }
+  return undefined;
+}
+

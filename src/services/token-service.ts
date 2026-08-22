@@ -42,6 +42,14 @@ export function listTokens(): AgriculturalToken[] {
   return tokens;
 }
 
+export function getTokenBySymbol(symbol: string): TokenDetail | undefined {
+  const token = tokens.find((item) => item.symbol === symbol);
+  if (!token) {
+    return undefined;
+  }
+  return getToken(token.id);
+}
+
 export function getToken(id: string): TokenDetail | undefined {
   const token = tokens.find((item) => item.id === id);
   if (!token) {

@@ -10,10 +10,13 @@ export function entityHref(
     case "contract":
       return `/contracts/${id}`;
     case "pool":
-    case "coverage":
       return `/pools/${id}`;
+    case "coverage":
+      return "/coverage";
     case "token":
-      return "/tokens";
+      return "/tokens/WHEAT-2027";
+    case "issuance":
+      return `/issuances/${id}`;
     case "placement":
       return `/market/${id}`;
     default:

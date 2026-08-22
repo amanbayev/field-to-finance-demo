@@ -11,6 +11,11 @@ import { getOptionalActor } from "@/lib/auth/load-actor";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const actor = await getOptionalActor().catch(() => null);
+  if (actor) {
+    const t = await getTranslations("nav");
+    return { title: t("dashboard") };
+  }
   const t = await getTranslations("dashboard");
   return { title: t("title") };
 }

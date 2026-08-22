@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { AttestationQueue } from "@/components/scas/attestation-queue";
 import { IssuanceGate } from "@/components/scas/issuance-gate";
-import { ScasSubnav } from "@/components/scas/scas-subnav";
 import { DataList } from "@/components/shared/data-list";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
@@ -26,13 +25,14 @@ import { getScasSnapshot } from "@/services/scas-service";
 import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("scas");
-  return { title: t("title") };
+  const t = await getTranslations("workspace");
+  return { title: t("attestationTitle") };
 }
 
 export default async function ScasPage() {
   await requirePermission("scas.read");
   const t = await getTranslations("scas");
+  const tWorkspace = await getTranslations("workspace");
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
   const snapshot = getScasSnapshot();
@@ -42,13 +42,12 @@ export default async function ScasPage() {
     <div>
       <PageHeader
         eyebrow={t("eyebrow")}
-        title={t("title")}
+        title={tWorkspace("attestationTitle")}
         description={t("description")}
       />
       <p className="mb-3 text-xs tracking-wide text-muted-foreground">
         {snapshot.operatorLabel}
       </p>
-      <ScasSubnav />
 
       <MetricStrip className="sm:grid-cols-2 lg:grid-cols-4">
         <MetricCell

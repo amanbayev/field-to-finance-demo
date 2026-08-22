@@ -1,15 +1,16 @@
 import { forbidden, redirect, unauthorized } from "next/navigation";
-import { actorCan, AuthorizationError, type Permission } from "@/domain/identity";
+import {
+  actorCan,
+  AuthorizationError,
+  type ActorContext,
+  type Permission,
+} from "@/domain/identity";
 import { requireActor } from "@/lib/auth/load-actor";
 import { isAuthConfigured } from "@/lib/auth/env";
 
-export async function requirePermission(...permissions: Permission[]) {
+async function loadAuthorizedActor(): Promise<ActorContext> {
   try {
-    const actor = await requireActor();
-    if (!permissions.some((permission) => actorCan(actor, permission))) {
-      forbidden();
-    }
-    return actor;
+    return await requireActor();
   } catch (error) {
     if (error instanceof AuthorizationError) {
       if (error.code === "unauthenticated") {
@@ -32,6 +33,22 @@ export async function requirePermission(...permissions: Permission[]) {
     }
     throw error;
   }
+}
+
+export async function requirePermission(...permissions: Permission[]) {
+  const actor = await loadAuthorizedActor();
+  if (!permissions.some((permission) => actorCan(actor, permission))) {
+    forbidden();
+  }
+  return actor;
+}
+
+export async function requireAllPermissions(...permissions: Permission[]) {
+  const actor = await loadAuthorizedActor();
+  if (!permissions.every((permission) => actorCan(actor, permission))) {
+    forbidden();
+  }
+  return actor;
 }
 
 export async function requireAnyPermission(permissions: Permission[]) {

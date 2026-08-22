@@ -17,10 +17,12 @@ export async function TokenMintProofPanel({
   lookup,
   locale,
   registrarInventory,
+  allowMintActions = false,
 }: {
   lookup: OnChainTokenMintLookup;
   locale: AppLocale;
   registrarInventory?: number;
+  allowMintActions?: boolean;
 }) {
   const t = await getTranslations("tokens");
 
@@ -36,7 +38,7 @@ export async function TokenMintProofPanel({
             <p className="max-w-2xl text-sm text-muted-foreground">
               {t("mintProof.unavailable")}
             </p>
-            <IssueTokenButton />
+            {allowMintActions ? <IssueTokenButton /> : null}
           </PanelBody>
         </Panel>
       </PageSection>
@@ -55,8 +57,12 @@ export async function TokenMintProofPanel({
             <p className="max-w-2xl text-sm text-muted-foreground">
               {t("notDeployedNote")}
             </p>
-            <p className="text-xs text-muted-foreground">{t("issueNote")}</p>
-            <IssueTokenButton />
+            {allowMintActions ? (
+              <>
+                <p className="text-xs text-muted-foreground">{t("issueNote")}</p>
+                <IssueTokenButton />
+              </>
+            ) : null}
           </PanelBody>
         </Panel>
       </PageSection>
@@ -159,8 +165,12 @@ export async function TokenMintProofPanel({
             ]}
           />
           <p className="text-xs text-muted-foreground">{t("mintProof.holdingNote")}</p>
-          <p className="text-xs text-muted-foreground">{t("issueNote")}</p>
-          <IssueTokenButton />
+          {allowMintActions ? (
+            <>
+              <p className="text-xs text-muted-foreground">{t("issueNote")}</p>
+              <IssueTokenButton />
+            </>
+          ) : null}
         </PanelBody>
       </Panel>
     </PageSection>

@@ -19,10 +19,16 @@ import { productName } from "@/lib/navigation";
 import type { PermissionNavGroup } from "@/lib/auth/nav";
 import { cn } from "@/lib/utils";
 
+const PREFIX_ACTIVE_HREFS = new Set(["/contracts", "/pools", "/market"]);
+
 function isActive(pathname: string, href: string): boolean {
-  return href === "/"
-    ? pathname === "/"
-    : pathname === href || pathname.startsWith(`${href}/`);
+  if (href === "/") {
+    return pathname === "/";
+  }
+  if (pathname === href) {
+    return true;
+  }
+  return PREFIX_ACTIVE_HREFS.has(href) && pathname.startsWith(`${href}/`);
 }
 
 function NavItems({

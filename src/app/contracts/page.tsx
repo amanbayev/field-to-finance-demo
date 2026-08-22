@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { actorCan } from "@/domain/identity";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatScore } from "@/lib/format";
@@ -23,15 +24,31 @@ import {
 import { listContractsForActor } from "@/services/access-service";
 import { requirePermission } from "@/lib/auth/guard";
 import { blockchainProvider } from "@/services/providers";
+import { poolMembershipForContract } from "@/services/pool-service";
+import { isVerificationComplete } from "@/services/workspace-view";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const actor = await requirePermission(
+    "contracts.read.all",
+    "contracts.read.own",
+  );
   const t = await getTranslations("contracts");
-  return { title: t("title") };
+  const tWorkspace = await getTranslations("workspace");
+  return {
+    title: actorCan(actor, "contracts.read.all")
+      ? t("title")
+      : tWorkspace("ownContractsTitle"),
+  };
 }
 
 export default async function ContractsPage() {
-  const actor = await requirePermission("contracts.read.all", "contracts.read.own");
+  const actor = await requirePermission(
+    "contracts.read.all",
+    "contracts.read.own",
+  );
+  const ownOnly = !actorCan(actor, "contracts.read.all");
   const t = await getTranslations("contracts");
+  const tWorkspace = await getTranslations("workspace");
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
@@ -50,62 +67,96 @@ export default async function ContractsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={t("eyebrow")}
-        title={t("title")}
-        description={t("description")}
+        eyebrow={ownOnly ? tWorkspace("fieldsEyebrow") : t("eyebrow")}
+        title={ownOnly ? tWorkspace("ownContractsTitle") : t("title")}
+        description={ownOnly ? tWorkspace("ownContractsIntro") : t("description")}
       />
-      <Table className="min-w-[52rem]">
+      <Table className="min-w-[64rem]">
         <TableHeader>
           <TableRow>
             <StickyHead>{t("columns.contractId")}</StickyHead>
-            <TableHead>{t("columns.producer")}</TableHead>
+            {ownOnly ? null : <TableHead>{t("columns.producer")}</TableHead>}
             <TableHead>{t("columns.crop")}</TableHead>
+            <TableHead>{t("columns.season")}</TableHead>
             <TableHead className="text-right">{t("columns.volume")}</TableHead>
-            <TableHead>{t("columns.region")}</TableHead>
-            <TableHead className="text-right">{t("columns.score")}</TableHead>
-            <TableHead>{t("columns.proof")}</TableHead>
+            <TableHead>{t("columns.delivery")}</TableHead>
             <TableHead>{t("columns.status")}</TableHead>
+            <TableHead>{t("columns.verification")}</TableHead>
+            <TableHead>{t("columns.pool")}</TableHead>
+            <TableHead>{t("columns.proof")}</TableHead>
+            {ownOnly ? null : (
+              <TableHead className="text-right">{t("columns.score")}</TableHead>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map(({ contract, producer }) => (
-            <TableRow key={contract.id}>
-              <StickyCell>
-                <Link
-                  href={`/contracts/${contract.id}`}
-                  className="font-tabular text-xs text-primary hover:underline"
-                >
-                  {contract.id}
-                </Link>
-              </StickyCell>
-              <TableCell className="font-medium">{producer.legalName}</TableCell>
-              <TableCell>
-                {lookupMessage(tCatalog, `crops.${contract.production.crop}`)}
-              </TableCell>
-              <TableCell className="text-right font-tabular">
-                {tUnits("tonnes", {
-                  value: formatInteger(
-                    contract.production.expectedProductionTonnes,
-                    locale,
-                  ),
-                })}
-              </TableCell>
-              <TableCell>
-                {lookupMessage(tCatalog, `regions.${contract.field.region}`)}
-              </TableCell>
-              <TableCell className="text-right font-tabular">
-                {formatScore(producer.score.value, producer.score.maxValue)}
-              </TableCell>
-              <TableCell>
-                <StatusBadge
-                  value={proofStatusForContract(contract.id, proofs)}
-                />
-              </TableCell>
-              <TableCell>
-                <StatusBadge value={contract.status} />
-              </TableCell>
-            </TableRow>
-          ))}
+          {items.map(({ contract, producer }) => {
+            const membership = poolMembershipForContract(contract.id);
+            return (
+              <TableRow key={contract.id}>
+                <StickyCell>
+                  <Link
+                    href={`/contracts/${contract.id}`}
+                    className="font-tabular text-xs text-primary hover:underline"
+                  >
+                    {contract.id}
+                  </Link>
+                </StickyCell>
+                {ownOnly ? null : (
+                  <TableCell className="font-medium">{producer.legalName}</TableCell>
+                )}
+                <TableCell>
+                  {lookupMessage(tCatalog, `crops.${contract.production.crop}`)}
+                </TableCell>
+                <TableCell className="font-tabular">
+                  {contract.production.season}
+                </TableCell>
+                <TableCell className="text-right font-tabular">
+                  {tUnits("tonnes", {
+                    value: formatInteger(
+                      contract.production.expectedProductionTonnes,
+                      locale,
+                    ),
+                  })}
+                </TableCell>
+                <TableCell>{contract.production.deliveryPeriod}</TableCell>
+                <TableCell>
+                  <StatusBadge value={contract.status} />
+                </TableCell>
+                <TableCell>
+                  <StatusBadge
+                    value={
+                      isVerificationComplete(contract.verification)
+                        ? "VERIFIED"
+                        : "PENDING"
+                    }
+                  />
+                </TableCell>
+                <TableCell>
+                  {membership ? (
+                    <Link
+                      href={`/pools/${membership.pool.id}`}
+                      className="font-tabular text-xs text-primary hover:underline"
+                    >
+                      {membership.pool.id}
+                    </Link>
+                  ) : (
+                    tWorkspace("notAllocated")
+                  )}
+                </TableCell>
+                <TableCell>
+                  <StatusBadge
+                    value={proofStatusForContract(contract.id, proofs)}
+                  />
+                </TableCell>
+                {ownOnly ? null : (
+                  <TableCell className="text-right font-tabular">
+                    {formatScore(producer.score.value, producer.score.maxValue)}
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

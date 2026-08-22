@@ -15,6 +15,7 @@ import {
   placementManifest,
   recordedPlacementProof,
 } from "@/adapters/blockchain/solana/recorded-placement";
+import { actorCan, canReadInvestorPortfolio, type ActorContext } from "@/domain/identity";
 import { blockchainProvider } from "./providers";
 import { getPrimaryToken } from "./token-service";
 
@@ -168,6 +169,21 @@ export function placementFromSnapshot(
     issuerSettlementLabel: recorded.issuerSettlementLabel,
     settlementMint: recorded.demoKzt?.mint,
   };
+}
+
+export async function listPrimaryPlacementsForActor(actor: ActorContext) {
+  const snapshot = await getPlacementSnapshot();
+  const placement = placementFromSnapshot(snapshot);
+  const rows = [{ placement, snapshot }];
+  if (
+    actorCan(actor, "placement.read.all") ||
+    actorCan(actor, "regulator.read")
+  ) {
+    return rows;
+  }
+  return rows.filter((row) =>
+    canReadInvestorPortfolio(actor, row.placement.investorReference),
+  );
 }
 
 export function getPrimaryTokenWithSupply(supply: TokenSupplyBreakdown) {

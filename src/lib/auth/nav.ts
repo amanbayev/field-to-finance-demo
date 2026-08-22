@@ -1,8 +1,6 @@
 import type { ActorContext, Permission } from "@/domain/identity";
 import { actorCan } from "@/domain/identity";
 
-export const COVERAGE_POOL_HREF = "/pools/POOL-WHEAT-2027-01";
-
 export interface PermissionNavItem {
   href?: string;
   key: string;
@@ -10,6 +8,7 @@ export interface PermissionNavItem {
   anyOf?: Permission[];
   allOf?: Permission[];
   noneOf?: Permission[];
+  noneAllOf?: Permission[];
 }
 
 export interface PermissionNavGroup {
@@ -25,7 +24,7 @@ export const publicNavGroups: PermissionNavGroup[] = [
 ];
 
 const ADMIN_NONE: Permission[] = ["admin.access"];
-
+const REGISTRAR_COMBO: Permission[] = ["issuance.manage", "audit.read"];
 const TRADER_NONE: Permission[] = [
   "admin.access",
   "portfolio.read.own",
@@ -40,50 +39,39 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
     key: "effective",
     items: [
       { href: "/", key: "dashboard" },
+
       {
-        href: "/regulator",
-        key: "regulator",
+        href: "/participants",
+        key: "participants",
         anyOf: ["regulator.read"],
         noneOf: ADMIN_NONE,
       },
       {
         href: "/compliance",
-        key: "participants",
-        anyOf: ["compliance.manage", "regulator.read"],
-        noneOf: ADMIN_NONE,
-      },
-      {
-        href: "/compliance",
-        key: "kycKyb",
+        key: "complianceParticipants",
         anyOf: ["compliance.manage"],
         noneOf: ADMIN_NONE,
       },
       {
-        href: "/compliance",
-        key: "sanctions",
+        href: "/compliance/checks",
+        key: "checks",
         anyOf: ["compliance.manage"],
         noneOf: ADMIN_NONE,
       },
       {
-        href: "/compliance",
-        key: "kytAlerts",
-        anyOf: ["compliance.manage"],
-        noneOf: ADMIN_NONE,
-      },
-      {
-        href: "/compliance",
+        href: "/compliance/eligibility",
         key: "eligibility",
         anyOf: ["compliance.manage"],
         noneOf: ADMIN_NONE,
       },
       {
-        href: "/compliance",
-        key: "walletOwnership",
+        href: "/compliance/alerts",
+        key: "alerts",
         anyOf: ["compliance.manage"],
         noneOf: ADMIN_NONE,
       },
 
-      { href: "/contracts", key: "myFields", anyOf: ["contracts.manage.own"], noneOf: ADMIN_NONE },
+      { href: "/fields", key: "myFields", anyOf: ["contracts.manage.own"], noneOf: ADMIN_NONE },
       {
         href: "/contracts",
         key: "myContracts",
@@ -91,14 +79,14 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
         noneOf: ["contracts.read.all", "admin.access"],
       },
       {
-        href: "/pools",
+        href: "/monitoring",
         key: "monitoring",
-        anyOf: ["pools.read"],
-        noneOf: ["issuance.read", "scas.read", "regulator.read", "admin.access"],
+        anyOf: ["contracts.read.own"],
+        noneOf: ["contracts.read.all", "admin.access"],
       },
       {
-        href: "/contracts",
-        key: "documentsStatus",
+        href: "/documents",
+        key: "documents",
         anyOf: ["contracts.manage.own"],
         noneOf: ADMIN_NONE,
       },
@@ -112,28 +100,38 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
       { href: "/scas", key: "attestation", anyOf: ["scas.attest"], noneOf: ADMIN_NONE },
       { href: "/scas/matching", key: "matching", anyOf: ["scas.match"], noneOf: ADMIN_NONE },
       {
+        href: "/scas/monitoring",
+        key: "scasMonitoring",
+        anyOf: ["scas.read"],
+        noneOf: ADMIN_NONE,
+      },
+
+      {
         href: "/contracts",
         key: "contracts",
         anyOf: ["contracts.read.all"],
         noneOf: ADMIN_NONE,
-      },
-      {
-        href: "/pools",
-        key: "scasMonitoring",
-        anyOf: ["scas.read"],
-        noneOf: ADMIN_NONE,
+        noneAllOf: REGISTRAR_COMBO,
       },
       {
         href: "/pools",
         key: "pools",
         anyOf: ["contracts.read.all"],
         noneOf: ADMIN_NONE,
+        noneAllOf: REGISTRAR_COMBO,
       },
       {
-        href: COVERAGE_POOL_HREF,
+        href: "/coverage",
         key: "coverage",
-        allOf: ["pools.read", "issuance.read", "contracts.read.all"],
-        noneOf: ["admin.access", "portfolio.read.own"],
+        anyOf: ["scas.read", "regulator.read", "issuance.manage"],
+        noneOf: ADMIN_NONE,
+        noneAllOf: REGISTRAR_COMBO,
+      },
+      {
+        href: "/backing",
+        key: "backing",
+        allOf: REGISTRAR_COMBO,
+        noneOf: ["admin.access", "regulator.read"],
       },
 
       {
@@ -143,46 +141,47 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
         noneOf: ADMIN_NONE,
       },
       {
-        href: "/tokens",
+        href: "/tokens/WHEAT-2027",
         key: "wheat2027",
         anyOf: ["issuance.manage"],
         noneOf: ["admin.access", "audit.read"],
       },
       {
-        href: "/tokens",
+        href: "/issuances/ISS-001",
         key: "iss001",
         anyOf: ["issuance.manage"],
         noneOf: ["admin.access", "audit.read"],
       },
       {
-        href: "/tokens",
+        href: "/issuances",
         key: "issuance",
-        allOf: ["issuance.manage", "audit.read"],
+        allOf: REGISTRAR_COMBO,
         noneOf: ["admin.access", "regulator.read"],
       },
       {
-        href: "/market",
+        href: "/placements",
+        key: "primaryPlacements",
+        anyOf: ["issuance.manage"],
+        noneOf: ["admin.access", "audit.read"],
+      },
+      {
+        href: "/placements",
         key: "placements",
-        anyOf: ["placement.read.all"],
+        allOf: ["placement.read.all"],
+        anyOf: ["audit.read", "regulator.read"],
         noneOf: ADMIN_NONE,
       },
       {
-        href: "/market",
+        href: "/ownership",
         key: "holdingsRegistry",
-        allOf: ["issuance.manage", "audit.read"],
+        allOf: REGISTRAR_COMBO,
         noneOf: ["admin.access", "regulator.read"],
       },
 
       {
-        href: "/tokens",
+        href: "/instruments",
         key: "instruments",
         anyOf: ["portfolio.read.own"],
-        noneOf: ADMIN_NONE,
-      },
-      {
-        href: "/market",
-        key: "myOrders",
-        anyOf: ["placement.read.own"],
         noneOf: ADMIN_NONE,
       },
       {
@@ -192,7 +191,7 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
         noneOf: ADMIN_NONE,
       },
       {
-        href: "/market",
+        href: "/placements",
         key: "placementsOwn",
         anyOf: ["portfolio.read.own"],
         noneOf: ADMIN_NONE,
@@ -205,26 +204,14 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
       },
 
       {
-        href: "/market",
+        href: "/instruments",
         key: "traderInstruments",
         anyOf: ["market.read"],
         noneOf: TRADER_NONE,
       },
       {
-        href: "/market",
-        key: "positions",
-        anyOf: ["market.read"],
-        noneOf: TRADER_NONE,
-      },
-      {
-        href: "/market",
-        key: "orders",
-        anyOf: ["market.read"],
-        noneOf: TRADER_NONE,
-      },
-      {
-        key: "secondaryClosed",
-        note: true,
+        href: "/secondary",
+        key: "secondary",
         anyOf: ["market.read"],
         noneOf: TRADER_NONE,
       },
@@ -236,7 +223,7 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
         noneOf: ADMIN_NONE,
       },
       {
-        href: "/admin/audit",
+        href: "/audit",
         key: "audit",
         anyOf: ["audit.read"],
         noneOf: ["admin.access", "compliance.manage"],
@@ -244,10 +231,10 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
 
       { href: "/admin/users", key: "users", anyOf: ["admin.users"] },
       { href: "/admin/organizations", key: "organizations", anyOf: ["admin.organizations"] },
-      { href: "/admin/users", key: "memberships", anyOf: ["admin.roles"] },
+      { href: "/admin/access", key: "access", anyOf: ["admin.roles"] },
       { href: "/admin/requests", key: "roleRequests", anyOf: ["admin.roles"] },
       { href: "/admin/demo-personas", key: "demoPersonas", anyOf: ["admin.demo_personas"] },
-      { href: "/admin/audit", key: "adminAudit", anyOf: ["admin.access"] },
+      { href: "/audit", key: "adminAudit", anyOf: ["admin.access"] },
       { href: "/admin", key: "system", anyOf: ["admin.access"] },
     ],
   },
@@ -264,6 +251,13 @@ export function navItemVisible(
     return false;
   }
   if (item.noneOf && item.noneOf.some((permission) => actorCan(actor, permission))) {
+    return false;
+  }
+  if (
+    item.noneAllOf &&
+    item.noneAllOf.length > 0 &&
+    item.noneAllOf.every((permission) => actorCan(actor, permission))
+  ) {
     return false;
   }
   return true;
