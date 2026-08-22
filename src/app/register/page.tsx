@@ -24,6 +24,9 @@ export default async function RegisterPage({
         title={t("registerTitle")}
         description={t("registerIntro")}
       />
+      {!configured ? (
+        <p className="mb-4 text-sm text-muted-foreground">{t("notConfigured")}</p>
+      ) : null}
       {params.error ? (
         <p className="mb-4 text-sm text-destructive">
           {lookupMessage(t, `errors.${params.error}`)}
