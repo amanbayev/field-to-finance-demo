@@ -334,6 +334,21 @@ describe("demo personas", () => {
     expect(principalMayAssumePersonas(context.principal)).toBe(true);
   });
 
+  it("demo producer does not receive admin permission while principal retains it", () => {
+    const context = resolveActorContext({
+      principal: adminPrincipal(),
+      session: {
+        principalUserId: "admin-1",
+        effectiveDemoPersonaId: "DEMO-FARM-001",
+      },
+      persona: demoPersonaById("DEMO-FARM-001"),
+      personaOrganization: farm1,
+    });
+    expect(context.isImpersonating).toBe(true);
+    expect(context.effective.permissions).not.toContain("admin.access");
+    expect(context.principal.permissions).toContain("admin.access");
+  });
+
   it("switch to investor exposes INVESTOR-0001 portfolio", () => {
     const context = resolveActorContext({
       principal: adminPrincipal(),
