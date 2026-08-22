@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "label": "Simulation Only · Not Commercial Terms",
+  "placementId": "PL-ISS001-0001",
+  "issuanceId": "ISS-001",
+  "instrumentId": "tok-wheat-2027",
+  "instrumentSymbol": "WHEAT-2027",
+  "investorReference": "INVESTOR-0001",
+  "quantity": 10,
+  "simulatedUnitPrice": 100000,
+  "totalSettlementAmount": 1000000,
+  "settlementAsset": {
+    "symbol": "DEMO-KZT",
+    "decimals": 0,
+    "disclaimer": "DEMO SETTLEMENT ASSET · NO MONETARY VALUE",
+    "notAStablecoin": true,
+    "notLegalTender": true,
+    "noMonetaryValue": true
+  }
+}

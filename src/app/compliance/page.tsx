@@ -43,6 +43,7 @@ export default async function CompliancePage() {
             <TableHead>{t("columns.kyc")}</TableHead>
             <TableHead>{t("columns.kyb")}</TableHead>
             <TableHead>{t("columns.kyt")}</TableHead>
+            <TableHead>{t("columns.wallet")}</TableHead>
             <TableHead>{t("columns.sanctions")}</TableHead>
             <TableHead>{t("columns.eligibility")}</TableHead>
             <TableHead>{t("columns.lastReview")}</TableHead>
@@ -75,6 +76,9 @@ export default async function CompliancePage() {
                 </TableCell>
                 <TableCell>
                   <StatusBadge value={liveKyt} />
+                </TableCell>
+                <TableCell>
+                  <StatusBadge value={record.walletOwnership} />
                 </TableCell>
                 <TableCell>
                   <StatusBadge value={record.sanctions} />

@@ -9,8 +9,10 @@ import type {
   OnChainAllocationLookup,
   OnChainContractLookup,
   OnChainCoverageProofLookup,
+  OnChainPlacementLookup,
   OnChainPoolContractsLookup,
   OnChainPoolLookup,
+  OnChainTokenBalanceLookup,
   OnChainTokenMintLookup,
   WriteInstructionResult,
 } from "./types";
@@ -26,6 +28,7 @@ export class MockBlockchainProvider implements BlockchainProvider {
       connected: true,
       blockchainDeployed: false,
       registryProgramDeployed: false,
+      marketProgramDeployed: false,
       onChainDemoContracts: 0,
     };
   }
@@ -69,6 +72,19 @@ export class MockBlockchainProvider implements BlockchainProvider {
 
   async getTokenMint(tokenId: string): Promise<OnChainTokenMintLookup> {
     void tokenId;
+    return { status: "missing" };
+  }
+
+  async getTokenAccountBalance(
+    address: string,
+  ): Promise<OnChainTokenBalanceLookup> {
+    return { status: "missing", address };
+  }
+
+  async getPrimaryPlacement(
+    placementId: string,
+  ): Promise<OnChainPlacementLookup> {
+    void placementId;
     return { status: "missing" };
   }
 

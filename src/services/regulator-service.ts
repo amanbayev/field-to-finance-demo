@@ -6,6 +6,7 @@ import {
   ON_CHAIN_DEMO_POOL_ID,
   ON_CHAIN_DEMO_TOKEN_ID,
 } from "@/adapters/blockchain";
+import { recordedPlacementProof } from "@/adapters/blockchain/solana/recorded-placement";
 import type {
   OnChainAllocationLookup,
   OnChainContractLookup,
@@ -72,7 +73,70 @@ async function listBlockchainAuditEvents(): Promise<AuditEvent[]> {
   }
   events.push(...eventsForPool(poolLookup));
   events.push(...(await eventsForToken(mintLookup)));
+  events.push(...eventsForPlacement());
   return events;
+}
+
+function eventsForPlacement(): AuditEvent[] {
+  const recorded = recordedPlacementProof();
+  if (recorded.status !== "settled" || !recorded.dvpSignature) {
+    return [];
+  }
+  const ts =
+    recorded.walletOwnership?.nonce?.replace("F2F-", "") &&
+    Number(recorded.walletOwnership.nonce.replace("F2F-", ""))
+      ? new Date(
+          Number(recorded.walletOwnership.nonce.replace("F2F-", "")),
+        ).toISOString()
+      : "2026-08-22T16:00:00.000Z";
+  return [
+    {
+      id: "sol-place-eligibility",
+      timestamp: ts,
+      eventKey: "investorEligibilityConfirmed",
+      relatedEntityType: "placement",
+      relatedEntityId: recorded.placementId,
+      source: "compliance",
+      displayStatus: "complianceDemo",
+      reference: recorded.compliance?.referenceHashHex,
+    },
+    {
+      id: "sol-place-wallet",
+      timestamp: ts,
+      eventKey: "walletOwnershipVerified",
+      relatedEntityType: "placement",
+      relatedEntityId: recorded.placementId,
+      source: "application",
+      reference: recorded.walletOwnership?.signatureBase64,
+    },
+    {
+      id: `sol-place-${recorded.placementId}`,
+      timestamp: ts,
+      eventKey: "primaryPlacementSettled",
+      relatedEntityType: "placement",
+      relatedEntityId: recorded.placementId,
+      source: "blockchain",
+      reference: recorded.dvpSignature,
+    },
+    {
+      id: `sol-own-${recorded.placementId}`,
+      timestamp: ts,
+      eventKey: "wheatOwnershipTransferred",
+      relatedEntityType: "token",
+      relatedEntityId: ON_CHAIN_DEMO_TOKEN_ID,
+      source: "blockchain",
+      reference: recorded.dvpSignature,
+    },
+    {
+      id: `sol-settle-${recorded.placementId}`,
+      timestamp: ts,
+      eventKey: "settlementCompleted",
+      relatedEntityType: "placement",
+      relatedEntityId: recorded.placementId,
+      source: "blockchain",
+      reference: recorded.dvpSignature,
+    },
+  ];
 }
 
 function eventsForContract(

@@ -1,0 +1,729 @@
+{
+  "address": "9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst",
+  "metadata": {
+    "name": "agricultural_market",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Solana Devnet primary placement and atomic DvP for agricultural tokens"
+  },
+  "instructions": [
+    {
+      "name": "initialize_market",
+      "discriminator": [
+        35,
+        35,
+        189,
+        193,
+        155,
+        48,
+        170,
+        203
+      ],
+      "accounts": [
+        {
+          "name": "registrar",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool"
+        },
+        {
+          "name": "instrument_mint"
+        },
+        {
+          "name": "settlement_mint"
+        },
+        {
+          "name": "issuer_settlement_owner"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "issuance_id",
+          "type": "string"
+        },
+        {
+          "name": "simulated_unit_price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "settle_primary_placement",
+      "discriminator": [
+        223,
+        243,
+        248,
+        95,
+        36,
+        144,
+        57,
+        98
+      ],
+      "accounts": [
+        {
+          "name": "registrar",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "market_config"
+          ]
+        },
+        {
+          "name": "investor",
+          "signer": true
+        },
+        {
+          "name": "market_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "placement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  105,
+                  109,
+                  97,
+                  114,
+                  121,
+                  95,
+                  112,
+                  108,
+                  97,
+                  99,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "placement_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "relations": [
+            "market_config"
+          ]
+        },
+        {
+          "name": "instrument_mint",
+          "relations": [
+            "market_config"
+          ]
+        },
+        {
+          "name": "settlement_mint",
+          "relations": [
+            "market_config"
+          ]
+        },
+        {
+          "name": "registrar_instrument_ata",
+          "writable": true
+        },
+        {
+          "name": "investor_instrument_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "investor"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "instrument_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "investor_settlement_ata",
+          "writable": true
+        },
+        {
+          "name": "issuer_settlement_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "issuer_settlement_owner"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "settlement_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "issuer_settlement_owner"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "placement_id",
+          "type": "string"
+        },
+        {
+          "name": "issuance_id",
+          "type": "string"
+        },
+        {
+          "name": "quantity",
+          "type": "u64"
+        },
+        {
+          "name": "unit_price",
+          "type": "u64"
+        },
+        {
+          "name": "total_settlement_amount",
+          "type": "u64"
+        },
+        {
+          "name": "investor_reference_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "compliance_reference_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "MarketConfig",
+      "discriminator": [
+        119,
+        255,
+        200,
+        88,
+        252,
+        82,
+        128,
+        24
+      ]
+    },
+    {
+      "name": "PrimaryPlacementReceipt",
+      "discriminator": [
+        240,
+        73,
+        69,
+        20,
+        254,
+        40,
+        91,
+        155
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "PlacementIdEmpty",
+      "msg": "placement_id must be non-empty"
+    },
+    {
+      "code": 6001,
+      "name": "PlacementIdTooLong",
+      "msg": "placement_id exceeds the 32-byte PDA seed limit"
+    },
+    {
+      "code": 6002,
+      "name": "IssuanceIdEmpty",
+      "msg": "issuance_id must be non-empty"
+    },
+    {
+      "code": 6003,
+      "name": "IssuanceIdTooLong",
+      "msg": "issuance_id exceeds maximum length"
+    },
+    {
+      "code": 6004,
+      "name": "IssuanceMismatch",
+      "msg": "issuance_id does not match the configured issuance"
+    },
+    {
+      "code": 6005,
+      "name": "UnauthorizedRegistrar",
+      "msg": "only the configured Registrar may authorize placement"
+    },
+    {
+      "code": 6006,
+      "name": "WrongInstrumentMint",
+      "msg": "instrument mint does not match the configured instrument"
+    },
+    {
+      "code": 6007,
+      "name": "WrongSettlementMint",
+      "msg": "settlement mint does not match the configured DEMO settlement asset"
+    },
+    {
+      "code": 6008,
+      "name": "WrongTokenProgram",
+      "msg": "token program must be Token-2022"
+    },
+    {
+      "code": 6009,
+      "name": "WrongPool",
+      "msg": "pool account does not match the configured instrument pool"
+    },
+    {
+      "code": 6010,
+      "name": "InstrumentNotEligible",
+      "msg": "instrument is not eligible for primary placement"
+    },
+    {
+      "code": 6011,
+      "name": "CoverageBreach",
+      "msg": "minted supply exceeds eligible contract coverage"
+    },
+    {
+      "code": 6012,
+      "name": "QuantityZero",
+      "msg": "placement quantity must be greater than zero"
+    },
+    {
+      "code": 6013,
+      "name": "PriceMismatch",
+      "msg": "simulated unit price does not match the market configuration"
+    },
+    {
+      "code": 6014,
+      "name": "SettlementAmountMismatch",
+      "msg": "total settlement amount does not equal quantity times unit price"
+    },
+    {
+      "code": 6015,
+      "name": "InsufficientInstrumentInventory",
+      "msg": "Registrar instrument inventory is insufficient for this placement"
+    },
+    {
+      "code": 6016,
+      "name": "InsufficientSettlementBalance",
+      "msg": "investor settlement balance is insufficient"
+    },
+    {
+      "code": 6017,
+      "name": "UnitPriceZero",
+      "msg": "simulated unit price must be greater than zero"
+    },
+    {
+      "code": 6018,
+      "name": "PoolNotActive",
+      "msg": "underlying pool is not active"
+    },
+    {
+      "code": 6019,
+      "name": "ArithmeticOverflow",
+      "msg": "arithmetic overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "ContractPoolAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_id",
+            "type": "string"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "crop",
+            "type": "string"
+          },
+          {
+            "name": "season",
+            "type": "u16"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "PoolStatus"
+              }
+            }
+          },
+          {
+            "name": "gross_volume_tonnes",
+            "type": "u64"
+          },
+          {
+            "name": "eligible_volume_tonnes",
+            "type": "u64"
+          },
+          {
+            "name": "coverage_haircut_bps",
+            "type": "u16"
+          },
+          {
+            "name": "coverage_snapshot_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "contract_count",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketConfig",
+      "docs": [
+        "One market configuration for the WHEAT-2027 primary-placement demonstrator.",
+        "PDA: `[\"market_config\"]`"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "registrar",
+            "type": "pubkey"
+          },
+          {
+            "name": "instrument_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "issuer_settlement_owner",
+            "docs": [
+              "Technical demo settlement owner (ISSUER-SETTLEMENT-001). Not a commercial",
+              "beneficiary decision."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "issuance_id",
+            "type": "string"
+          },
+          {
+            "name": "simulated_unit_price",
+            "docs": [
+              "Simulation-only unit price in DEMO settlement units. Not commercial terms."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PlacementStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Settled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Draft"
+          },
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Suspended"
+          },
+          {
+            "name": "Closed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PrimaryPlacementReceipt",
+      "docs": [
+        "On-chain receipt for one primary placement. PDA seeds:",
+        "`[\"primary_placement\", placement_id.as_bytes()]`"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "placement_id",
+            "type": "string"
+          },
+          {
+            "name": "issuance_id",
+            "type": "string"
+          },
+          {
+            "name": "instrument_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "investor_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "investor_reference_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "quantity",
+            "type": "u64"
+          },
+          {
+            "name": "settlement_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "unit_price",
+            "type": "u64"
+          },
+          {
+            "name": "total_settlement_amount",
+            "type": "u64"
+          },
+          {
+            "name": "compliance_reference_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "registrar_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "settled_at",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "PlacementStatus"
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

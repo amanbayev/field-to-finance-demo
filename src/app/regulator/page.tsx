@@ -24,8 +24,8 @@ import { listParticipantCompliance } from "@/services/compliance-service";
 import {
   explorerAddressUrl,
   explorerTxUrl,
+  ON_CHAIN_DEMO_PLACEMENT_ID,
   ON_CHAIN_DEMO_POOL_ID,
-  ON_CHAIN_DEMO_TOKEN_ID,
   shortenKey,
 } from "@/adapters/blockchain";
 import { blockchainProvider } from "@/services/providers";
@@ -34,7 +34,11 @@ import {
   getSystemOverview,
   listLedgerEvents,
 } from "@/services/regulator-service";
-import { getPrimaryToken, liveOutstanding } from "@/services/token-service";
+import {
+  getPlacementSnapshot,
+  placementFromSnapshot,
+} from "@/services/placement-service";
+import { getPrimaryToken } from "@/services/token-service";
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { DoubleUseControl } from "@/components/pools/double-use-control";
 
@@ -48,6 +52,7 @@ export default async function RegulatorPage() {
   const tCompliance = await getTranslations("compliance");
   const tStatus = await getTranslations("status");
   const tTokens = await getTranslations("tokens");
+  const tMarket = await getTranslations("market");
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
   const overview = getSystemOverview();
@@ -58,14 +63,14 @@ export default async function RegulatorPage() {
   );
   const demoContract = getContract("DAC-2027-0001");
   const coverage = wheatPoolCoverageFromEngine();
-  const [onChain, poolLookup, network, mintLookup] = await Promise.all([
+  const [onChain, poolLookup, network, snapshot] = await Promise.all([
     blockchainProvider.getDigitalAgriculturalContract("DAC-2027-0001"),
     blockchainProvider.getContractPool(ON_CHAIN_DEMO_POOL_ID),
     blockchainProvider.getNetworkStatus(),
-    blockchainProvider.getTokenMint(ON_CHAIN_DEMO_TOKEN_ID),
+    getPlacementSnapshot(),
   ]);
-  const mintDeployed = mintLookup.status === "found";
-  const issued = liveOutstanding(mintLookup, token.issued);
+  const placement = placementFromSnapshot(snapshot);
+  const mintDeployed = snapshot.mintLookup.status === "found";
 
   return (
     <div>
@@ -168,23 +173,23 @@ export default async function RegulatorPage() {
         )}
       </PageSection>
 
-      <PageSection title={t("tokenSupply")}>
+      <PageSection title={t("tokenSupply")} description={t("tokenSupplyIntro")}>
         <FactStrip
           className="lg:grid-cols-4"
           items={[
             { label: tTokens("fields.instrument"), value: token.symbol },
             {
-              label: tTokens("fields.issued"),
-              value:
-                issued > 0
-                  ? tUnits("tonnes", {
-                      value: formatInteger(issued, locale),
-                    })
-                  : t("tokenIssuanceNotStarted"),
+              label: tTokens("supply.maxCapacity"),
+              value: tUnits("tonnes", {
+                value: formatInteger(
+                  snapshot.supply.maximumCoverageCapacity,
+                  locale,
+                ),
+              }),
             },
             {
-              label: tTokens("fields.maximumIssuance"),
-              value: formatInteger(token.maximumIssuance, locale),
+              label: tTokens("supply.minted"),
+              value: formatInteger(snapshot.supply.mintedSupply, locale),
             },
             {
               label: tTokens("fields.blockchainStatus"),
@@ -192,6 +197,82 @@ export default async function RegulatorPage() {
                 <StatusBadge
                   value={mintDeployed ? "DEPLOYED" : token.blockchainStatus}
                 />
+              ),
+            },
+          ]}
+        />
+        <MetricStrip className="mt-px sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCell
+            label={tTokens("supply.registrar")}
+            value={formatInteger(snapshot.supply.registrarInventory, locale)}
+          />
+          <MetricCell
+            label={tTokens("supply.placed")}
+            value={formatInteger(snapshot.supply.placed, locale)}
+          />
+          <MetricCell
+            label={tTokens("supply.circulating")}
+            value={formatInteger(snapshot.supply.circulating, locale)}
+          />
+          <MetricCell
+            label={tTokens("supply.burned")}
+            value={formatInteger(snapshot.supply.burned, locale)}
+          />
+        </MetricStrip>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {t("coverageBreaches")}: {formatInteger(0, locale)}
+        </p>
+      </PageSection>
+
+      <PageSection title={t("primaryPlacement")} description={t("primaryPlacementIntro")}>
+        <DataList
+          items={[
+            {
+              label: t("placementId"),
+              value: (
+                <Link
+                  href={`/market/${ON_CHAIN_DEMO_PLACEMENT_ID}`}
+                  className="font-tabular text-xs text-primary hover:underline"
+                >
+                  {ON_CHAIN_DEMO_PLACEMENT_ID}
+                </Link>
+              ),
+            },
+            {
+              label: t("placementStatus"),
+              value: <StatusBadge value="SETTLED" />,
+            },
+            {
+              label: t("investor"),
+              value: placement.investorReference,
+            },
+            {
+              label: t("compliance"),
+              value: tMarket("complianceEligibleDemo"),
+            },
+            {
+              label: t("settlement"),
+              value: <StatusBadge value="ATOMIC_DVP" />,
+            },
+            {
+              label: t("chainProof.blockchainProof"),
+              value: t("chainProof.verifiedOnDevnet"),
+            },
+            {
+              label: t("chainProof.explorer"),
+              value: placement.dvpSignature ? (
+                <a
+                  href={explorerTxUrl(placement.dvpSignature)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {t("chainProof.viewTx")}
+                </a>
+              ) : snapshot.lookup.status === "unavailable" ? (
+                t("chainProofUnavailable")
+              ) : (
+                tTokens("notRecorded")
               ),
             },
           ]}

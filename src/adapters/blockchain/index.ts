@@ -1,13 +1,18 @@
 export { MockBlockchainProvider } from "./mock-blockchain-provider";
 export { SolanaBlockchainProvider } from "./solana/solana-blockchain-provider";
 export {
+  MARKET_PROGRAM_ID,
   ON_CHAIN_DEMO_CONTRACT_ID,
   ON_CHAIN_DEMO_CONTRACT_IDS,
+  ON_CHAIN_DEMO_ISSUANCE_ID,
+  ON_CHAIN_DEMO_PLACEMENT_ID,
   ON_CHAIN_DEMO_POOL_ID,
   ON_CHAIN_DEMO_TOKEN_ID,
   PROGRAM_NAME,
   REGISTRY_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
+  INVESTOR_0001_REFERENCE,
+  ISSUER_SETTLEMENT_REFERENCE,
   explorerAddressUrl,
   explorerTxUrl,
   isOnChainDemoContract,
@@ -28,6 +33,8 @@ export type {
   OnChainPoolLookup,
   OnChainTokenMint,
   OnChainTokenMintLookup,
+  OnChainTokenBalanceLookup,
+  OnChainPlacementLookup,
   TransactionStatus,
   WriteInstructionResult,
 } from "./types";
@@ -37,5 +44,7 @@ export type {
   OnChainContractPool,
   OnChainContractStatus,
   OnChainDigitalAgriculturalContract,
+  OnChainPlacementStatus,
   OnChainPoolStatus,
+  OnChainPrimaryPlacement,
 } from "./solana/codec";

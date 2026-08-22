@@ -8,22 +8,27 @@ import { getPublicEnv, solanaNetworkLabel } from "@/lib/public-env";
 import {
   ON_CHAIN_DEMO_CONTRACT_IDS,
   ON_CHAIN_DEMO_POOL_ID,
+  MARKET_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
 } from "./config";
 import {
   decodeAllocationAccount,
   decodeAllocationIndexAccount,
   decodeContractAccount,
   decodePoolAccount,
+  decodePrimaryPlacementAccount,
   deriveAllocationIndexPda,
   deriveAllocationPda,
   deriveContractPda,
+  derivePlacementPda,
   derivePoolPda,
 } from "./codec";
-import { unpackMint } from "@solana/spl-token";
+import { unpackAccount, unpackMint } from "@solana/spl-token";
 import {
   recordedContractProof,
   recordedPoolProof,
 } from "./recorded-proof";
+import { recordedPlacementProof } from "./recorded-placement";
 import { recordedTokenProof } from "./recorded-token";
 import type {
   BlockchainProvider,
@@ -35,8 +40,10 @@ import type {
   OnChainAllocationLookup,
   OnChainContractLookup,
   OnChainCoverageProofLookup,
+  OnChainPlacementLookup,
   OnChainPoolContractsLookup,
   OnChainPoolLookup,
+  OnChainTokenBalanceLookup,
   OnChainTokenMintLookup,
   WriteInstructionResult,
 } from "../types";
@@ -81,18 +88,25 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
         );
         const [slot, accounts] = await Promise.all([
           withTimeout(connection.getSlot("confirmed"), FETCH_MS),
-          this.getMultipleAccounts(connection, [programId, ...contractPdas]),
+          this.getMultipleAccounts(connection, [
+            programId,
+            new PublicKey(MARKET_PROGRAM_ID),
+            ...contractPdas,
+          ]),
         ]);
         const programAccount = accounts[0];
+        const marketAccount = accounts[1];
         const registryProgramDeployed = Boolean(programAccount?.executable);
+        const marketProgramDeployed = Boolean(marketAccount?.executable);
         const onChainDemoContracts = accounts
-          .slice(1)
+          .slice(2)
           .filter((account) => account?.owner.equals(programId)).length;
         return {
           network,
           connected: Number.isFinite(slot),
           blockchainDeployed: registryProgramDeployed,
           registryProgramDeployed,
+          marketProgramDeployed,
           onChainDemoContracts,
         };
       } catch {
@@ -101,6 +115,7 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
           connected: false,
           blockchainDeployed: false,
           registryProgramDeployed: false,
+          marketProgramDeployed: false,
           onChainDemoContracts: 0,
         };
       }
@@ -335,6 +350,24 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
           return { status: "unavailable" };
         }
         const mint = unpackMint(mintPk, account, programId);
+        let holderAmount: number | undefined;
+        if (recorded.holder) {
+          try {
+            const [holderAccount] = await this.getMultipleAccounts(connection, [
+              new PublicKey(recorded.holder),
+            ]);
+            if (holderAccount) {
+              const tokenAccount = unpackAccount(
+                new PublicKey(recorded.holder),
+                holderAccount,
+                programId,
+              );
+              holderAmount = Number(tokenAccount.amount);
+            }
+          } catch {
+            holderAmount = undefined;
+          }
+        }
         return {
           status: "found",
           createSignature: recorded.createSignature || undefined,
@@ -349,7 +382,79 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
             freezeAuthority: mint.freezeAuthority?.toBase58(),
             holder: recorded.holder,
             holderOwner: recorded.holderOwner,
+            holderAmount,
           },
+        };
+      } catch {
+        return { status: "unavailable" };
+      }
+    });
+  }
+
+  async getTokenAccountBalance(
+    address: string,
+  ): Promise<OnChainTokenBalanceLookup> {
+    return this.cached(`token-ata:${address}`, async () => {
+      try {
+        const connection = this.connection();
+        const pubkey = new PublicKey(address);
+        const [account] = await this.getMultipleAccounts(connection, [pubkey]);
+        if (!account) {
+          return { status: "missing", address };
+        }
+        const tokenAccount = unpackAccount(
+          pubkey,
+          account,
+          account.owner.equals(new PublicKey(TOKEN_2022_PROGRAM_ID))
+            ? new PublicKey(TOKEN_2022_PROGRAM_ID)
+            : account.owner,
+        );
+        return {
+          status: "found",
+          address,
+          amount: Number(tokenAccount.amount),
+          mint: tokenAccount.mint.toBase58(),
+          owner: tokenAccount.owner.toBase58(),
+        };
+      } catch {
+        return { status: "unavailable", address };
+      }
+    });
+  }
+
+  async getPrimaryPlacement(
+    placementId: string,
+  ): Promise<OnChainPlacementLookup> {
+    return this.cached(`placement:${placementId}`, async () => {
+      const recorded = recordedPlacementProof();
+      try {
+        const connection = this.connection();
+        const programId = new PublicKey(
+          recorded.marketProgramId || MARKET_PROGRAM_ID,
+        );
+        const pda = derivePlacementPda(programId, placementId);
+        const [account] = await this.getMultipleAccounts(connection, [pda]);
+        if (!account) {
+          return {
+            status: "missing",
+            dvpSignature: recorded.dvpSignature,
+          };
+        }
+        if (!account.owner.equals(programId)) {
+          return { status: "unavailable" };
+        }
+        const placement = decodePrimaryPlacementAccount(
+          Buffer.from(account.data),
+          pda.toBase58(),
+          programId.toBase58(),
+        );
+        return {
+          status: "found",
+          placement,
+          dvpSignature:
+            recorded.placementId === placementId
+              ? recorded.dvpSignature
+              : undefined,
         };
       } catch {
         return { status: "unavailable" };

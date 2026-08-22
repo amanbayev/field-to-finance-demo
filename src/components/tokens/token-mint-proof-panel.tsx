@@ -16,9 +16,11 @@ import type { AppLocale } from "@/i18n/config";
 export async function TokenMintProofPanel({
   lookup,
   locale,
+  registrarInventory,
 }: {
   lookup: OnChainTokenMintLookup;
   locale: AppLocale;
+  registrarInventory?: number;
 }) {
   const t = await getTranslations("tokens");
 
@@ -77,11 +79,18 @@ export async function TokenMintProofPanel({
                 value: <StatusBadge value="DEPLOYED" />,
               },
               {
-                label: t("fields.issued"),
+                label: t("supply.minted"),
                 value:
                   mint.supply > 0
                     ? formatInteger(mint.supply, locale)
                     : t("issuanceNotStarted"),
+              },
+              {
+                label: t("supply.registrar"),
+                value: formatInteger(
+                  registrarInventory ?? mint.holderAmount ?? mint.supply,
+                  locale,
+                ),
               },
               {
                 label: t("mintProof.program"),

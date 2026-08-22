@@ -20,7 +20,17 @@ export const ON_CHAIN_DEMO_POOL_ID = "POOL-WHEAT-2027-01";
 export const TOKEN_2022_PROGRAM_ID =
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
+export const MARKET_PROGRAM_ID =
+  "9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst";
+
+export const MARKET_CONFIG_SEED = "market_config";
+export const PRIMARY_PLACEMENT_SEED = "primary_placement";
+
 export const ON_CHAIN_DEMO_TOKEN_ID = "tok-wheat-2027";
+export const ON_CHAIN_DEMO_PLACEMENT_ID = "PL-ISS001-0001";
+export const ON_CHAIN_DEMO_ISSUANCE_ID = "ISS-001";
+export const INVESTOR_0001_REFERENCE = "INVESTOR-0001";
+export const ISSUER_SETTLEMENT_REFERENCE = "ISSUER-SETTLEMENT-001";
 
 export const PROGRAM_NAME = "agricultural_registry";
 

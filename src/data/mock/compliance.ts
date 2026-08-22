@@ -52,6 +52,18 @@ export const complianceRecords: ComplianceRecord[] = [
     eligibility: "APPROVED",
   },
   {
+    participantId: "inv-0001",
+    providerLabel: DEMO_PROVIDER,
+    kyc: "VERIFIED",
+    kyb: "VERIFIED",
+    directorKyc: "NOT_APPLICABLE",
+    kyt: "LOW_RISK",
+    walletOwnership: "VERIFIED",
+    sanctions: "CLEAR",
+    pep: "CLEAR",
+    eligibility: "APPROVED",
+  },
+  {
     participantId: "inv-demo-a",
     providerLabel: DEMO_PROVIDER,
     kyc: "VERIFIED",

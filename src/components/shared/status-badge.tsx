@@ -22,6 +22,8 @@ const positive = new Set([
   "MATCHED",
   "ACCEPTED",
   "MINTED",
+  "SETTLED",
+  "ATOMIC_DVP",
 ]);
 
 const caution = new Set([
@@ -45,6 +47,8 @@ const caution = new Set([
   "WITHDRAWN",
   "PREPARED",
   "CANCELLED",
+  "SIMULATION_ONLY",
+  "DEMO_SIMULATED",
 ]);
 
 const negative = new Set([

@@ -179,12 +179,56 @@ export interface AgriculturalToken {
   issuerName: string;
   tokenUnitDescription: string;
   poolId: string;
-  maximumIssuance: number;
+  maximumCoverageCapacity: number;
+  mintedSupply: number;
+  registrarInventory: number;
+  placed: number;
+  circulating: number;
+  burned: number;
+  /** Minted outstanding used by coverage math. Prefer mintedSupply in UI. */
   issued: number;
   network: string;
   blockchainStatus: BlockchainDeploymentStatus;
   terms: TokenIssueTerms;
   mintAddress?: string;
+}
+
+export interface TokenSupplyBreakdown {
+  maximumCoverageCapacity: number;
+  mintedSupply: number;
+  registrarInventory: number;
+  placed: number;
+  circulating: number;
+  burned: number;
+}
+
+export type PrimaryPlacementStatus = "SETTLED" | "PENDING" | "UNAVAILABLE";
+
+export interface PrimaryPlacement {
+  id: string;
+  issuanceId: string;
+  instrumentId: string;
+  instrumentSymbol: string;
+  investorReference: string;
+  investorWallet?: string;
+  quantity: number;
+  settlementAssetSymbol: string;
+  settlementAmount: number;
+  simulatedUnitPrice: number;
+  complianceLabel: string;
+  walletOwnership: CheckResult;
+  status: PrimaryPlacementStatus;
+  settlementMethod: "ATOMIC_DVP";
+  network: string;
+  marketProgramId?: string;
+  placementPda?: string;
+  dvpSignature?: string;
+  registrarInstrumentAta?: string;
+  investorInstrumentAta?: string;
+  issuerSettlementAta?: string;
+  issuerSettlementReference?: string;
+  issuerSettlementLabel?: string;
+  settlementMint?: string;
 }
 
 export interface Participant {
@@ -215,9 +259,13 @@ export interface FinancingPosition {
   principal: Money;
 }
 
-export type AuditEventSource = "application" | "blockchain";
+export type AuditEventSource = "application" | "blockchain" | "compliance";
 
-export type AuditDisplayStatus = "application" | "blockchain" | "simulationOnly";
+export type AuditDisplayStatus =
+  | "application"
+  | "blockchain"
+  | "simulationOnly"
+  | "complianceDemo";
 
 export type AuditEventKey =
   | "contractCreated"
@@ -228,6 +276,11 @@ export type AuditEventKey =
   | "coverageCalculated"
   | "tokenPrepared"
   | "tokenMintedOnChain"
+  | "investorEligibilityConfirmed"
+  | "walletOwnershipVerified"
+  | "primaryPlacementSettled"
+  | "wheatOwnershipTransferred"
+  | "settlementCompleted"
   | "contractRegisteredOnChain"
   | "contractVerifiedOnChain"
   | "poolCreatedOnChain"
@@ -254,6 +307,10 @@ export interface DashboardMetrics {
   eligibleCoverageTonnes: number;
   tokenizedVolumeTonnes: number;
   tokenIssuanceStarted: boolean;
+  wheatMintedSupply: number;
+  primaryPlacementVolume: number;
+  registrarInventory: number;
+  circulatingSupply: number;
   activeFinancing: Money;
   averageCoverageRatioPercent: number | null;
 }

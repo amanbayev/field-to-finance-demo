@@ -14,6 +14,8 @@ export function entityHref(
       return `/pools/${id}`;
     case "token":
       return "/tokens";
+    case "placement":
+      return `/market/${id}`;
     default:
       return undefined;
   }

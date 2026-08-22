@@ -54,6 +54,24 @@ export default async function DashboardPage() {
       </MetricStrip>
       <MetricStrip className="sm:grid-cols-4">
         <MetricCell
+          label={t("dashboard.wheatMinted")}
+          value={formatInteger(metrics.wheatMintedSupply, locale)}
+        />
+        <MetricCell
+          label={t("dashboard.primaryPlacement")}
+          value={formatInteger(metrics.primaryPlacementVolume, locale)}
+        />
+        <MetricCell
+          label={t("dashboard.registrarInventory")}
+          value={formatInteger(metrics.registrarInventory, locale)}
+        />
+        <MetricCell
+          label={t("dashboard.circulating")}
+          value={formatInteger(metrics.circulatingSupply, locale)}
+        />
+      </MetricStrip>
+      <MetricStrip className="sm:grid-cols-4">
+        <MetricCell
           label={t("dashboard.verifiedOnChain")}
           value={formatInteger(metrics.verifiedOnChainContracts, locale)}
         />
@@ -84,7 +102,7 @@ export default async function DashboardPage() {
         title={t("dashboard.infrastructure")}
         description={t("dashboard.infrastructureNote")}
       >
-        <MetricStrip className="sm:grid-cols-3">
+        <MetricStrip className="sm:grid-cols-4">
           <MetricCell
             label={network.network}
             value={
@@ -97,6 +115,14 @@ export default async function DashboardPage() {
             label={t("dashboard.registryProgram")}
             value={
               network.registryProgramDeployed
+                ? t("status.DEPLOYED")
+                : t("status.NOT_YET_DEPLOYED")
+            }
+          />
+          <MetricCell
+            label={t("dashboard.marketProgram")}
+            value={
+              network.marketProgramDeployed
                 ? t("status.DEPLOYED")
                 : t("status.NOT_YET_DEPLOYED")
             }

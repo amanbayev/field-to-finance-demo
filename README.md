@@ -12,33 +12,42 @@ Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
 ## Current state
 
-**Phase 3 ISS-001 is in Production.** Outstanding 1,000 t against 8,300 t eligible coverage. Tokens sit in the Registrar holding account pending placement. The public app does not mint.
+**Phase 4 primary placement is proven on Solana Devnet.** Production (`main`) still serves Phase 3 until this feature branch is reviewed. Do not merge until Production review.
 
 | Item | Value |
 | --- | --- |
 | Public demo | https://f2f.amanbayev.pro |
-| Production branch | `main` |
+| Production branch | `main` (Phase 3; do not merge Phase 4 automatically) |
+| Feature branch | `cursor/phase-4-primary-placement` |
 | Network | Solana Devnet (read-only in the public app) |
-| Program | `agricultural_registry` |
-| Program ID | [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet) |
-| Token-2022 / Phase 3 | Mint deployed; ISS-001 supply **1,000** |
+| Registry program | `agricultural_registry` |
+| Registry Program ID | [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet) |
+| Market program | `agricultural_market` |
+| Market Program ID | [`9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst`](https://explorer.solana.com/address/9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst?cluster=devnet) |
+| Token-2022 | Mint preserved; ISS-001 supply **1,000** (unchanged by Phase 4) |
 
-What Production currently proves:
+What the wheat programme currently proves:
 
 | Metric | Value |
 | --- | --- |
 | Verified on-chain contracts | 4 (`DAC-2027-0001` … `DAC-2027-0004`) |
 | Active pool | 1 (`POOL-WHEAT-2027-01`) |
 | Gross contract volume | 10,000 t |
-| Eligible coverage | 8,300 t |
+| Eligible coverage / maximum coverage capacity | 8,300 t |
 | Coverage haircut | 17% (1,700 bps) |
 | Double-use exceptions | 0 |
 | Coverage breaches | 0 |
-| Token issuance | 1,000 t outstanding / 8,300 t cap |
+| **Minted supply** | **1,000** (Token-2022 total supply) |
+| **Registrar inventory** | **990** |
+| **Placed** | **10** (`PL-ISS001-0001`) |
+| **Circulating supply** | **10** (held by `INVESTOR-0001`) |
+| **Burned** | **0** |
 
-Catalog still contains 12 off-chain demo contracts. Only the four wheat contracts above are registered on Devnet. Financing, compliance checks, and satellite/insurance feeds remain demonstration data.
+Minted is not placed. 1,000 minted does not mean 1,000 sold.
 
-Phase 1 contract `DAC-2027-0001` is unchanged: same Program ID, same PDA, same 288-byte account layout.
+Catalog still contains 12 off-chain demo contracts. Only the four wheat contracts above are registered on Devnet. Financing modules remain placeholders. Compliance checks remain Demo Provider (simulated) except cryptographic wallet-ownership verification for `INVESTOR-0001`.
+
+Phase 1 contract `DAC-2027-0001` is unchanged: same Program ID, same PDA, same 288-byte account layout. The Registry Program ID was not modified for Phase 4.
 
 ## Proven on Solana Devnet
 
@@ -75,8 +84,76 @@ Token-2022 `WHEAT-2027` (`tok-wheat-2027`):
 | Create tx | [`34HWbTM…UWYF`](https://explorer.solana.com/tx/34HWbTMjgPAKusyx1Vhogp48wwEXVUMwniSBoGFCuG6UQ8jYhVmckuFz9UVsC4A5p67epMQp2zaMxNmQTZz1UWYF?cluster=devnet) |
 | Mint to tx | [`xDXzCoi…Ypnr`](https://explorer.solana.com/tx/xDXzCoineDonY63yL5VFMQdaka4jp5m6DPJBeVdVCVXTDD6JTAXvbwdEJGRtmzhL3R8Xnq57F7THDgMfPsQYpnr?cluster=devnet) |
 | Holding account | [`321J7bc83M7D3E128tZkiGieg4MaQD5oBpHzHLFSjhQQ`](https://explorer.solana.com/address/321J7bc83M7D3E128tZkiGieg4MaQD5oBpHzHLFSjhQQ?cluster=devnet) |
+| Registrar inventory after Phase 4 | 990 |
 
 Mint and freeze authority stay on the deployer key used by WSL scripts. The public app does not mint.
+
+### Phase 4 — primary placement
+
+Phase 4 takes **part of the existing 1,000 minted tokens** from the Registrar holding account and completes **one controlled primary placement**. It does not mint additional WHEAT-2027.
+
+| Term | Meaning | Current value |
+| --- | --- | --- |
+| Maximum coverage capacity | Eligible contract coverage | 8,300 t |
+| Minted supply | Actual Token-2022 total supply | 1,000 |
+| Registrar inventory | Minted tokens still held by the Registrar | 990 |
+| Placed | Tokens transferred through completed primary placements | 10 |
+| Circulating supply | Tokens held outside Registrar inventory after placement | 10 |
+| Burned | Redeemed / destroyed tokens | 0 |
+
+Do not use the single word **Issued** when it could mean minted or placed.
+
+WHEAT-2027 remains a **Commodity Agricultural Token**: a claim against the Issuer, not direct legal ownership of a farmer’s wheat, not a claim on an individual Producer, not farm equity, and not ownership of the underlying DAC.
+
+#### Primary placement `PL-ISS001-0001`
+
+| Item | Value |
+| --- | --- |
+| Investor | `INVESTOR-0001` (development-only; no personal identity on-chain) |
+| Investor wallet | [`AJ7wc…Zt63`](https://explorer.solana.com/address/AJ7wcKJq368STkEWFDESGJKBSGvFbHDv749g9iAHZt63?cluster=devnet) |
+| Quantity | 10 WHEAT-2027 |
+| Investor WHEAT ATA | [`D7dNbub9wmETEkDoS7b73KpVxTwRb26Cbe9ffRptVUDw`](https://explorer.solana.com/address/D7dNbub9wmETEkDoS7b73KpVxTwRb26Cbe9ffRptVUDw?cluster=devnet) |
+| Market Program ID | [`9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst`](https://explorer.solana.com/address/9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst?cluster=devnet) |
+| Placement PDA | [`rr7Nqi9qk1VgLpZKBb7mj3Y4hEj3oK9y8n5ecRbgy5T`](https://explorer.solana.com/address/rr7Nqi9qk1VgLpZKBb7mj3Y4hEj3oK9y8n5ecRbgy5T?cluster=devnet) |
+| Atomic DvP tx | [`24ALzig…W7Ap`](https://explorer.solana.com/tx/24ALzig86DnGZQ2AE5UmFJ9PS8nkuFu92QJs8fpnw1bBh7LFJhY3jidRF5nZJM4xPkfFKK8xWZ8R8LCtVuXUW7Ap?cluster=devnet) |
+| Simulated unit price | 100,000 DEMO-KZT · **Simulation Only · Not Commercial Terms** |
+| Settlement amount | 1,000,000 DEMO-KZT |
+
+Atomic **Delivery-versus-Payment** runs in **one** Solana instruction: investor DEMO-KZT and Registrar WHEAT-2027 move together, and a `PrimaryPlacementReceipt` PDA is created. If either leg fails, the whole transaction fails.
+
+The public application is **read-only**. Registrar, investor and settlement mint authorities stay in WSL `~/.config/solana/` and are never committed or bundled to Vercel.
+
+#### DEMO-KZT
+
+`DEMO-KZT` is a **DEVNET-ONLY settlement asset** used to demonstrate atomic DvP mechanics.
+
+- DEMO SETTLEMENT ASSET
+- **NO MONETARY VALUE**
+- not a stablecoin
+- not tokenized KZT
+- not legal tender
+- not a claim against a bank
+
+Minting DEMO-KZT to the development investor is demo infrastructure. It is not capital raised and is not WHEAT-2027 issuance.
+
+| Item | Value |
+| --- | --- |
+| DEMO-KZT mint | [`CsBynEU4zZnKyJjCspE9RxNo2VnLBJZV3nmeJSVT7CcA`](https://explorer.solana.com/address/CsBynEU4zZnKyJjCspE9RxNo2VnLBJZV3nmeJSVT7CcA?cluster=devnet) |
+| Settlement destination | `ISSUER-SETTLEMENT-001` — **Technical Demo Settlement Account** (commercial beneficiary unresolved) |
+
+#### Compliance, wallet ownership, privacy
+
+- Investor eligibility uses the existing Compliance Gateway abstraction. Provider results are labelled **DEMO / SIMULATED** unless a check is a real sandbox connection.
+- Wallet ownership for `INVESTOR-0001` is a real Ed25519 signature over a nonce. The public UI shows **Verified** plus a shortened Solana address. Private keys are not stored.
+- Public pages show `INVESTOR-0001` and a shortened wallet only. No legal name, IIN, BIN, email, phone or KYC documents.
+
+#### Architecture
+
+`agricultural_registry` remains contracts / pools / coverage. `agricultural_market` handles placement / settlement / ownership transfer. SCAS still does not mint, burn, execute placement, hold investor funds or transfer WHEAT-2027.
+
+Recorded public proof: `src/adapters/blockchain/solana/recorded-placement.json`. Simulated price manifest: `src/adapters/blockchain/solana/placement-manifest.json`.
+
+Phase 4 is a **technical** primary placement demonstrator. Commercial terms, investor eligibility rules, the actual settlement asset and production market structure remain subject to partner / legal / regulatory decisions.
 
 Additional verified contracts: `DAC-2027-0002` (`PRODUCER-0002`), `DAC-2027-0003` (`PRODUCER-0003`), `DAC-2027-0004` (`PRODUCER-0004`). Public signatures live in `src/adapters/blockchain/solana/recorded-proof.ts`. Mint proof lives in `src/adapters/blockchain/solana/recorded-token.json`.
 
@@ -94,10 +171,13 @@ Anchor work lives in `solana/` and is compiled in **WSL Ubuntu**, not native Win
 solana/
   Anchor.toml
   programs/agricultural_registry/
+  programs/agricultural_market/
   scripts/register-demo.mjs
   scripts/phase2-devnet.mjs
   scripts/phase3-token-mint.mjs
   scripts/phase3-mint-tranche.mjs
+  scripts/phase4-deploy-market.sh
+  scripts/phase4-primary-placement.mjs
 ```
 
 ### WSL toolchain (inspected)
@@ -206,16 +286,18 @@ Phase 0 mock providers labelled **Demo Compliance Provider**. Sumsub, TRM or ano
 
 | Path | Module | Production meaning |
 | --- | --- | --- |
-| `/` | Dashboard | Phase 3; 1,000 t outstanding |
+| `/` | Dashboard | Coverage remains primary; secondary minted / placed / inventory |
 | `/contracts` | Digital Agricultural Contracts | 4 verified on-chain; 8 remaining catalog rows |
 | `/contracts/[contractId]` | Contract detail | Live proof for DAC-2027-0001…0004 |
 | `/pools` | Contract pools | |
 | `/pools/[poolId]` | Pool, coverage, double-use, pool proof | Live for `POOL-WHEAT-2027-01` |
-| `/tokens` | Agricultural token series | Token-2022 mint; ISS-001 1,000 t; mint/burn disabled |
+| `/tokens` | Agricultural token series | Supply decomposition; mint/burn/placement disabled |
+| `/market` | Primary placement demonstrator | Simulated price; DEMO-KZT has no monetary value |
+| `/market/PL-ISS001-0001` | Placement detail | Read-only DvP evidence |
 | `/finance` | Secured loan and repo placeholders | Coming next / experimental |
-| `/compliance` | Compliance control center | Mock provider |
-| `/scas` | SCAS operator | Attests fields, monitoring, pool lock, coverage. Does not mint |
-| `/regulator` | Regulator view and audit trail | Phase 2 metrics + Devnet events |
+| `/compliance` | Compliance control center | Demo Provider (simulated) |
+| `/scas` | SCAS operator | Attests fields, monitoring, pool lock, coverage. Does not mint or place |
+| `/regulator` | Regulator view and audit trail | Coverage + token supply + placement proof |
 
 ## How to run locally
 
@@ -245,8 +327,8 @@ This is the **executed engineering numbering**. Phase 0 of the original brief li
 | 0.3 | Institutional UI refinement | Complete |
 | 1 | Solana Devnet + Digital Agricultural Contract registry | Complete in Production |
 | 2 | Contract pool, off-chain coverage engine, on-chain snapshot hash, double-use protection | Complete in Production |
-| 3 | Token-2022 issuance | ISS-001 minted (1,000 t); placement not started |
-| 4 | Primary placement / DvP | Not started (UI placeholder) |
+| 3 | Token-2022 issuance | Complete: ISS-001 minted 1,000; mint preserved |
+| 4 | Primary placement / atomic DvP | Complete on Devnet (this branch). Preview only. Do not merge to `main` until review |
 | 5 | Secondary market | Not started |
 | 6 | Secured financing | Not started (UI placeholder) |
 | 7 | Risk monitoring, coverage events, default / enforcement | Not started (risk sources are DEMO / SIMULATED) |
@@ -267,9 +349,9 @@ The 20 Aug 2026 Phase 0 brief is still the product plan. What changed is **phasi
 | Adapter split: domain / services / blockchain / compliance | Yes; Solana provider added | Yes |
 | Phase 1 = “Solana connection”, Phase 2 = “DAC registry” | Combined into **Phase 1** | Numbering only |
 | Phase 3 = pools + coverage | Built as **Phase 2** | Numbering only |
-| Phase 4 = Token-2022 | Remains next, now called **Phase 3** | Scope unchanged |
-| Dashboard mock: 8,000 t already tokenized, 122% coverage ratio | Corrected: issuance **not started**, eligible **8,300 t** | Demo honesty; pool math unchanged |
-| Tokens page mock: Issued 8,000 | Corrected to 1,000 issued (ISS-001); cap 8,300 t | Same |
+| Phase 4 = Token-2022 | Built as **Phase 3**. Current **Phase 4** is primary placement / atomic DvP | Numbering only |
+| Dashboard mock: 8,000 t already tokenized, 122% coverage ratio | Corrected: eligible **8,300 t**; minted **1,000**; placed **10** | Demo honesty; pool math unchanged |
+| Tokens page mock: Issued 8,000 | Corrected: minted 1,000 (ISS-001); placed 10; cap 8,300 t | Same |
 | Coverage engine “on-chain” as a later phase | Hybrid: off-chain integer math, hash anchored on-chain | Stronger than the original split |
 | Double-use protection | Added in Phase 2 on-chain (not in the Phase 0 list) | Additive |
 | Localization, KZT, custom domain | Inserted as 0.1 / 0.2 before Solana | Additive |

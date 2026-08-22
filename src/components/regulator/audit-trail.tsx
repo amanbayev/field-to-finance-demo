@@ -76,7 +76,9 @@ export function AuditTrail({ events }: { events: AuditEvent[] }) {
               <TableCell>
                 {source === "blockchain"
                   ? t("actorSolanaDevnet")
-                  : t("actorApplication")}
+                  : source === "compliance"
+                    ? t("actorComplianceDemo")
+                    : t("actorApplication")}
               </TableCell>
               <TableCell>
                 <span className="inline-flex items-center gap-1.5 text-xs">
@@ -86,9 +88,12 @@ export function AuditTrail({ events }: { events: AuditEvent[] }) {
                   />
                   {event.displayStatus === "simulationOnly"
                     ? t("kindSimulationOnly")
-                    : source === "blockchain"
-                      ? t("kindBlockchain")
-                      : t("kindApplication")}
+                    : event.displayStatus === "complianceDemo" ||
+                        source === "compliance"
+                      ? t("kindComplianceDemo")
+                      : source === "blockchain"
+                        ? t("kindBlockchain")
+                        : t("kindApplication")}
                 </span>
               </TableCell>
               <TableCell className="font-tabular text-xs">

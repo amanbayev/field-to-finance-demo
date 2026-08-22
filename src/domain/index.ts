@@ -32,6 +32,8 @@ export type {
   ParticipantEligibility,
   ParticipantType,
   PoolMember,
+  PrimaryPlacement,
+  PrimaryPlacementStatus,
   Producer,
   ProducerScore,
   ProductionRecord,
@@ -53,6 +55,7 @@ export type {
   TokenClaimParty,
   TokenIssueTerms,
   TokenRedemptionKind,
+  TokenSupplyBreakdown,
   VerificationState,
 } from "./types";
 export type { CurrencyCode, Money } from "./money";

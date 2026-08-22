@@ -5,6 +5,7 @@ export const participants: Participant[] = [
   { id: "prd-kostanay-grain", name: "Steppe Grain LLP", type: "PRODUCER" },
   { id: "prd-north-steppe", name: "North Fields LLP", type: "PRODUCER" },
   { id: "prd-pavlodar-harvest", name: "Saryarka Agro LLP", type: "PRODUCER" },
+  { id: "inv-0001", name: "INVESTOR-0001", type: "INVESTOR" },
   { id: "inv-demo-a", name: "Demo Investor A", type: "INVESTOR" },
   { id: "inv-demo-b", name: "Demo Investor B", type: "INVESTOR" },
   { id: "inv-demo-c", name: "Demo Investor C", type: "INVESTOR" },

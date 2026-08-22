@@ -3,7 +3,9 @@ import {
   ALLOCATION_INDEX_PDA_SEED,
   ALLOCATION_PDA_SEED,
   CONTRACT_PDA_SEED,
+  MARKET_CONFIG_SEED,
   POOL_PDA_SEED,
+  PRIMARY_PLACEMENT_SEED,
   REGISTRY_PDA_SEED,
 } from "./config";
 
@@ -121,6 +123,94 @@ export function deriveAllocationIndexPda(
     [Buffer.from(ALLOCATION_INDEX_PDA_SEED), Buffer.from(contractId)],
     programId,
   )[0];
+}
+
+export function deriveMarketConfigPda(programId: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(MARKET_CONFIG_SEED)],
+    programId,
+  )[0];
+}
+
+export function derivePlacementPda(
+  programId: PublicKey,
+  placementId: string,
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(PRIMARY_PLACEMENT_SEED), Buffer.from(placementId)],
+    programId,
+  )[0];
+}
+
+export type OnChainPlacementStatus = "Settled";
+
+export interface OnChainPrimaryPlacement {
+  placementId: string;
+  issuanceId: string;
+  instrumentMint: string;
+  investorWallet: string;
+  investorReferenceHashHex: string;
+  quantity: number;
+  settlementMint: string;
+  unitPrice: number;
+  totalSettlementAmount: number;
+  complianceReferenceHashHex: string;
+  registrarAuthority: string;
+  settledAt: number;
+  status: OnChainPlacementStatus;
+  bump: number;
+  pda: string;
+  programId: string;
+}
+
+export function decodePrimaryPlacementAccount(
+  data: Buffer,
+  pda: string,
+  programId: string,
+): OnChainPrimaryPlacement {
+  const reader = new BorshReader(data);
+  reader.bytes(8);
+  const placementId = reader.string();
+  const issuanceId = reader.string();
+  const instrumentMint = reader.pubkey();
+  const investorWallet = reader.pubkey();
+  const investorReferenceHashHex = bytesToHex(new Uint8Array(reader.bytes(32)));
+  const quantity = reader.u64();
+  const settlementMint = reader.pubkey();
+  const unitPrice = reader.u64();
+  const totalSettlementAmount = reader.u64();
+  const complianceReferenceHashHex = bytesToHex(
+    new Uint8Array(reader.bytes(32)),
+  );
+  const registrarAuthority = reader.pubkey();
+  const settledAt = reader.i64();
+  const status = decodePlacementStatus(reader.u8());
+  const bump = reader.u8();
+  return {
+    placementId,
+    issuanceId,
+    instrumentMint,
+    investorWallet,
+    investorReferenceHashHex,
+    quantity,
+    settlementMint,
+    unitPrice,
+    totalSettlementAmount,
+    complianceReferenceHashHex,
+    registrarAuthority,
+    settledAt,
+    status,
+    bump,
+    pda,
+    programId,
+  };
+}
+
+function decodePlacementStatus(value: number): OnChainPlacementStatus {
+  if (value !== 0) {
+    throw new Error("invalid on-chain placement status");
+  }
+  return "Settled";
 }
 
 export function decodeContractAccount(

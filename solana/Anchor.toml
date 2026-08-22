@@ -8,9 +8,11 @@ skip-lint = false
 
 [programs.localnet]
 agricultural_registry = "E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT"
+agricultural_market = "9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst"
 
 [programs.devnet]
 agricultural_registry = "E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT"
+agricultural_market = "9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst"
 
 [provider]
 cluster = "localnet"

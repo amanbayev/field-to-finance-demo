@@ -13,6 +13,10 @@ export const dashboardMetrics: DashboardMetrics = {
   eligibleCoverageTonnes: wheatCoverage.eligibleVolumeTonnes,
   tokenizedVolumeTonnes: 1000,
   tokenIssuanceStarted: true,
+  wheatMintedSupply: 1000,
+  primaryPlacementVolume: 10,
+  registrarInventory: 990,
+  circulatingSupply: 10,
   activeFinancing: money(620_000_000, "KZT"),
   averageCoverageRatioPercent: null,
 };
@@ -21,7 +25,7 @@ export const systemOverview: SystemOverview = {
   contracts: 12,
   pools: 1,
   tokenSeries: 1,
-  participants: 8,
+  participants: 9,
   blockedParticipants: 1,
   coverageAlerts: 0,
 };

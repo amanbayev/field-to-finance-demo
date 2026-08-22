@@ -3,6 +3,7 @@ export interface NetworkStatus {
   connected: boolean;
   blockchainDeployed: boolean;
   registryProgramDeployed: boolean;
+  marketProgramDeployed: boolean;
   onChainDemoContracts: number;
 }
 
@@ -78,6 +79,7 @@ export interface OnChainTokenMint {
   freezeAuthority?: string;
   holder?: string;
   holderOwner?: string;
+  holderAmount?: number;
 }
 
 export interface OnChainTokenMintLookup {
@@ -85,6 +87,20 @@ export interface OnChainTokenMintLookup {
   mint?: OnChainTokenMint;
   createSignature?: string;
   mintToSignature?: string;
+}
+
+export interface OnChainTokenBalanceLookup {
+  status: OnChainLookupStatus;
+  address?: string;
+  amount?: number;
+  mint?: string;
+  owner?: string;
+}
+
+export interface OnChainPlacementLookup {
+  status: OnChainLookupStatus;
+  placement?: import("./solana/codec").OnChainPrimaryPlacement;
+  dvpSignature?: string;
 }
 
 export interface CreateContractRequest {
@@ -117,6 +133,8 @@ export interface BlockchainProvider {
   ): Promise<OnChainPoolContractsLookup>;
   getCoverageProof(poolId: string): Promise<OnChainCoverageProofLookup>;
   getTokenMint(tokenId: string): Promise<OnChainTokenMintLookup>;
+  getTokenAccountBalance(address: string): Promise<OnChainTokenBalanceLookup>;
+  getPrimaryPlacement(placementId: string): Promise<OnChainPlacementLookup>;
   createDigitalAgriculturalContract(
     request: CreateContractRequest,
   ): Promise<WriteInstructionResult>;

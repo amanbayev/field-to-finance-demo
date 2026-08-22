@@ -16,7 +16,10 @@ export const navGroups = [
   },
   {
     key: "market",
-    items: [{ href: "/finance", key: "finance" }],
+    items: [
+      { href: "/market", key: "marketPage" },
+      { href: "/finance", key: "finance" },
+    ],
   },
   {
     key: "control",
@@ -37,6 +40,7 @@ export const lifecycleSteps = [
   { id: "pool", href: "/pools" },
   { id: "risk", href: "/pools/POOL-WHEAT-2027-01" },
   { id: "token", href: "/tokens" },
+  { id: "placement", href: "/market" },
   { id: "finance", href: "/finance" },
 ] as const;
 

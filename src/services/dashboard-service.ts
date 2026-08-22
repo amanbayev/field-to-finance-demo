@@ -1,11 +1,8 @@
 import { dashboardMetrics } from "@/data/mock/system";
-import { blockchainProvider } from "@/services/providers";
 import type { DashboardMetrics } from "@/domain";
-import {
-  ON_CHAIN_DEMO_TOKEN_ID,
-  type NetworkStatus,
-} from "@/adapters/blockchain";
-import { liveOutstanding } from "@/services/token-service";
+import type { NetworkStatus } from "@/adapters/blockchain";
+import { getPlacementSnapshot } from "@/services/placement-service";
+import { blockchainProvider } from "@/services/providers";
 
 export interface DashboardSnapshot {
   metrics: DashboardMetrics;
@@ -13,19 +10,20 @@ export interface DashboardSnapshot {
 }
 
 export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
-  const [network, mintLookup] = await Promise.all([
+  const [network, placement] = await Promise.all([
     blockchainProvider.getNetworkStatus(),
-    blockchainProvider.getTokenMint(ON_CHAIN_DEMO_TOKEN_ID),
+    getPlacementSnapshot(),
   ]);
-  const issued = liveOutstanding(
-    mintLookup,
-    dashboardMetrics.tokenizedVolumeTonnes,
-  );
+  const minted = placement.supply.mintedSupply;
   return {
     metrics: {
       ...dashboardMetrics,
-      tokenizedVolumeTonnes: issued,
-      tokenIssuanceStarted: issued > 0,
+      tokenizedVolumeTonnes: minted,
+      tokenIssuanceStarted: minted > 0,
+      wheatMintedSupply: minted,
+      primaryPlacementVolume: placement.supply.placed,
+      registrarInventory: placement.supply.registrarInventory,
+      circulatingSupply: placement.supply.circulating,
     },
     network,
   };
