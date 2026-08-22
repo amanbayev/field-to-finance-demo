@@ -4,6 +4,9 @@
  * Registers DAC-2027-0002..0004, creates POOL-WHEAT-2027-01, allocates volume,
  * and anchors the coverage snapshot hash. Never used by the public Next.js app.
  *
+ * The live demo accounts already exist. Do not re-run this against those PDAs
+ * unless an explicit Devnet reset is requested.
+ *
  * Usage (WSL):
  *   DEPLOYER_KEYPAIR=~/.config/solana/id.json \
  *   VERIFIER_KEYPAIR=~/.config/solana/verifier.json \

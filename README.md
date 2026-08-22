@@ -10,15 +10,67 @@ This is **not** a production financial product. No real agricultural assets, fun
 
 Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
-## Current phase
+## Current state
 
-**Phase 2 — Contract pool, coverage engine, and double-use protection**
+**Phase 2 is complete in Production.**
 
-The `agricultural_registry` program now records contract pools, per-contract volume allocations, and an anchored coverage snapshot hash. Four wheat contracts (`DAC-2027-0001` … `0004`) and `POOL-WHEAT-2027-01` are registered on **Solana Devnet**. Eligible coverage is calculated off-chain (17% haircut → 8,300 t) and hashed on-chain.
+| Item | Value |
+| --- | --- |
+| Public demo | https://f2f.amanbayev.pro |
+| Production branch | `main` |
+| Network | Solana Devnet (read-only in the public app) |
+| Program | `agricultural_registry` |
+| Program ID | [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet) |
+| Token-2022 / Phase 3 | **Not started** |
 
-Token-2022 issuance is **not started**. Production `https://f2f.amanbayev.pro` remains Phase 1 until this branch is preview-QA’d and promoted.
+What Production currently proves:
 
-Phase 1 contract `DAC-2027-0001` is unchanged: same Program ID and the same account layout.
+| Metric | Value |
+| --- | --- |
+| Verified on-chain contracts | 4 (`DAC-2027-0001` … `DAC-2027-0004`) |
+| Active pool | 1 (`POOL-WHEAT-2027-01`) |
+| Gross contract volume | 10,000 t |
+| Eligible coverage | 8,300 t |
+| Coverage haircut | 17% (1,700 bps) |
+| Double-use exceptions | 0 |
+| Coverage breaches | 0 |
+| Token issuance | Not Started / Not Deployed |
+
+Catalog still contains 12 off-chain demo contracts. Only the four wheat contracts above are registered on Devnet. Financing, compliance checks, and satellite/insurance feeds remain demonstration data.
+
+Phase 1 contract `DAC-2027-0001` is unchanged: same Program ID, same PDA, same 288-byte account layout.
+
+## Proven on Solana Devnet
+
+PDA seeds: `["digital_ag_contract", contract_id]` · `["contract_pool", pool_id]` · `["contract_allocation", contract_id, pool_id]` · `["allocation_index", contract_id]`
+
+`DAC-2027-0001`:
+
+| Item | Value |
+| --- | --- |
+| PDA | [`mbbSSan56m8GZ7Qd5W9qEs8ov5c3R7qH1TAvSgY2K1T`](https://explorer.solana.com/address/mbbSSan56m8GZ7Qd5W9qEs8ov5c3R7qH1TAvSgY2K1T?cluster=devnet) |
+| Create tx | [`3Nwom4n…UFfo`](https://explorer.solana.com/tx/3Nwom4nYQTNtwp8iSzPHEnHxK1F2L7phf6kRBUdGB2h7m1JJxsHuN8ygpQM3cmMZxeKMJQeCkuM3diyWmmigUFfo?cluster=devnet) |
+| Verify tx | [`bMy4TH3…vDy5`](https://explorer.solana.com/tx/bMy4TH3uosXjBR2CpchADUQiiCpkkAzUSGVKNJhjwF88d5UHnFiAUDsc6ENJPaSypqAemWwxDk8nGCDpZVfvDy5?cluster=devnet) |
+| On-chain status | Verified |
+| Producer reference | `PRODUCER-0001` (not the legal name) |
+
+Pool `POOL-WHEAT-2027-01`:
+
+| Item | Value |
+| --- | --- |
+| Pool PDA | [`8A1KhRzo6PciKQ3FVNZ2W52F5hhCw8nkTcZHiZydE89E`](https://explorer.solana.com/address/8A1KhRzo6PciKQ3FVNZ2W52F5hhCw8nkTcZHiZydE89E?cluster=devnet) |
+| Gross / eligible | 10,000 t / 8,300 t |
+| Haircut | 1,700 bps (17%) |
+| Snapshot hash | `4b93b012e8c95c8133aa73faa4720db3b61f4ef83d7750a7b05d4a97417388b2` |
+| Double-use control | Protected on-chain |
+
+Additional verified contracts: `DAC-2027-0002` (`PRODUCER-0002`), `DAC-2027-0003` (`PRODUCER-0003`), `DAC-2027-0004` (`PRODUCER-0004`). Public signatures live in `src/adapters/blockchain/solana/recorded-proof.ts`.
+
+On-chain proof is **not** the full business record. The chain stores a producer reference, crop, season, area, volume, quality class and region. It does **not** store legal names, BIN/IIN, KYC documents or financials.
+
+Coverage math is off-chain (`src/domain/coverage-engine.ts`, integer basis points, floor). The chain stores the snapshot hash, not the risk model.
+
+The public app **does not sign transactions**. Admin create/verify/allocate runs from WSL scripts. Signing keypairs never appear in `NEXT_PUBLIC_*`.
 
 ## Solana workspace
 
@@ -32,34 +84,6 @@ solana/
   scripts/phase2-devnet.mjs
 ```
 
-Program: `agricultural_registry`  
-Network: Solana Devnet only  
-PDA seeds: `["digital_ag_contract", contract_id]` · `["contract_pool", pool_id]` · `["contract_allocation", contract_id, pool_id]` · `["allocation_index", contract_id]`  
-Program ID: [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet)
-
-`DAC-2027-0001` on Devnet:
-
-| Item | Value |
-| --- | --- |
-| PDA | [`mbbSSan56m8GZ7Qd5W9qEs8ov5c3R7qH1TAvSgY2K1T`](https://explorer.solana.com/address/mbbSSan56m8GZ7Qd5W9qEs8ov5c3R7qH1TAvSgY2K1T?cluster=devnet) |
-| Create tx | [`3Nwom4n…UFfo`](https://explorer.solana.com/tx/3Nwom4nYQTNtwp8iSzPHEnHxK1F2L7phf6kRBUdGB2h7m1JJxsHuN8ygpQM3cmMZxeKMJQeCkuM3diyWmmigUFfo?cluster=devnet) |
-| Verify tx | [`bMy4TH3…vDy5`](https://explorer.solana.com/tx/bMy4TH3uosXjBR2CpchADUQiiCpkkAzUSGVKNJhjwF88d5UHnFiAUDsc6ENJPaSypqAemWwxDk8nGCDpZVfvDy5?cluster=devnet) |
-| On-chain status | Verified |
-| Producer reference | `PRODUCER-0001` (not the legal name) |
-
-Phase 2 Devnet pool `POOL-WHEAT-2027-01`:
-
-| Item | Value |
-| --- | --- |
-| Pool PDA | [`8A1KhRzo6PciKQ3FVNZ2W52F5hhCw8nkTcZHiZydE89E`](https://explorer.solana.com/address/8A1KhRzo6PciKQ3FVNZ2W52F5hhCw8nkTcZHiZydE89E?cluster=devnet) |
-| Gross / eligible | 10,000 t / 8,300 t |
-| Haircut | 1,700 bps (17%) |
-| Snapshot hash | `4b93b012e8c95c8133aa73faa4720db3b61f4ef83d7750a7b05d4a97417388b2` |
-
-Additional verified contracts: `DAC-2027-0002` (`PRODUCER-0002`), `DAC-2027-0003` (`PRODUCER-0003`), `DAC-2027-0004` (`PRODUCER-0004`).
-
-On-chain proof is **not** the full business record. The chain stores a producer reference (`PRODUCER-0001`), crop, season, area, volume, quality class and region. It does **not** store legal names, BIN/IIN, KYC documents or financials.
-
 ### WSL toolchain (inspected)
 
 - Ubuntu 26.04 on WSL2
@@ -70,25 +94,19 @@ On-chain proof is **not** the full business record. The chain stores a producer 
 
 Source of truth is this Git repository. Anchor `build`/`test`/`deploy` run from a Linux-native copy at `~/src/field-to-finance-demo/solana` because `/mnt/c` is slow for Rust.
 
-### Test / deploy / register
+Do **not** recreate the Devnet contracts or pool, change the Program ID, or upgrade the program unless a real bug requires it.
 
 ```bash
-# WSL
+# WSL — tests only. Do not re-run Devnet setup against the live demo accounts.
 cd ~/src/field-to-finance-demo/solana
 anchor test
-anchor deploy --provider.cluster devnet --provider.wallet ~/.config/solana/id.json
-node /mnt/c/Users/user/field-to-finance-demo/solana/scripts/phase2-devnet.mjs
 ```
 
 Development wallets stay in `~/.config/solana/` and are never committed. Fund them with Devnet SOL only.
 
-Public app reads: `SolanaBlockchainProvider` via `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana`. It does **not** sign transactions. Admin create/verify runs from the script above.
-
 Explorer links always use `cluster=devnet`.
 
 ## Languages
-
-Supported locales:
 
 | Code | Language | Switcher |
 | --- | --- | --- |
@@ -96,110 +114,61 @@ Supported locales:
 | `ru` | Russian | РУС |
 | `en` | English | ENG |
 
-Default locale: **Kazakh (`kk`)**.
-
-Missing translation keys fall back to English. The selected language is stored in the `ftf-locale` cookie and kept across visits. Changing language refreshes the current page; routes such as `/contracts` are unchanged.
-
-### Localization architecture
-
-The app uses `next-intl` **without locale prefixes** in the URL.
+Default locale: **Kazakh (`kk`)**. Missing keys fall back to English. The selected language is stored in the `ftf-locale` cookie. Routes such as `/contracts` have no locale prefix.
 
 ```
-messages/
-  en.json
-  ru.json
-  kk.json
-src/i18n/
-  config.ts          locales, cookie name, default
-  request.ts         reads cookie, merges English fallback
-  actions.ts         setLocale server action
-  merge-messages.ts
+messages/en.json  ru.json  kk.json
+src/i18n/config.ts  request.ts  actions.ts  merge-messages.ts
 ```
 
-UI copy lives in the message catalogs, not in page components. Domain enums (`VERIFIED`, `IN_POOL`, …) are unchanged; only their presentation is translated.
+UI copy lives in the catalogs. Domain enums (`VERIFIED`, `IN_POOL`, …) are unchanged; only presentation is translated.
 
 ## Currency formatting
 
 Kazakhstan tenge is the primary display currency. USD is a secondary reference only.
 
-```
-src/domain/money.ts              Money { amount, currency }
-src/adapters/fx/config.ts        BASE_CURRENCY, REFERENCE_CURRENCY, DEMO_USD_KZT_RATE
-src/adapters/fx/demo-fx-provider.ts
-src/lib/format.ts                formatMoney(), toPrimaryAndReference()
-src/components/shared/dual-money.tsx
-```
-
-Demo FX configuration:
-
 - `BASE_CURRENCY=KZT`
 - `REFERENCE_CURRENCY=USD`
-- `DEMO_USD_KZT_RATE=500` (1 USD = 500 KZT)
+- `DEMO_USD_KZT_RATE=500` (1 USD = 500 KZT) — fixed demonstration reference, not a live quote
 
-This rate is a **fixed demonstration reference**, not a live market quote. It is defined once in `src/adapters/fx/config.ts` and consumed through `FxProvider`.
-
-A later live provider can implement the same `FxProvider` interface (`getQuote`, `convert`) and replace `DemoFxProvider` in `src/adapters/fx/index.ts` without changing product pages.
-
-Example:
-
-₸620,000,000  
-≈ $1.24M
-
+Defined in `src/adapters/fx/config.ts` and consumed through `FxProvider`. Example: ₸620,000,000 ≈ $1.24M.
 
 ## Tech stack
 
-- Next.js 16 (App Router)
-- React 19
-- TypeScript (strict)
-- Tailwind CSS 4
-- shadcn/ui
-- next-intl
-- npm
+- Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS 4, shadcn/ui, next-intl, npm
 - `@solana/web3.js` (server-side Devnet reads)
 - Anchor 1.1.2 + Solana CLI 3.1.10 (WSL)
 
-Inspected local toolchain when this project was scaffolded:
+Inspected local toolchain at scaffold:
 
 - Node.js `v24.19.0`
 - npm `11.17.0`
 - Git `2.54.0.windows.1`
-- Vercel CLI: `npx vercel` (not installed globally)
+- Vercel CLI via `npx vercel`
 
 ## Architecture
 
-Product domain logic does not talk to a chain SDK or a KYC vendor directly. UI pages call services. Services read mock data today and will later call APIs, a database, or adapters.
+Product domain logic does not talk to a chain SDK or a KYC vendor directly. UI pages call services. Services read mock data and, where Phase 1/2 proof exists, the Solana adapter.
 
 ```
 src/
   app/                 UI routes
   components/          Layout and product UI
-  domain/              Typed business models
+  domain/              Typed business models + coverage engine
   data/mock/           Replaceable demonstration data
   services/            Product use-cases
   adapters/
-    blockchain/        BlockchainProvider + MockBlockchainProvider
+    blockchain/        BlockchainProvider, mock + Solana
     compliance/        KycProvider, KybProvider, KytProvider + mocks
+    scas/              ScasProvider + mock operator attestations
     fx/                FxProvider + DemoFxProvider
-  i18n/                Locale config and request setup
-  lib/                 Formatting, navigation, and public env defaults
+  i18n/
+  lib/                 Formatting, navigation, public env defaults
 ```
 
 ### Blockchain adapter
 
-```ts
-interface BlockchainProvider {
-  getNetworkStatus()
-  getDigitalAgriculturalContract(contractId)
-  getContractPool(poolId)
-  getContractAllocation(contractId)
-  getPoolContracts(poolId, contractIds)
-  getCoverageProof(poolId)
-  createDigitalAgriculturalContract(...)
-  verifyDigitalAgriculturalContract(...)
-  getTransaction(signature)
-  issueToken()
-}
-```
+`BlockchainProvider` is read-oriented in the public app: network status, contract/pool/allocation lookups, coverage proof, and a no-op `issueToken()`. Create/verify remain available on the interface for admin scripts, not for Vercel.
 
 Environment policy:
 
@@ -209,33 +178,28 @@ Environment policy:
 | Preview (Vercel) | `solana` / Devnet |
 | Production (Vercel) | `solana` / Devnet |
 
-Local developers who want live Devnet reads set `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana` in `.env.local`. Do not change Production RPC or Program ID casually.
+Local live reads: set `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana` in `.env.local`. Do not change Production RPC or Program ID casually.
 
-`SolanaBlockchainProvider` is read-only on Vercel. Signing keypairs never appear in `NEXT_PUBLIC_*`. Coverage math lives in `src/domain/coverage-engine.ts` (integer basis points). The chain stores only the snapshot hash.
+If public Devnet RPC is rate-limited, pages still render the off-chain business record. The proof panel shows a temporary unavailability state. It never invents live proof.
 
 ### Compliance adapters
 
-```ts
-interface KycProvider { getKycStatus(participantId) }
-interface KybProvider { getKybStatus(participantId) }
-interface KytProvider { getKytStatus(participantId) }
-```
-
-Phase 0 uses mock providers labelled **Demo Compliance Provider**. Sumsub, TRM or another vendor can be added behind these interfaces later.
+Phase 0 mock providers labelled **Demo Compliance Provider**. Sumsub, TRM or another vendor can implement `KycProvider` / `KybProvider` / `KytProvider` later. No vendor is integrated.
 
 ## Routes
 
-| Path | Module |
-| --- | --- |
-| `/` | Dashboard |
-| `/contracts` | Digital Agricultural Contracts |
-| `/contracts/[contractId]` | Contract detail |
-| `/pools` | Contract pools |
-| `/pools/[poolId]` | Pool detail, haircuts and coverage |
-| `/tokens` | Agricultural token series |
-| `/finance` | Secured loan and repo placeholders |
-| `/compliance` | Compliance control center |
-| `/regulator` | Regulator view and audit trail |
+| Path | Module | Production meaning |
+| --- | --- | --- |
+| `/` | Dashboard | Phase 2 metrics; token issuance not started |
+| `/contracts` | Digital Agricultural Contracts | 4 verified on-chain; 8 remaining catalog rows |
+| `/contracts/[contractId]` | Contract detail | Live proof for DAC-2027-0001…0004 |
+| `/pools` | Contract pools | |
+| `/pools/[poolId]` | Pool, coverage, double-use, pool proof | Live for `POOL-WHEAT-2027-01` |
+| `/tokens` | Agricultural token series | Reserved; not issued, not deployed |
+| `/finance` | Secured loan and repo placeholders | Coming next / experimental |
+| `/compliance` | Compliance control center | Mock provider |
+| `/scas` | SCAS operator | Attests fields, monitoring, pool lock, coverage. Does not mint |
+| `/regulator` | Regulator view and audit trail | Phase 2 metrics + Devnet events |
 
 ## How to run locally
 
@@ -246,8 +210,6 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Other commands:
-
 ```bash
 npm run lint
 npm run typecheck
@@ -255,72 +217,76 @@ npm run build
 npm run start
 ```
 
-## Future Solana architecture
-
-Phase 2 is the registry/proof layer plus contract pools, volume allocation, and an anchored coverage snapshot. Token-2022 issuance is reserved for a later phase and is **not** in this program.
-
-## Future compliance architecture
-
-Planned split:
-
-1. Keep `Participant` and `ComplianceRecord` in the domain layer.
-2. Replace mock KYC/KYB/KYT providers with vendor adapters.
-3. Continue to surface provider name in the UI so checks are never presented as native legal determinations.
-
-No Sumsub or TRM integration is included in Phase 0.
-
 ## Roadmap
 
-| Phase | Scope |
-| --- | --- |
-| Phase 0 | Public UI prototype |
-| Phase 0.1 | Localization and Kazakhstan formatting |
-| Phase 0.2 | Public deployment foundation |
-| Phase 1 | Solana Devnet connection |
-| Phase 2 | Digital Agricultural Contract Registry |
-| Phase 3 | Contract Pools and Coverage Engine |
-| Phase 4 | Token-2022 issuance |
-| Phase 5 | Compliance Gateway |
-| Phase 6 | Primary Placement / DvP |
-| Phase 7 | Secured Financing |
-| Phase 8 | Risk Monitoring and Coverage Events |
-| Phase 9 | Default / Enforcement Demo |
+This is the **executed engineering numbering**. Phase 0 of the original brief listed a different map (see below). Product intent did not change.
 
-## Public Demo
+| Phase | Scope | Status |
+| --- | --- | --- |
+| 0 | Public UI prototype | Complete |
+| 0.1 | ҚАЗ / РУС / ENG + KZT-primary money | Complete |
+| 0.2 | Public Vercel deployment | Complete |
+| 0.3 | Institutional UI refinement | Complete |
+| 1 | Solana Devnet + Digital Agricultural Contract registry | Complete in Production |
+| 2 | Contract pool, off-chain coverage engine, on-chain snapshot hash, double-use protection | Complete in Production |
+| 3 | Token-2022 issuance | **Not started** |
+| 4 | Primary placement / DvP | Not started (UI placeholder) |
+| 5 | Secondary market | Not started |
+| 6 | Secured financing | Not started (UI placeholder) |
+| 7 | Risk monitoring, coverage events, default / enforcement | Not started (risk sources are DEMO / SIMULATED) |
+
+Parallel tracks, not a numbered gate before Phase 3:
+
+- Compliance gateway (still mock)
+- Production blockchain / registrar architecture (Solana Devnet is a technology demonstrator, not a production choice)
+
+Do not start Phase 3 / Token-2022 until that work is explicitly requested.
+
+## Plan revision (original brief vs now)
+
+The 20 Aug 2026 Phase 0 brief is still the product plan. What changed is **phasing and honesty of mock state**, not the lifecycle.
+
+| Original brief | What we did | Unchanged? |
+| --- | --- | --- |
+| Live public demo from day one | Yes (`https://f2f.amanbayev.pro`) | Yes |
+| Institutional UI, not crypto-casino | Yes (Phase 0.3) | Yes |
+| Adapter split: domain / services / blockchain / compliance | Yes; Solana provider added | Yes |
+| Phase 1 = “Solana connection”, Phase 2 = “DAC registry” | Combined into **Phase 1** | Numbering only |
+| Phase 3 = pools + coverage | Built as **Phase 2** | Numbering only |
+| Phase 4 = Token-2022 | Remains next, now called **Phase 3** | Scope unchanged |
+| Dashboard mock: 8,000 t already tokenized, 122% coverage ratio | Corrected: issuance **not started**, eligible **8,300 t** | Demo honesty; pool math unchanged |
+| Tokens page mock: Issued 8,000 | Corrected to 0 / Not Deployed | Same |
+| Coverage engine “on-chain” as a later phase | Hybrid: off-chain integer math, hash anchored on-chain | Stronger than the original split |
+| Double-use protection | Added in Phase 2 on-chain (not in the Phase 0 list) | Additive |
+| Localization, KZT, custom domain | Inserted as 0.1 / 0.2 before Solana | Additive |
+| Public app signs chain txs | Never; writes stay in scripts | Safer than implied |
+| Replace Solana later via adapter | Still the rule. Devnet is a demonstrator. | Yes |
+| KYC/KYB/KYT mocks until a vendor | Still mock | Yes |
+| Finance / repo placeholders | Still placeholders | Yes |
+
+Original Phase 0 dashboard numbers (12 catalog contracts, 24,800 t catalog volume, ₸620M / $1.24M illustrative financing) remain as **catalog / placeholder** figures. They are not on-chain pool state.
+
+## Public demo
 
 | Item | Value |
 | --- | --- |
-| Production URL | https://field-to-finance-demo.vercel.app |
-| Preview URL | https://field-to-finance-demo-554bbx2as-amanbayts-projects.vercel.app |
+| Custom domain | https://f2f.amanbayev.pro |
+| Vercel production | https://field-to-finance-demo.vercel.app |
 | Platform | Vercel |
-| Vercel project | `field-to-finance-demo` |
 | GitHub | https://github.com/amanbayev/field-to-finance-demo |
 
-This is the stable public URL for the prototype. Later phases (including Solana Devnet in Phase 1) should keep deploying to the same production hostname.
+Keep deploying later phases to the same production hostname.
 
-### Deployment process
+### Deployment
 
-The app is a standard Next.js project on Vercel.
+Preview: `npx vercel`  
+Production: push `main` (GitHub → Vercel) or `npx vercel --prod`
 
-Preview (current working tree):
-
-```bash
-npx vercel
-```
-
-Production:
-
-```bash
-npx vercel --prod
-```
-
-If the CLI is not logged in, run `npx vercel login` first. Do not place Vercel tokens, GitHub credentials, wallet files, or API secrets in this repository.
-
-Continuous deployment: connect this GitHub repository to the Vercel project (`npx vercel git connect`). Subsequent pushes to the connected branch create preview or production deployments according to the Vercel project settings.
+Do not place Vercel tokens, GitHub credentials, wallet files, or API secrets in this repository.
 
 ### Environment configuration
 
-Public variables (safe to expose in the browser). Copy `.env.example` to `.env.local` for local overrides:
+Copy `.env.example` to `.env.local` for local overrides:
 
 ```bash
 NEXT_PUBLIC_APP_ENV=demo
@@ -332,6 +298,6 @@ NEXT_PUBLIC_SOLANA_REGISTRY_PROGRAM_ID=E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaE
 
 Vercel Preview and Production keep `NEXT_PUBLIC_BLOCKCHAIN_PROVIDER=solana`. Local default is `mock`.
 
-Defaults live in `src/lib/public-env.ts`. The application must not crash if Solana RPC is unreachable: pages still render the off-chain business record, and the proof panel shows a temporary unavailability state.
+Defaults live in `src/lib/public-env.ts`.
 
-Do not put private keys, seed phrases, wallet JSON, or secret API credentials in `NEXT_PUBLIC_*` variables. Those would be inlined into the client bundle.
+Do not put private keys, seed phrases, wallet JSON, or secret API credentials in `NEXT_PUBLIC_*` variables.

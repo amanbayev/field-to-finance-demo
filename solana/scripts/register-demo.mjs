@@ -3,6 +3,9 @@
  * Development-only Devnet registration for DAC-2027-0001.
  * Reads keypairs from the filesystem. Never used by the public Next.js app.
  *
+ * DAC-2027-0001 already exists on Devnet (PDA mbbSSan56m8GZ7Qd5W9qEs8ov5c3R7qH1TAvSgY2K1T).
+ * Do not recreate it.
+ *
  * Usage (WSL):
  *   DEPLOYER_KEYPAIR=~/.config/solana/id.json \
  *   VERIFIER_KEYPAIR=~/.config/solana/verifier.json \
