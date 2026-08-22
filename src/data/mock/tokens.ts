@@ -12,6 +12,17 @@ export const tokens: AgriculturalToken[] = [
     maximumIssuance: 8300,
     issued: 0,
     network: "Solana Devnet",
-    blockchainStatus: "NOT_YET_DEPLOYED",
+    blockchainStatus: "DEPLOYED",
+    mintAddress: "D6Zy1doAzHJmQie7S5tUhJWFVZSY5CtJxYYWGJsV6QuF",
+    terms: {
+      kind: "COMMODITY",
+      claimAgainst: "ISSUER",
+      unitTonnesPerToken: 1,
+      crop: "Wheat",
+      quality: "Class 3",
+      redemptionKind: "GRAIN_DELIVERY",
+      redemptionWindow: "Aug–Oct 2027",
+      workingHypothesis: true,
+    },
   },
 ];

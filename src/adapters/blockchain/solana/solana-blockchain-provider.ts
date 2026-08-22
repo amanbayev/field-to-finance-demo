@@ -19,7 +19,12 @@ import {
   deriveContractPda,
   derivePoolPda,
 } from "./codec";
-import { recordedContractProof, recordedPoolProof } from "./recorded-proof";
+import { unpackMint } from "@solana/spl-token";
+import {
+  recordedContractProof,
+  recordedPoolProof,
+} from "./recorded-proof";
+import { recordedTokenProof } from "./recorded-token";
 import type {
   BlockchainProvider,
   BlockchainTransaction,
@@ -32,6 +37,7 @@ import type {
   OnChainCoverageProofLookup,
   OnChainPoolContractsLookup,
   OnChainPoolLookup,
+  OnChainTokenMintLookup,
   WriteInstructionResult,
 } from "../types";
 
@@ -308,6 +314,46 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
     };
   }
 
+  async getTokenMint(tokenId: string): Promise<OnChainTokenMintLookup> {
+    return this.cached(`token-mint:${tokenId}`, async () => {
+      const recorded = recordedTokenProof(tokenId);
+      if (!recorded) {
+        return { status: "missing" };
+      }
+      try {
+        const connection = this.connection();
+        const mintPk = new PublicKey(recorded.mint);
+        const programId = new PublicKey(recorded.tokenProgramId);
+        const [account] = await this.getMultipleAccounts(connection, [mintPk]);
+        if (!account) {
+          return {
+            status: "missing",
+            createSignature: recorded.createSignature || undefined,
+          };
+        }
+        if (!account.owner.equals(programId)) {
+          return { status: "unavailable" };
+        }
+        const mint = unpackMint(mintPk, account, programId);
+        return {
+          status: "found",
+          createSignature: recorded.createSignature || undefined,
+          mint: {
+            tokenId,
+            mint: mintPk.toBase58(),
+            tokenProgramId: programId.toBase58(),
+            decimals: mint.decimals,
+            supply: Number(mint.supply),
+            mintAuthority: mint.mintAuthority?.toBase58(),
+            freezeAuthority: mint.freezeAuthority?.toBase58(),
+          },
+        };
+      } catch {
+        return { status: "unavailable" };
+      }
+    });
+  }
+
   async createDigitalAgriculturalContract(
     request: CreateContractRequest,
   ): Promise<WriteInstructionResult> {
@@ -351,7 +397,7 @@ export class SolanaBlockchainProvider implements BlockchainProvider {
   issueToken(request: IssueTokenRequest): IssueTokenResult {
     return {
       accepted: false,
-      reason: `Solana issuance will be activated in the next development phase. Token ${request.tokenId} was not submitted.`,
+      reason: `${WRITE_DISABLED} Token ${request.tokenId} was not minted.`,
     };
   }
 

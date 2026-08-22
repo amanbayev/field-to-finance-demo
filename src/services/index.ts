@@ -1,7 +1,7 @@
 export { getDashboardSnapshot } from "./dashboard-service";
 export { getContract, listContractIds, listContracts } from "./contract-service";
 export { getPool, listPoolIds, listPools } from "./pool-service";
-export { getPrimaryToken, getToken, listTokens } from "./token-service";
+export { getIssuanceDesk, getPrimaryToken, getToken, listTokens } from "./token-service";
 export {
   listParticipantCompliance,
 } from "./compliance-service";

@@ -21,6 +21,7 @@ const positive = new Set([
   "LOCKED",
   "MATCHED",
   "ACCEPTED",
+  "MINTED",
 ]);
 
 const caution = new Set([
@@ -42,6 +43,8 @@ const caution = new Set([
   "PENDING_ATTESTATION",
   "OPEN",
   "WITHDRAWN",
+  "PREPARED",
+  "CANCELLED",
 ]);
 
 const negative = new Set([

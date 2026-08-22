@@ -144,6 +144,33 @@ export interface ContractPool {
   coverage: ContractCoverage;
 }
 
+export type AgriculturalTokenKind = "COMMODITY" | "FINANCIAL";
+
+export type TokenClaimParty = "ISSUER";
+
+export type TokenRedemptionKind = "GRAIN_DELIVERY" | "CASH";
+
+export type IssuanceTrancheStatus = "PREPARED" | "CANCELLED" | "MINTED";
+
+export interface TokenIssueTerms {
+  kind: AgriculturalTokenKind;
+  claimAgainst: TokenClaimParty;
+  unitTonnesPerToken: number;
+  crop: string;
+  quality: string;
+  redemptionKind: TokenRedemptionKind;
+  redemptionWindow: string;
+  workingHypothesis: boolean;
+}
+
+export interface IssuanceTranche {
+  id: string;
+  tokenId: string;
+  volumeTonnes: number;
+  status: IssuanceTrancheStatus;
+  preparedAt: string;
+}
+
 export interface AgriculturalToken {
   id: string;
   symbol: string;
@@ -156,6 +183,8 @@ export interface AgriculturalToken {
   issued: number;
   network: string;
   blockchainStatus: BlockchainDeploymentStatus;
+  terms: TokenIssueTerms;
+  mintAddress?: string;
 }
 
 export interface Participant {

@@ -68,6 +68,22 @@ export interface OnChainCoverageProofLookup {
   snapshotAnchored: boolean;
 }
 
+export interface OnChainTokenMint {
+  tokenId: string;
+  mint: string;
+  tokenProgramId: string;
+  decimals: number;
+  supply: number;
+  mintAuthority?: string;
+  freezeAuthority?: string;
+}
+
+export interface OnChainTokenMintLookup {
+  status: OnChainLookupStatus;
+  mint?: OnChainTokenMint;
+  createSignature?: string;
+}
+
 export interface CreateContractRequest {
   contractId: string;
   producerReference: string;
@@ -97,6 +113,7 @@ export interface BlockchainProvider {
     contractIds: string[],
   ): Promise<OnChainPoolContractsLookup>;
   getCoverageProof(poolId: string): Promise<OnChainCoverageProofLookup>;
+  getTokenMint(tokenId: string): Promise<OnChainTokenMintLookup>;
   createDigitalAgriculturalContract(
     request: CreateContractRequest,
   ): Promise<WriteInstructionResult>;

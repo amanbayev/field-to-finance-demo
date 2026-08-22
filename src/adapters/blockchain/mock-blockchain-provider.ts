@@ -11,6 +11,7 @@ import type {
   OnChainCoverageProofLookup,
   OnChainPoolContractsLookup,
   OnChainPoolLookup,
+  OnChainTokenMintLookup,
   WriteInstructionResult,
 } from "./types";
 
@@ -66,6 +67,11 @@ export class MockBlockchainProvider implements BlockchainProvider {
     };
   }
 
+  async getTokenMint(tokenId: string): Promise<OnChainTokenMintLookup> {
+    void tokenId;
+    return { status: "missing" };
+  }
+
   async createDigitalAgriculturalContract(
     request: CreateContractRequest,
   ): Promise<WriteInstructionResult> {
@@ -91,7 +97,7 @@ export class MockBlockchainProvider implements BlockchainProvider {
   issueToken(request: IssueTokenRequest): IssueTokenResult {
     return {
       accepted: false,
-      reason: `Solana issuance will be activated in the next development phase. Token ${request.tokenId} was not submitted.`,
+      reason: `${WRITE_DISABLED} Token ${request.tokenId} was not minted.`,
     };
   }
 }

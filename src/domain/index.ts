@@ -1,5 +1,6 @@
 export type {
   AgriculturalToken,
+  AgriculturalTokenKind,
   AuditEvent,
   AuditEventKey,
   AuditEventSource,
@@ -22,6 +23,8 @@ export type {
   FinancingPosition,
   InsuranceCover,
   InsuranceState,
+  IssuanceTranche,
+  IssuanceTrancheStatus,
   IssuerScore,
   MoistureLevel,
   MonitoringHealth,
@@ -47,7 +50,20 @@ export type {
   ScasSubjectType,
   ScasThreadMessage,
   SystemOverview,
+  TokenClaimParty,
+  TokenIssueTerms,
+  TokenRedemptionKind,
   VerificationState,
 } from "./types";
 export type { CurrencyCode, Money } from "./money";
 export { money } from "./money";
+export {
+  evaluateMintTranche,
+  evaluatePrepareTranche,
+  remainingIssuanceCapacity,
+} from "./issuance-engine";
+export type {
+  IssuanceDecision,
+  IssuanceDecisionReason,
+  IssuancePosition,
+} from "./issuance-engine";

@@ -25,6 +25,7 @@ import {
   explorerAddressUrl,
   explorerTxUrl,
   ON_CHAIN_DEMO_POOL_ID,
+  ON_CHAIN_DEMO_TOKEN_ID,
   shortenKey,
 } from "@/adapters/blockchain";
 import { blockchainProvider } from "@/services/providers";
@@ -56,11 +57,13 @@ export default async function RegulatorPage() {
   );
   const demoContract = getContract("DAC-2027-0001");
   const coverage = wheatPoolCoverageFromEngine();
-  const [onChain, poolLookup, network] = await Promise.all([
+  const [onChain, poolLookup, network, mintLookup] = await Promise.all([
     blockchainProvider.getDigitalAgriculturalContract("DAC-2027-0001"),
     blockchainProvider.getContractPool(ON_CHAIN_DEMO_POOL_ID),
     blockchainProvider.getNetworkStatus(),
+    blockchainProvider.getTokenMint(ON_CHAIN_DEMO_TOKEN_ID),
   ]);
+  const mintDeployed = mintLookup.status === "found";
 
   return (
     <div>
@@ -178,7 +181,11 @@ export default async function RegulatorPage() {
             },
             {
               label: tTokens("fields.blockchainStatus"),
-              value: <StatusBadge value={token.blockchainStatus} />,
+              value: (
+                <StatusBadge
+                  value={mintDeployed ? "DEPLOYED" : token.blockchainStatus}
+                />
+              ),
             },
           ]}
         />

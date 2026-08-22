@@ -12,7 +12,7 @@ Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
 ## Current state
 
-**Phase 2 is complete in Production.**
+**Phase 3 mint identity is in Production.** Token issuance has not started.
 
 | Item | Value |
 | --- | --- |
@@ -21,7 +21,7 @@ Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 | Network | Solana Devnet (read-only in the public app) |
 | Program | `agricultural_registry` |
 | Program ID | [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet) |
-| Token-2022 / Phase 3 | **Not started** |
+| Token-2022 / Phase 3 | Mint deployed, supply **0** |
 
 What Production currently proves:
 
@@ -34,7 +34,7 @@ What Production currently proves:
 | Coverage haircut | 17% (1,700 bps) |
 | Double-use exceptions | 0 |
 | Coverage breaches | 0 |
-| Token issuance | Not Started / Not Deployed |
+| Token issuance | Not Started (mint exists, supply 0) |
 
 Catalog still contains 12 off-chain demo contracts. Only the four wheat contracts above are registered on Devnet. Financing, compliance checks, and satellite/insurance feeds remain demonstration data.
 
@@ -64,7 +64,19 @@ Pool `POOL-WHEAT-2027-01`:
 | Snapshot hash | `4b93b012e8c95c8133aa73faa4720db3b61f4ef83d7750a7b05d4a97417388b2` |
 | Double-use control | Protected on-chain |
 
-Additional verified contracts: `DAC-2027-0002` (`PRODUCER-0002`), `DAC-2027-0003` (`PRODUCER-0003`), `DAC-2027-0004` (`PRODUCER-0004`). Public signatures live in `src/adapters/blockchain/solana/recorded-proof.ts`.
+Token-2022 `WHEAT-2027` (`tok-wheat-2027`):
+
+| Item | Value |
+| --- | --- |
+| Mint | [`D6Zy1doAzHJmQie7S5tUhJWFVZSY5CtJxYYWGJsV6QuF`](https://explorer.solana.com/address/D6Zy1doAzHJmQie7S5tUhJWFVZSY5CtJxYYWGJsV6QuF?cluster=devnet) |
+| Program | Token-2022 (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`) |
+| Decimals | 0 (1 token = 1 tonne) |
+| Supply | 0 |
+| Create tx | [`34HWbTM…UWYF`](https://explorer.solana.com/tx/34HWbTMjgPAKusyx1Vhogp48wwEXVUMwniSBoGFCuG6UQ8jYhVmckuFz9UVsC4A5p67epMQp2zaMxNmQTZz1UWYF?cluster=devnet) |
+
+Mint and freeze authority stay on the deployer key used by WSL scripts. The public app does not mint.
+
+Additional verified contracts: `DAC-2027-0002` (`PRODUCER-0002`), `DAC-2027-0003` (`PRODUCER-0003`), `DAC-2027-0004` (`PRODUCER-0004`). Public signatures live in `src/adapters/blockchain/solana/recorded-proof.ts`. Mint proof lives in `src/adapters/blockchain/solana/recorded-token.json`.
 
 On-chain proof is **not** the full business record. The chain stores a producer reference, crop, season, area, volume, quality class and region. It does **not** store legal names, BIN/IIN, KYC documents or financials.
 
@@ -82,6 +94,7 @@ solana/
   programs/agricultural_registry/
   scripts/register-demo.mjs
   scripts/phase2-devnet.mjs
+  scripts/phase3-token-mint.mjs
 ```
 
 ### WSL toolchain (inspected)
@@ -190,12 +203,12 @@ Phase 0 mock providers labelled **Demo Compliance Provider**. Sumsub, TRM or ano
 
 | Path | Module | Production meaning |
 | --- | --- | --- |
-| `/` | Dashboard | Phase 2 metrics; token issuance not started |
+| `/` | Dashboard | Phase 3 mint identity; token issuance not started |
 | `/contracts` | Digital Agricultural Contracts | 4 verified on-chain; 8 remaining catalog rows |
 | `/contracts/[contractId]` | Contract detail | Live proof for DAC-2027-0001…0004 |
 | `/pools` | Contract pools | |
 | `/pools/[poolId]` | Pool, coverage, double-use, pool proof | Live for `POOL-WHEAT-2027-01` |
-| `/tokens` | Agricultural token series | Reserved; not issued, not deployed |
+| `/tokens` | Agricultural token series | Token-2022 mint on Devnet; supply 0; mint/burn disabled |
 | `/finance` | Secured loan and repo placeholders | Coming next / experimental |
 | `/compliance` | Compliance control center | Mock provider |
 | `/scas` | SCAS operator | Attests fields, monitoring, pool lock, coverage. Does not mint |
@@ -229,7 +242,7 @@ This is the **executed engineering numbering**. Phase 0 of the original brief li
 | 0.3 | Institutional UI refinement | Complete |
 | 1 | Solana Devnet + Digital Agricultural Contract registry | Complete in Production |
 | 2 | Contract pool, off-chain coverage engine, on-chain snapshot hash, double-use protection | Complete in Production |
-| 3 | Token-2022 issuance | **Not started** |
+| 3 | Token-2022 issuance | Mint identity in Production; issuance not started |
 | 4 | Primary placement / DvP | Not started (UI placeholder) |
 | 5 | Secondary market | Not started |
 | 6 | Secured financing | Not started (UI placeholder) |
@@ -239,8 +252,6 @@ Parallel tracks, not a numbered gate before Phase 3:
 
 - Compliance gateway (still mock)
 - Production blockchain / registrar architecture (Solana Devnet is a technology demonstrator, not a production choice)
-
-Do not start Phase 3 / Token-2022 until that work is explicitly requested.
 
 ## Plan revision (original brief vs now)
 
@@ -255,7 +266,7 @@ The 20 Aug 2026 Phase 0 brief is still the product plan. What changed is **phasi
 | Phase 3 = pools + coverage | Built as **Phase 2** | Numbering only |
 | Phase 4 = Token-2022 | Remains next, now called **Phase 3** | Scope unchanged |
 | Dashboard mock: 8,000 t already tokenized, 122% coverage ratio | Corrected: issuance **not started**, eligible **8,300 t** | Demo honesty; pool math unchanged |
-| Tokens page mock: Issued 8,000 | Corrected to 0 / Not Deployed | Same |
+| Tokens page mock: Issued 8,000 | Corrected to 0 issued; Token-2022 mint exists with supply 0 | Same |
 | Coverage engine “on-chain” as a later phase | Hybrid: off-chain integer math, hash anchored on-chain | Stronger than the original split |
 | Double-use protection | Added in Phase 2 on-chain (not in the Phase 0 list) | Additive |
 | Localization, KZT, custom domain | Inserted as 0.1 / 0.2 before Solana | Additive |

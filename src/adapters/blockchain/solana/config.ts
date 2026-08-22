@@ -17,6 +17,11 @@ export const ON_CHAIN_DEMO_CONTRACT_IDS = [
 
 export const ON_CHAIN_DEMO_POOL_ID = "POOL-WHEAT-2027-01";
 
+export const TOKEN_2022_PROGRAM_ID =
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
+export const ON_CHAIN_DEMO_TOKEN_ID = "tok-wheat-2027";
+
 export const PROGRAM_NAME = "agricultural_registry";
 
 export function isOnChainDemoContract(contractId: string): boolean {
