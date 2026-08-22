@@ -961,6 +961,7 @@
     "remember": "Keep me signed in on this device",
     "signIn": "Sign in",
     "createAccount": "Create account",
+    "working": "Please wait…",
     "noAccount": "No account?",
     "registerLink": "Register",
     "hasAccount": "Already registered?",
@@ -984,7 +985,8 @@
       "auth_unavailable": "The authentication service is temporarily unavailable.",
       "suspended_user": "This account is suspended.",
       "suspended_membership": "Your membership is inactive.",
-      "suspended_organization": "The organisation is suspended."
+      "suspended_organization": "The organisation is suspended.",
+      "confirm_email": "Account created. Confirm the email address, then sign in."
     }
   },
   "onboarding": {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { loginAction } from "@/app/auth/actions";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/identity/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { isAuthConfigured } from "@/lib/auth/env";
 import { safeReturnTo } from "@/lib/auth/return-to";
@@ -63,9 +63,9 @@ export default async function LoginPage({
           <input type="checkbox" name="remember" className="size-3.5" />
           {t("remember")}
         </label>
-        <Button className="w-full" disabled={!configured}>
+        <FormSubmitButton className="w-full" disabled={!configured} pendingLabel={t("working")}>
           {t("signIn")}
-        </Button>
+        </FormSubmitButton>
       </form>
       <p className="mt-4 text-sm text-muted-foreground">
         {t("noAccount")}{" "}

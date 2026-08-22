@@ -957,6 +957,7 @@
     "remember": "Осы құрылғыда сеансты сақтау",
     "signIn": "Кіру",
     "createAccount": "Тіркелгі құру",
+    "working": "Күте тұрыңыз…",
     "noAccount": "Тіркелгі жоқ па?",
     "registerLink": "Тіркелу",
     "hasAccount": "Тіркелгі бар ма?",
@@ -980,7 +981,8 @@
       "auth_unavailable": "Аутентификация қызметі уақытша қолжетімсіз.",
       "suspended_user": "Тіркелгі тоқтатылған.",
       "suspended_membership": "Мүшелік белсенді емес.",
-      "suspended_organization": "Ұйым тоқтатылған."
+      "suspended_organization": "Ұйым тоқтатылған.",
+      "confirm_email": "Тіркелгі құрылды. Email-ды растап, содан кейін кіріңіз."
     }
   },
   "onboarding": {

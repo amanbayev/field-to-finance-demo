@@ -83,7 +83,7 @@ export default async function AdminOrganizationsPage({
           <Input id="externalInvestorRef" name="externalInvestorRef" />
         </div>
         <div className="sm:col-span-2">
-          <Button size="sm">{t("createOrganization")}</Button>
+          <Button type="submit" size="sm">{t("createOrganization")}</Button>
         </div>
       </form>
       <Table className="min-w-[48rem]">
@@ -118,7 +118,7 @@ export default async function AdminOrganizationsPage({
                     name="status"
                     value={org.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE"}
                   />
-                  <Button variant="outline" size="xs">
+                  <Button type="submit" variant="outline" size="xs">
                     {org.status === "ACTIVE" ? t("suspend") : t("reactivate")}
                   </Button>
                 </form>

@@ -85,14 +85,14 @@ export default async function AdminUsersPage({
                           <form action={revokeRoleAction} key={role}>
                             <input type="hidden" name="membershipId" value={membership.id} />
                             <input type="hidden" name="roleId" value={role} />
-                            <Button variant="ghost" size="xs">
+                            <Button type="submit" variant="ghost" size="xs">
                               {t("revokeRole")} {role}
                             </Button>
                           </form>
                         ))}
                         <form action={removeMembershipAction}>
                           <input type="hidden" name="membershipId" value={membership.id} />
-                          <Button variant="outline" size="xs">
+                          <Button type="submit" variant="outline" size="xs">
                             {t("removeMembership")}
                           </Button>
                         </form>
@@ -127,7 +127,7 @@ export default async function AdminUsersPage({
                     <input type="checkbox" name="confirm" />
                     {t("confirmPrivileged")}
                   </label>
-                  <Button variant="outline" size="xs">
+                  <Button type="submit" variant="outline" size="xs">
                     {t("addMembership")}
                   </Button>
                 </form>
@@ -148,7 +148,7 @@ export default async function AdminUsersPage({
                       <input type="checkbox" name="confirm" />
                       {t("confirmPrivileged")}
                     </label>
-                    <Button variant="outline" size="xs">
+                    <Button type="submit" variant="outline" size="xs">
                       {t("assignRole")}
                     </Button>
                   </form>
@@ -166,7 +166,7 @@ export default async function AdminUsersPage({
                     name="status"
                     value={user.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE"}
                   />
-                  <Button variant="outline" size="xs">
+                  <Button type="submit" variant="outline" size="xs">
                     {user.status === "ACTIVE" ? t("suspend") : t("reactivate")}
                   </Button>
                 </form>

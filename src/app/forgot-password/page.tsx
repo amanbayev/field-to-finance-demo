@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { forgotPasswordAction } from "@/app/auth/actions";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/identity/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { isAuthConfigured } from "@/lib/auth/env";
 
@@ -27,9 +27,9 @@ export default async function ForgotPasswordPage({
           </label>
           <Input id="email" name="email" type="email" required disabled={!configured} />
         </div>
-        <Button className="w-full" disabled={!configured}>
+        <FormSubmitButton className="w-full" disabled={!configured} pendingLabel={t("working")}>
           {t("sendReset")}
-        </Button>
+        </FormSubmitButton>
       </form>
     </div>
   );

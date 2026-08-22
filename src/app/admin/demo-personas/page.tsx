@@ -58,7 +58,7 @@ export default async function AdminDemoPersonasPage() {
                     name="status"
                     value={persona.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"}
                   />
-                  <Button variant="outline" size="xs">
+                  <Button type="submit" variant="outline" size="xs">
                     {persona.status === "ACTIVE" ? t("deactivate") : t("activate")}
                   </Button>
                 </form>

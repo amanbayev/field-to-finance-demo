@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { registerAction } from "@/app/auth/actions";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/identity/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { isAuthConfigured } from "@/lib/auth/env";
 import { lookupMessage } from "@/i18n/t-dynamic";
@@ -69,9 +69,9 @@ export default async function RegisterPage({
           <input type="checkbox" name="accept" className="mt-1 size-3.5" required />
           {t("acceptTerms")}
         </label>
-        <Button className="w-full" disabled={!configured}>
+        <FormSubmitButton className="w-full" disabled={!configured} pendingLabel={t("working")}>
           {t("createAccount")}
-        </Button>
+        </FormSubmitButton>
       </form>
       <p className="mt-4 text-sm text-muted-foreground">
         {t("hasAccount")}{" "}

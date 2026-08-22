@@ -61,7 +61,7 @@ export async function registerAction(formData: FormData) {
     redirect("/register?reason=not_configured");
   }
   const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "";
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: origin
@@ -70,6 +70,9 @@ export async function registerAction(formData: FormData) {
   });
   if (error) {
     redirect("/register?error=failed");
+  }
+  if (!data.session) {
+    redirect("/login?reason=confirm_email");
   }
   redirect("/onboarding");
 }

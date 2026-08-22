@@ -4,7 +4,7 @@ import { requireActor } from "@/lib/auth/load-actor";
 import { AuthorizationError } from "@/domain/identity";
 import { redirect, unauthorized } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/identity/form-submit-button";
 import { Input } from "@/components/ui/input";
 
 export default async function OnboardingPage({
@@ -53,7 +53,7 @@ export default async function OnboardingPage({
           </label>
           <Input id="organizationName" name="organizationName" />
         </div>
-        <Button>{t("submit")}</Button>
+        <FormSubmitButton pendingLabel={t("submit")}>{t("submit")}</FormSubmitButton>
       </form>
     </div>
   );

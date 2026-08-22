@@ -64,7 +64,7 @@ export function AccountMenu({
           </form>
         ) : null}
         <form action={logoutAction}>
-          <Button variant="ghost" size="xs">
+          <Button type="submit" variant="ghost" size="xs">
             {t("logout")}
           </Button>
         </form>

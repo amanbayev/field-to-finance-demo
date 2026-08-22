@@ -64,7 +64,7 @@ export function PersonaSwitcher({
           ))}
         </select>
         {isImpersonating ? (
-          <Button formAction={exitPersonaAction} variant="outline" size="sm">
+          <Button type="submit" formAction={exitPersonaAction} variant="outline" size="sm">
             {t("exitPersona")}
           </Button>
         ) : null}

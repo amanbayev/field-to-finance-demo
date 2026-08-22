@@ -50,12 +50,12 @@ export default async function AdminRequestsPage() {
                     <form action={reviewRoleRequestAction}>
                       <input type="hidden" name="requestId" value={request.id} />
                       <input type="hidden" name="decision" value="APPROVED" />
-                      <Button size="xs">{t("approve")}</Button>
+                      <Button type="submit" size="xs">{t("approve")}</Button>
                     </form>
                     <form action={reviewRoleRequestAction}>
                       <input type="hidden" name="requestId" value={request.id} />
                       <input type="hidden" name="decision" value="REJECTED" />
-                      <Button variant="outline" size="xs">
+                      <Button type="submit" variant="outline" size="xs">
                         {t("reject")}
                       </Button>
                     </form>
