@@ -50,6 +50,7 @@ export {
   canReadInvestorPortfolio,
   canReadProducerRecord,
   investorReferenceFor,
+  isOwnProducerWorkspace,
   principalCan,
   producerIdsForOrganization,
   visibleProducerIds,

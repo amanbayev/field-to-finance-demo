@@ -6,17 +6,18 @@ import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatScore } from "@/lib/format";
-import { requirePermission } from "@/lib/auth/guard";
+import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
 import { listContractsForActor } from "@/services/access-service";
 import { monitoringWarningKeys } from "@/services/workspace-view";
 
 export async function generateMetadata(): Promise<Metadata> {
+  await requireOwnProducerWorkspace();
   const t = await getTranslations("workspace");
   return { title: t("monitoringTitle") };
 }
 
 export default async function ProducerMonitoringPage() {
-  const actor = await requirePermission("contracts.read.own");
+  const actor = await requireOwnProducerWorkspace();
   const t = await getTranslations("workspace");
   const items = listContractsForActor(actor);
 

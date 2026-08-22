@@ -7,8 +7,17 @@ import { listParticipantCompliance } from "@/services/compliance-service";
 import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const actor = await requirePermission("compliance.read");
   const t = await getTranslations("workspace");
-  return { title: t("participantsComplianceTitle") };
+  const manage = actorCan(actor, "compliance.manage");
+  const supervisor = actorCan(actor, "regulator.read");
+  return {
+    title: manage
+      ? t("participantsComplianceTitle")
+      : supervisor
+        ? t("supervisorComplianceTitle")
+        : t("ownComplianceTitle"),
+  };
 }
 
 export default async function CompliancePage() {

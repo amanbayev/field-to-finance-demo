@@ -6,16 +6,17 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { lookupMessage } from "@/i18n/t-dynamic";
-import { requirePermission } from "@/lib/auth/guard";
+import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
 import { listContractsForActor } from "@/services/access-service";
 
 export async function generateMetadata(): Promise<Metadata> {
+  await requireOwnProducerWorkspace({ manage: true });
   const t = await getTranslations("workspace");
   return { title: t("fieldsTitle") };
 }
 
 export default async function FieldsPage() {
-  const actor = await requirePermission("contracts.manage.own");
+  const actor = await requireOwnProducerWorkspace({ manage: true });
   const t = await getTranslations("workspace");
   const tContracts = await getTranslations("contracts");
   const tCatalog = await getTranslations("catalog");

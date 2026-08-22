@@ -218,4 +218,19 @@ describe("effective navigation", () => {
     expect(hrefsOf("DEMO-REGULATOR-001")).toContain("/coverage");
     expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/admin");
   });
+
+  it("admin persona stays on the system workspace", () => {
+    expect(keysOf("DEMO-ADMIN-001")).toEqual([
+      "dashboard",
+      "users",
+      "organizations",
+      "access",
+      "roleRequests",
+      "demoPersonas",
+      "adminAudit",
+      "system",
+    ]);
+    expect(hrefsOf("DEMO-ADMIN-001")).not.toContain("/fields");
+    expect(hrefsOf("DEMO-ADMIN-001")).not.toContain("/coverage");
+  });
 });

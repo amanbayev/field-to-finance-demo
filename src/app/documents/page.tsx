@@ -4,16 +4,17 @@ import { DataList } from "@/components/shared/data-list";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { requirePermission } from "@/lib/auth/guard";
+import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
 import { listContractsForActor } from "@/services/access-service";
 
 export async function generateMetadata(): Promise<Metadata> {
+  await requireOwnProducerWorkspace({ manage: true });
   const t = await getTranslations("workspace");
   return { title: t("documentsTitle") };
 }
 
 export default async function DocumentsPage() {
-  const actor = await requirePermission("contracts.manage.own");
+  const actor = await requireOwnProducerWorkspace({ manage: true });
   const t = await getTranslations("workspace");
   const items = listContractsForActor(actor);
 

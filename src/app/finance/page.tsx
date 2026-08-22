@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { PageHeader } from "@/components/shared/page-header";
-import { requirePermission } from "@/lib/auth/guard";
+import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
 import { listContractsForActor } from "@/services/access-service";
 import {
   FINANCING_STAGE_IDS,
@@ -21,12 +21,13 @@ const STAGE_LABEL: Record<(typeof FINANCING_STAGE_IDS)[number], string> = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
+  await requireOwnProducerWorkspace({ manage: true });
   const t = await getTranslations("workspace");
   return { title: t("financeTitle") };
 }
 
 export default async function FinancePage() {
-  const actor = await requirePermission("contracts.manage.own");
+  const actor = await requireOwnProducerWorkspace({ manage: true });
   const t = await getTranslations("workspace");
   const items = listContractsForActor(actor);
 

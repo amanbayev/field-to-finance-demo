@@ -2,6 +2,7 @@ import { forbidden, redirect, unauthorized } from "next/navigation";
 import {
   actorCan,
   AuthorizationError,
+  isOwnProducerWorkspace,
   type ActorContext,
   type Permission,
 } from "@/domain/identity";
@@ -53,6 +54,19 @@ export async function requireAllPermissions(...permissions: Permission[]) {
 
 export async function requireAnyPermission(permissions: Permission[]) {
   return requirePermission(...permissions);
+}
+
+export async function requireOwnProducerWorkspace(options?: {
+  manage?: boolean;
+}) {
+  const actor = await loadAuthorizedActor();
+  if (!isOwnProducerWorkspace(actor)) {
+    forbidden();
+  }
+  if (options?.manage && !actorCan(actor, "contracts.manage.own")) {
+    forbidden();
+  }
+  return actor;
 }
 
 export function assertAuthConfigured() {

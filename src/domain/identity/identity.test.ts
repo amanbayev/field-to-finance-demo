@@ -7,6 +7,7 @@ import {
   canReadInvestorPortfolio,
   canReadProducerRecord,
   cannotSelfAssignPrivileged,
+  isOwnProducerWorkspace,
   exitDemoPersona,
   principalMayAssumePersonas,
   resolveActorContext,
@@ -158,6 +159,17 @@ describe("producer data isolation", () => {
     expect(canReadProducerRecord(context, "prd-akmola-agro")).toBe(true);
     expect(canReadProducerRecord(context, "prd-kostanay-grain")).toBe(false);
     expect(visibleProducerIds(context)).toEqual(["prd-akmola-agro"]);
+    expect(isOwnProducerWorkspace(context)).toBe(true);
+  });
+
+  it("SYSTEM_ADMIN is not a producer-own workspace", () => {
+    const context = resolveActorContext({
+      principal: adminPrincipal(),
+      session: null,
+      persona: undefined,
+      personaOrganization: undefined,
+    });
+    expect(isOwnProducerWorkspace(context)).toBe(false);
   });
 
   it("SCAS can read permitted producer operational data", () => {

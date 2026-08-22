@@ -6,20 +6,21 @@ import { getScasSnapshot } from "@/services/scas-service";
 import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("scas.matching");
-  return { title: t("title") };
+  const tNav = await getTranslations("nav");
+  return { title: tNav("matching") };
 }
 
 export default async function ScasMatchingPage() {
   await requirePermission("scas.match");
   const t = await getTranslations("scas");
+  const tNav = await getTranslations("nav");
   const snapshot = getScasSnapshot();
 
   return (
     <div>
       <PageHeader
         eyebrow={t("eyebrow")}
-        title={t("matching.title")}
+        title={tNav("matching")}
         description={t("matching.description")}
       />
       <p className="mb-3 text-xs tracking-wide text-muted-foreground">

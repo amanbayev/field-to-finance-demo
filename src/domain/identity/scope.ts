@@ -39,6 +39,16 @@ export function canReadProducerRecord(
   return scope.includes(producerId);
 }
 
+export function isOwnProducerWorkspace(context: ActorContext): boolean {
+  if (actorCan(context, "admin.access") || actorCan(context, "contracts.read.all")) {
+    return false;
+  }
+  return (
+    actorCan(context, "contracts.read.own") ||
+    actorCan(context, "contracts.manage.own")
+  );
+}
+
 export function canReadInvestorPortfolio(
   context: ActorContext,
   investorReference: string,
