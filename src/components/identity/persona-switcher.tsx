@@ -2,11 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { demoPersonas } from "@/data/identity/demo-catalog";
-import {
-  assumePersonaAction,
-  exitPersonaAction,
-} from "@/app/auth/actions";
-import { Button } from "@/components/ui/button";
+import { assumePersonaAction } from "@/app/auth/actions";
 
 const GROUP_ORDER = ["system", "control", "agro", "market"] as const;
 
@@ -14,6 +10,8 @@ export function PersonaSwitcher({
   currentPersonaId,
   isImpersonating,
   personas,
+  compact = false,
+  selectId = "personaId",
 }: {
   currentPersonaId?: string | null;
   isImpersonating: boolean;
@@ -23,6 +21,8 @@ export function PersonaSwitcher({
     groupKey: "system" | "control" | "agro" | "market";
     status?: "ACTIVE" | "INACTIVE";
   }>;
+  compact?: boolean;
+  selectId?: string;
 }) {
   const t = useTranslations("identity");
   const source = personas?.length ? personas : demoPersonas();
@@ -37,20 +37,34 @@ export function PersonaSwitcher({
 
   return (
     <form action={assumePersonaAction} className="min-w-0">
-      <label className="label-caps text-muted-foreground" htmlFor="personaId">
-        {t("demoMode")}
-      </label>
-      <div className="mt-1 flex min-w-0 items-center gap-2">
+      <div className={compact ? "flex min-w-0 items-center gap-2" : "min-w-0"}>
+        {isImpersonating ? (
+          <span className="shrink-0 text-[10px] font-medium tracking-[0.16em] text-primary uppercase">
+            {t("demoModeBanner")}
+          </span>
+        ) : (
+          <label
+            className={
+              compact
+                ? "sr-only"
+                : "label-caps text-muted-foreground"
+            }
+            htmlFor={selectId}
+          >
+            {t("demoMode")}
+          </label>
+        )}
         <select
-          id="personaId"
+          id={selectId}
           name="personaId"
           defaultValue={currentPersonaId ?? ""}
-          className="h-8 max-w-[16rem] min-w-0 flex-1 truncate rounded-sm border border-input bg-background px-2 text-xs"
+          className="h-7 w-full min-w-0 max-w-[18rem] truncate rounded-sm border border-input bg-background px-2 text-xs"
           onChange={(event) => {
             if (event.currentTarget.value) {
               event.currentTarget.form?.requestSubmit();
             }
           }}
+          aria-label={t("demoMode")}
         >
           <option value="">{t("choosePersona")}</option>
           {grouped.map((entry) => (
@@ -63,11 +77,6 @@ export function PersonaSwitcher({
             </optgroup>
           ))}
         </select>
-        {isImpersonating ? (
-          <Button type="submit" formAction={exitPersonaAction} variant="outline" size="sm">
-            {t("exitPersona")}
-          </Button>
-        ) : null}
       </div>
     </form>
   );

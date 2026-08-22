@@ -1,11 +1,13 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { forbidden, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/auth/supabase/server";
 import { isAuthConfigured } from "@/lib/auth/env";
 import { safeReturnTo } from "@/lib/auth/return-to";
+import { getOptionalActor } from "@/lib/auth/load-actor";
 import {
+  principalCan,
   SELF_REQUESTABLE_INTENTS,
   type OnboardingIntent,
 } from "@/domain/identity";
@@ -157,4 +159,22 @@ export async function switchOrganizationAction(formData: FormData) {
   });
   revalidatePath("/", "layout");
   redirect("/");
+}
+
+export async function openAdminConsoleAction() {
+  let actor = null;
+  try {
+    actor = await getOptionalActor();
+  } catch {
+    actor = null;
+  }
+  if (!actor || !principalCan(actor, "admin.access")) {
+    forbidden();
+  }
+  const supabase = await createServerSupabaseClient();
+  if (supabase && actor.isImpersonating) {
+    await supabase.rpc("exit_demo_persona");
+  }
+  revalidatePath("/", "layout");
+  redirect("/admin");
 }
