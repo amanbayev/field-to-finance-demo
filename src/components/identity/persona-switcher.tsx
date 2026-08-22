@@ -13,14 +13,26 @@ const GROUP_ORDER = ["system", "control", "agro", "market"] as const;
 export function PersonaSwitcher({
   currentPersonaId,
   isImpersonating,
+  personas,
 }: {
   currentPersonaId?: string | null;
   isImpersonating: boolean;
+  personas?: Array<{
+    id: string;
+    displayName: string;
+    groupKey: "system" | "control" | "agro" | "market";
+    status?: "ACTIVE" | "INACTIVE";
+  }>;
 }) {
   const t = useTranslations("identity");
+  const source = personas?.length ? personas : demoPersonas();
   const grouped = GROUP_ORDER.map((group) => ({
     group,
-    items: demoPersonas().filter((persona) => persona.groupKey === group),
+    items: source.filter(
+      (persona) =>
+        persona.groupKey === group &&
+        (persona.status ?? "ACTIVE") === "ACTIVE",
+    ),
   }));
 
   return (

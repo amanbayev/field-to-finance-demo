@@ -11,30 +11,49 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { requirePermission } from "@/lib/auth/guard";
-import { loadAdminUsers } from "@/services/admin-service";
-import { assignRoleAction, setUserStatusAction } from "@/app/admin/actions";
+import { loadAdminOrganizations, loadAdminUsers } from "@/services/admin-service";
+import {
+  addMembershipAction,
+  assignRoleAction,
+  removeMembershipAction,
+  revokeRoleAction,
+  setUserStatusAction,
+} from "@/app/admin/actions";
 import { PLATFORM_ROLES } from "@/domain/identity";
+import { lookupMessage } from "@/i18n/t-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin");
   return { title: t("users") };
 }
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   await requirePermission("admin.users");
   const t = await getTranslations("admin");
-  const users = await loadAdminUsers();
+  const params = await searchParams;
+  const [users, organizations] = await Promise.all([
+    loadAdminUsers(),
+    loadAdminOrganizations(),
+  ]);
 
   return (
     <div>
       <PageHeader title={t("users")} description={t("usersIntro")} />
-      <Table className="min-w-[48rem]">
+      {params.error ? (
+        <p className="mb-4 text-sm text-destructive">
+          {lookupMessage(t, `errors.${params.error}`)}
+        </p>
+      ) : null}
+      <Table className="min-w-[52rem]">
         <TableHeader>
           <TableRow>
             <TableHead>{t("columns.user")}</TableHead>
             <TableHead>{t("columns.status")}</TableHead>
-            <TableHead>{t("columns.organizations")}</TableHead>
-            <TableHead>{t("columns.roles")}</TableHead>
+            <TableHead>{t("memberships")}</TableHead>
             <TableHead>{t("columns.created")}</TableHead>
             <TableHead>{t("columns.lastLogin")}</TableHead>
             <TableHead>{t("columns.actions")}</TableHead>
@@ -51,31 +70,74 @@ export default async function AdminUsersPage() {
               </TableCell>
               <TableCell>{user.status}</TableCell>
               <TableCell>
-                {user.memberships.map((membership) => membership.organizationName).join(", ") || "—"}
-              </TableCell>
-              <TableCell>
-                {user.memberships.flatMap((membership) => membership.roles).join(", ") || "—"}
-              </TableCell>
-              <TableCell className="font-tabular text-xs">{user.created_at}</TableCell>
-              <TableCell className="font-tabular text-xs">
-                {user.last_sign_in_at ?? "—"}
-              </TableCell>
-              <TableCell>
-                <form action={setUserStatusAction} className="flex flex-col gap-2">
+                <ul className="space-y-2">
+                  {user.memberships.length === 0 ? <li>—</li> : null}
+                  {user.memberships.map((membership) => (
+                    <li key={membership.id} className="text-xs">
+                      <p className="font-medium">
+                        {membership.organizationName} ({membership.status})
+                      </p>
+                      <p className="text-muted-foreground">
+                        {membership.roles.join(", ") || t("noRole")}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {membership.roles.map((role) => (
+                          <form action={revokeRoleAction} key={role}>
+                            <input type="hidden" name="membershipId" value={membership.id} />
+                            <input type="hidden" name="roleId" value={role} />
+                            <Button variant="ghost" size="xs">
+                              {t("revokeRole")} {role}
+                            </Button>
+                          </form>
+                        ))}
+                        <form action={removeMembershipAction}>
+                          <input type="hidden" name="membershipId" value={membership.id} />
+                          <Button variant="outline" size="xs">
+                            {t("removeMembership")}
+                          </Button>
+                        </form>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <form action={addMembershipAction} className="mt-3 space-y-1">
                   <input type="hidden" name="userId" value={user.user_id} />
-                  <input
-                    type="hidden"
-                    name="status"
-                    value={user.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE"}
-                  />
+                  <select
+                    name="organizationId"
+                    required
+                    className="h-7 w-full rounded-sm border border-input bg-background text-xs"
+                  >
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    name="roleId"
+                    className="h-7 w-full rounded-sm border border-input bg-background text-xs"
+                  >
+                    {PLATFORM_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="flex items-center gap-1 text-[11px]">
+                    <input type="checkbox" name="confirm" />
+                    {t("confirmPrivileged")}
+                  </label>
                   <Button variant="outline" size="xs">
-                    {user.status === "ACTIVE" ? t("suspend") : t("reactivate")}
+                    {t("addMembership")}
                   </Button>
                 </form>
                 {user.memberships[0] ? (
-                  <form action={assignRoleAction} className="mt-2 flex flex-col gap-1">
+                  <form action={assignRoleAction} className="mt-2 space-y-1">
                     <input type="hidden" name="membershipId" value={user.memberships[0].id} />
-                    <select name="roleId" className="h-7 rounded-sm border border-input bg-background text-xs">
+                    <select
+                      name="roleId"
+                      className="h-7 w-full rounded-sm border border-input bg-background text-xs"
+                    >
                       {PLATFORM_ROLES.map((role) => (
                         <option key={role} value={role}>
                           {role}
@@ -91,6 +153,23 @@ export default async function AdminUsersPage() {
                     </Button>
                   </form>
                 ) : null}
+              </TableCell>
+              <TableCell className="font-tabular text-xs">{user.created_at}</TableCell>
+              <TableCell className="font-tabular text-xs">
+                {user.last_sign_in_at ?? "—"}
+              </TableCell>
+              <TableCell>
+                <form action={setUserStatusAction}>
+                  <input type="hidden" name="userId" value={user.user_id} />
+                  <input
+                    type="hidden"
+                    name="status"
+                    value={user.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE"}
+                  />
+                  <Button variant="outline" size="xs">
+                    {user.status === "ACTIVE" ? t("suspend") : t("reactivate")}
+                  </Button>
+                </form>
               </TableCell>
             </TableRow>
           ))}

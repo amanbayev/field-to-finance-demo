@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { LifecycleStrip } from "@/components/dashboard/lifecycle-strip";
 import { RoleDashboard } from "@/components/dashboard/role-dashboard";
-import { DualMoney } from "@/components/shared/dual-money";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
@@ -52,11 +51,6 @@ export default async function DashboardPage() {
                 })
               : t("dashboard.tokenIssuanceNotStarted")
           }
-        />
-        <MetricCell
-          emphasis="primary"
-          label={t("dashboard.activeFinancing")}
-          value={<DualMoney value={metrics.activeFinancing} />}
         />
       </MetricStrip>
       <MetricStrip className="sm:grid-cols-4">

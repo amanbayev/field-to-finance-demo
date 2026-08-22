@@ -9,8 +9,15 @@ import { DemoModeBanner } from "@/components/identity/demo-mode-banner";
 import { productName } from "@/lib/navigation";
 import { getOptionalActor } from "@/lib/auth/load-actor";
 import { navGroupsForActor } from "@/lib/auth/nav";
-import { principalCan } from "@/domain/identity";
+import { PERSONA_GROUPS, principalCan, type PersonaGroup } from "@/domain/identity";
+import { loadDemoPersonasAdmin } from "@/services/admin-service";
 import { Button } from "@/components/ui/button";
+
+function personaGroupKey(value: string): PersonaGroup {
+  return (PERSONA_GROUPS as readonly string[]).includes(value)
+    ? (value as PersonaGroup)
+    : "system";
+}
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
@@ -27,6 +34,10 @@ export async function SiteHeader() {
     actor = null;
   }
   const groups = navGroupsForActor(actor);
+  const canSwitchPersonas = Boolean(
+    actor && principalCan(actor, "admin.demo_personas"),
+  );
+  const demoPersonas = canSwitchPersonas ? await loadDemoPersonasAdmin() : [];
   const orgNameById = new Map(
     (actor?.principal.organizations ?? []).map((organization) => [
       organization.id,
@@ -62,11 +73,17 @@ export async function SiteHeader() {
           <MainNav groups={groups} />
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          {actor && principalCan(actor, "admin.demo_personas") ? (
-            <div className="hidden xl:block">
+          {canSwitchPersonas ? (
+            <div className="hidden min-w-0 xl:block">
               <PersonaSwitcher
-                currentPersonaId={actor.demoPersona?.id}
-                isImpersonating={actor.isImpersonating}
+                currentPersonaId={actor?.demoPersona?.id}
+                isImpersonating={Boolean(actor?.isImpersonating)}
+                personas={demoPersonas.map((persona) => ({
+                  id: persona.id,
+                  displayName: persona.display_name,
+                  groupKey: personaGroupKey(persona.group_key),
+                  status: persona.status,
+                }))}
               />
             </div>
           ) : null}
@@ -75,15 +92,9 @@ export async function SiteHeader() {
               initials={initials(actor.principal.displayName)}
               principalName={actor.principal.displayName}
               principalEmail={actor.principal.email}
-              organizationName={
-                actor.isImpersonating
-                  ? actor.effective.organization?.name
-                  : actor.principal.organization?.name
-              }
+              organizationName={actor.principal.organization?.name}
               roleLabel={
-                actor.isImpersonating
-                  ? actor.effective.roleId
-                  : actor.principal.roleIds[0] ?? t("identity.noRole")
+                actor.principal.roleIds[0] ?? t("identity.noRole")
               }
               memberships={actor.principal.memberships
                 .filter((membership) => membership.status === "ACTIVE")
@@ -122,11 +133,17 @@ export async function SiteHeader() {
           </div>
         </div>
       </div>
-      {actor && principalCan(actor, "admin.demo_personas") ? (
+      {canSwitchPersonas ? (
         <div className="mx-auto max-w-7xl px-4 pb-3 xl:hidden sm:px-6">
           <PersonaSwitcher
-            currentPersonaId={actor.demoPersona?.id}
-            isImpersonating={actor.isImpersonating}
+            currentPersonaId={actor?.demoPersona?.id}
+            isImpersonating={Boolean(actor?.isImpersonating)}
+            personas={demoPersonas.map((persona) => ({
+              id: persona.id,
+              displayName: persona.display_name,
+                  groupKey: personaGroupKey(persona.group_key),
+              status: persona.status,
+            }))}
           />
         </div>
       ) : null}

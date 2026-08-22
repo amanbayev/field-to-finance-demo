@@ -27,7 +27,10 @@ export function AccountMenu({
   const t = useTranslations("identity");
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <div className="hidden text-right sm:block">
+      <div className="min-w-0 text-right">
+        <p className="truncate text-[10px] tracking-[0.12em] text-muted-foreground uppercase">
+          {t("signedIn")}
+        </p>
         <p className="truncate text-xs font-medium">{principalName}</p>
         <p className="truncate text-[10px] text-muted-foreground">
           {organizationName}

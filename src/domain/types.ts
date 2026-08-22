@@ -311,7 +311,6 @@ export interface DashboardMetrics {
   primaryPlacementVolume: number;
   registrarInventory: number;
   circulatingSupply: number;
-  activeFinancing: Money;
   averageCoverageRatioPercent: number | null;
 }
 

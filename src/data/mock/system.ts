@@ -1,5 +1,4 @@
 import type { DashboardMetrics, SystemOverview } from "@/domain";
-import { money } from "@/domain/money";
 import { phase2WheatPoolCoverage } from "@/domain/coverage-engine";
 
 const wheatCoverage = phase2WheatPoolCoverage().snapshot;
@@ -17,7 +16,6 @@ export const dashboardMetrics: DashboardMetrics = {
   primaryPlacementVolume: 10,
   registrarInventory: 990,
   circulatingSupply: 10,
-  activeFinancing: money(620_000_000, "KZT"),
   averageCoverageRatioPercent: null,
 };
 
