@@ -32,6 +32,10 @@ import {
   listHoldings,
   listMarketInstruments,
 } from "@/services/market-core-service";
+import {
+  getSecondaryEngineState,
+  overlayWorkingHoldings,
+} from "@/services/secondary-market-service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketCore");
@@ -55,16 +59,20 @@ export default async function RegistryPage({
   const tDesk = await getTranslations("desk");
   const locale = (await getLocale()) as AppLocale;
   const snapshot = await getPlacementSnapshot();
+  const engine = await getSecondaryEngineState();
   const protocols = listAssetProtocols();
   const instruments = listMarketInstruments();
   const issuers = [...new Map(instruments.map((item) => [item.issuerId, item])).values()];
-  const rows = listHoldings({
-    protocolId: filters.protocol || undefined,
-    assetClass: filters.assetClass || undefined,
-    instrumentId: filters.instrument || undefined,
-    issuerId: filters.issuer || undefined,
-    holderReference: filters.holder || undefined,
-  }).map((holding) => {
+  const rows = overlayWorkingHoldings(
+    listHoldings({
+      protocolId: filters.protocol || undefined,
+      assetClass: filters.assetClass || undefined,
+      instrumentId: filters.instrument || undefined,
+      issuerId: filters.issuer || undefined,
+      holderReference: filters.holder || undefined,
+    }),
+    engine,
+  ).map((holding) => {
     if (holding.instrumentId !== "WHEAT-2027") {
       return holding;
     }
@@ -115,7 +123,7 @@ export default async function RegistryPage({
         }
       />
       <p className="mb-6 max-w-2xl text-sm text-straw">
-        {t("unresolvedCustody")} {t("issuedHoldingsProof")}
+        {t("unresolvedCustody")} {t("issuedHoldingsProof")} {t("legalOwnership")}
       </p>
 
       <DeskToolbar>
@@ -223,14 +231,14 @@ export default async function RegistryPage({
                       kicker={instrument?.symbol ?? holding.instrumentId}
                       title={holding.holderName}
                       value={formatInteger(holding.buckets.owned, locale)}
-                      hint={`${t("available")} ${formatInteger(holding.available, locale)}`}
+                      hint={`${t("available")} ${formatInteger(holding.available, locale)} · ${t("reserved")} ${formatInteger(holding.buckets.reservedForOrders, locale)}`}
                     />
                   );
                 })}
               </DeskLedger>
             }
             wide={
-              <Table className="min-w-[52rem]">
+              <Table className="min-w-[64rem]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("instrument")}</TableHead>
@@ -240,6 +248,8 @@ export default async function RegistryPage({
                     <TableHead className="text-right">{t("reserved")}</TableHead>
                     <TableHead className="text-right">{t("pledged")}</TableHead>
                     <TableHead className="text-right">{t("blocked")}</TableHead>
+                    <TableHead className="text-right">{t("pendingIn")}</TableHead>
+                    <TableHead className="text-right">{t("pendingOut")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -270,6 +280,12 @@ export default async function RegistryPage({
                         </TableCell>
                         <TableCell className="text-right font-tabular">
                           {formatInteger(holding.buckets.blocked, locale)}
+                        </TableCell>
+                        <TableCell className="text-right font-tabular">
+                          {formatInteger(holding.buckets.pendingIn, locale)}
+                        </TableCell>
+                        <TableCell className="text-right font-tabular">
+                          {formatInteger(holding.buckets.pendingOut, locale)}
                         </TableCell>
                       </TableRow>
                     );

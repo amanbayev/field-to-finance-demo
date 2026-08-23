@@ -508,7 +508,7 @@ async function InvestorHome({ actor }: { actor: ActorContext }) {
               { label: t("portfolio.placement"), value: portfolio?.placementId ?? "—" },
               {
                 label: t("marketCore.sectionMarket"),
-                value: t("marketCore.secondaryNotOpen"),
+                value: t("secondary.demoOpen"),
               },
             ]}
           />
@@ -527,7 +527,8 @@ async function InvestorHome({ actor }: { actor: ActorContext }) {
           href="/secondary"
           index={deskIndex(1)}
           kicker={t("nav.secondary")}
-          title={t("desk.secondaryClosed")}
+          title={t("secondary.title")}
+          hint={t("secondary.matchedNotSettled")}
         />
       </DeskLedger>
     </>
@@ -547,20 +548,32 @@ async function TraderHome() {
         figure={
           <DeskFigure
             label={t("marketCore.sectionMarket")}
-            value={t("marketCore.closedSecondary")}
+            value={t("secondary.demoOpen")}
+            meta={[
+              {
+                label: t("secondary.settlementAsset"),
+                value: t("secondary.noMonetaryValue"),
+              },
+            ]}
           />
         }
       />
-      <EmptyState
-        kicker={t("nav.secondary")}
-        title={t("desk.secondaryClosed")}
-        body={t("desk.secondaryClosedBody")}
-        action={
-          <Link href="/instruments" className={cn(buttonVariants())}>
-            {t("desk.openInstruments")}
-          </Link>
-        }
-      />
+      <DeskNote className="mb-8">{t("secondary.matchedNotSettled")}</DeskNote>
+      <DeskLedger>
+        <DeskRow
+          href="/secondary"
+          index={deskIndex(0)}
+          kicker={t("nav.secondary")}
+          title={t("secondary.title")}
+          hint={t("workspace.secondaryBody")}
+        />
+        <DeskRow
+          href="/instruments"
+          index={deskIndex(1)}
+          kicker={t("nav.traderInstruments")}
+          title={t("desk.openInstruments")}
+        />
+      </DeskLedger>
     </>
   );
 }

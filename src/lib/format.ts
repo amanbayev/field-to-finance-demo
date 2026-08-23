@@ -41,6 +41,10 @@ export function formatInteger(value: number, locale: AppLocale): string {
   return formatGroupedNumber(value, locale, 0);
 }
 
+export function formatDemoKzt(value: number, locale: AppLocale): string {
+  return `${formatInteger(value, locale)} DEMO-KZT`;
+}
+
 export function formatNumber(
   value: number,
   locale: AppLocale,

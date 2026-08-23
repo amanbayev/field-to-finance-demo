@@ -6,6 +6,7 @@ export type {
   CustodyProviderAdapter,
   DistributionChannel,
   DistributionChannelRecord,
+  EngineState,
   Holding,
   HoldingBuckets,
   InstrumentEligibilityState,
@@ -13,17 +14,28 @@ export type {
   InstrumentStatus,
   InstrumentType,
   Market,
+  MarketEvent,
+  MarketEventType,
   MarketInstrument,
   MarketPhase,
   Order,
+  OrderReservation,
+  OrderSide,
+  OrderSourceChannel,
+  OrderStatus,
+  OrderType,
   ParticipantInstrumentEligibility,
   ProtocolInvestmentModel,
   ProtocolInvestmentVehicle,
   ProtocolStatus,
   RegulatoryStatus,
+  ReservationKind,
+  ReservationStatus,
   Settlement,
+  SettlementAccount,
   SettlementProviderAdapter,
   Trade,
+  TradeStatus,
 } from "./types";
 export {
   ADMISSION_STAGES,
@@ -35,10 +47,17 @@ export {
   INSTRUMENT_STATUSES,
   INSTRUMENT_TYPES,
   LEGAL_OPERATOR,
+  MARKET_EVENT_TYPES,
   MARKET_PHASES,
+  ORDER_SIDES,
+  ORDER_SOURCE_CHANNELS,
+  ORDER_STATUSES,
+  ORDER_TYPES,
   PROTOCOL_INVESTMENT_MODELS,
   PROTOCOL_STATUSES,
   REGULATORY_STATUSES,
+  SETTLEMENT_STATUSES,
+  TRADE_STATUSES,
 } from "./types";
 export {
   availableBalance,
@@ -54,3 +73,44 @@ export {
   isSecondaryTrade,
   phaseCreatesNoSecondaryTrade,
 } from "./distribution";
+export {
+  RESTING_ORDER_EXECUTION_PRICE_RULE,
+  canCross,
+  compareBuyPriority,
+  compareSellPriority,
+  isLiveOrder,
+  matchIncomingOrder,
+} from "./matching";
+export { bidsFromOrders, asksFromOrders } from "./order-book";
+export {
+  cancelOrder,
+  createEngineState,
+  hasForbiddenSettlementEvent,
+  legalHoldingsUnchanged,
+  noTradeIsSettled,
+  recheckAndAdvanceClearing,
+  submitLimitOrder,
+} from "./engine";
+export {
+  DEMO_SETTLEMENT_ASSET_ID,
+  DemoSettlementProvider,
+  DevnetSettlementNotEnabledError,
+  demoSettle,
+  releaseSettlement,
+  reserveSettlement,
+} from "./settlement-provider";
+export {
+  GRAIN_DESK_ID,
+  REGISTRAR_ID,
+  STEPPE_CAPITAL_ID,
+  WHEAT_DEMO_MARKET_ID,
+  participantIdForOrganizationSlug,
+  participantIdFromInvestorRef,
+} from "./participants";
+export {
+  applyAssetRelease,
+  applyAssetReserve,
+  emptyBuckets,
+  hasAvailable,
+  legalOwnedUnchanged,
+} from "./reservation";

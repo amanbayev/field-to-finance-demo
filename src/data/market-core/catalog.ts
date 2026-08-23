@@ -54,7 +54,7 @@ export const assetProtocols: AssetProtocol[] = [
     assetClass: "AGRICULTURE",
     protocolOwner: "Field to Finance",
     operator: LEGAL_OPERATOR,
-    version: "5A",
+    version: "5B",
     status: "ACTIVE",
     verificationModel: "SCAS / fields / DAC / coverage",
     riskModel: "Off-chain risk haircut on pooled contracts",
@@ -135,7 +135,8 @@ export const marketInstruments: MarketInstrument[] = [
     currencyOrUnit: "t",
     transferPolicy: "Registrar book of record · Devnet demonstrator",
     eligibilityPolicy: "Participant × instrument · investor eligibility required",
-    settlementPolicy: "Atomic DvP on primary placement · secondary closed",
+    settlementPolicy:
+      "Primary placement is atomic DvP evidence. Secondary LIMIT orders settle in DEMO-KZT; Devnet DvP is not executed in Phase 5B Preview.",
     custodyPolicy: "Unresolved: disclosed holder vs omnibus / nominee",
     status: "ISSUED",
     agriculturalTokenId: wheat.id,
@@ -182,11 +183,17 @@ export const protocolVehicles: ProtocolInvestmentVehicle[] = [
 
 export const markets: Market[] = [
   {
-    id: "mkt-wheat-2027",
+    id: "MKT-WHEAT-2027-DEMO-KZT",
     instrumentId: WHEAT_INSTRUMENT_ID,
-    phase: "PRIMARY_ONLY",
+    phase: "SECONDARY_OPEN",
     activeChannel: "DIRECT_MTP",
-    transacting: false,
+    transacting: true,
+    settlementAssetId: "DEMO-KZT",
+    settlementAssetLabel: "DEMO-KZT",
+    settlementHasMonetaryValue: false,
+    marketType: "REGULATED_INSTITUTIONAL_DEMONSTRATOR",
+    allowedOrderTypes: ["LIMIT"],
+    wholeQuantityOnly: true,
   },
 ];
 
@@ -198,6 +205,7 @@ export const settlements: Settlement[] = [
     tradeId: "PL-ISS001-0001",
     status: "FINAL",
     evidenceLabel: "PRIMARY_PLACEMENT_EVIDENCE",
+    kind: "PRIMARY",
   },
 ];
 
@@ -206,6 +214,8 @@ const registrarBuckets = {
   reservedForOrders: 0,
   pledged: 0,
   blocked: 0,
+  pendingIn: 0,
+  pendingOut: 0,
 };
 
 const investorBuckets = {
@@ -213,6 +223,17 @@ const investorBuckets = {
   reservedForOrders: 0,
   pledged: 0,
   blocked: 0,
+  pendingIn: 0,
+  pendingOut: 0,
+};
+
+const grainDeskBuckets = {
+  owned: 0,
+  reservedForOrders: 0,
+  pledged: 0,
+  blocked: 0,
+  pendingIn: 0,
+  pendingOut: 0,
 };
 
 export const holdings: Holding[] = [
@@ -231,6 +252,14 @@ export const holdings: Holding[] = [
     holderName: "Steppe Capital",
     buckets: investorBuckets,
     available: availableBalance(investorBuckets),
+  },
+  {
+    id: "hld-grain-desk-wheat",
+    instrumentId: WHEAT_INSTRUMENT_ID,
+    holderReference: "GRAIN-DESK",
+    holderName: "Grain Desk",
+    buckets: grainDeskBuckets,
+    available: availableBalance(grainDeskBuckets),
   },
 ];
 
@@ -254,6 +283,18 @@ export const eligibilityMatrix: ParticipantInstrumentEligibility[] = [
     state: "NOT_ASSESSED",
   },
   {
+    participantReference: "GRAIN-DESK",
+    participantName: "Grain Desk",
+    instrumentId: WHEAT_INSTRUMENT_ID,
+    state: "ELIGIBLE",
+  },
+  {
+    participantReference: "COMMODITY-DESK",
+    participantName: "Commodity Desk",
+    instrumentId: WHEAT_INSTRUMENT_ID,
+    state: "NOT_ASSESSED",
+  },
+  {
     participantReference: "RETAIL-PLACEHOLDER",
     participantName: "Retail investor (future channel)",
     instrumentId: WHEAT_INSTRUMENT_ID,
@@ -273,6 +314,7 @@ export const futureCustodyAdapters: CustodyProviderAdapter[] = [
 ];
 
 export const futureSettlementAdapters: SettlementProviderAdapter[] = [
+  { id: "DemoSettlementProvider", label: "DEMO-KZT fixture (Preview)", implemented: true },
   { id: "BankSettlementProvider", label: "Bank / fiat settlement (future)", implemented: false },
   {
     id: "StablecoinSettlementProvider",
@@ -294,7 +336,7 @@ export const wheatAdmissionProgress: Record<AdmissionStage, boolean> = {
   MARKET_ADMISSION: true,
   ISSUANCE: true,
   PRIMARY_PLACEMENT: true,
-  SECONDARY_MARKET: false,
+  SECONDARY_MARKET: true,
 };
 
 export function protocolById(id: string): AssetProtocol | undefined {

@@ -12,6 +12,14 @@ import {
   DeskRow,
   deskIndex,
 } from "@/components/surface/desk-stage";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatPercent } from "@/lib/format";
@@ -25,6 +33,11 @@ import {
   listHoldings,
   listProtocolInvestments,
 } from "@/services/market-core-service";
+import {
+  getSecondaryEngineState,
+  overlayWorkingHoldings,
+  secondarySurveillance,
+} from "@/services/secondary-market-service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketCore");
@@ -34,6 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SupervisionPage() {
   await requirePermission("regulator.read");
   const t = await getTranslations("marketCore");
+  const tSec = await getTranslations("secondary");
   const locale = (await getLocale()) as AppLocale;
   const protocols = listAssetProtocols();
   const issued = listAssetInstruments().filter((item) => item.status === "ISSUED");
@@ -41,12 +55,18 @@ export default async function SupervisionPage() {
     ...listAssetInstruments().filter((item) => item.status !== "ISSUED"),
     ...listProtocolInvestments(),
   ];
-  const holdings = listHoldings({ instrumentId: "WHEAT-2027" });
+  const engine = await getSecondaryEngineState();
+  const holdings = overlayWorkingHoldings(
+    listHoldings({ instrumentId: "WHEAT-2027" }),
+    engine,
+  );
+  const surveillance = secondarySurveillance(engine);
   const totalOwned = holdings.reduce((sum, row) => sum + row.buckets.owned, 0);
   const blocked = listParticipantCompliance().filter(
     (row) => row.record.eligibility === "BLOCKED",
   );
   const auditCount = listAuditEvents().length;
+  const marketEvents = [...engine.events].reverse();
 
   return (
     <div>
@@ -58,7 +78,7 @@ export default async function SupervisionPage() {
       />
 
       <MetricStrip className="sm:grid-cols-2 lg:grid-cols-5">
-        <MetricCell label={t("marketStatus")} value={t("closedSecondary")} />
+        <MetricCell label={t("marketStatus")} value={tSec("demoOpen")} />
         <MetricCell
           label={t("issuedInstruments")}
           value={formatInteger(issued.length, locale)}
@@ -67,8 +87,14 @@ export default async function SupervisionPage() {
           label={t("conceptsStructuring")}
           value={formatInteger(concepts.length, locale)}
         />
-        <MetricCell label={t("tradingActivity")} value={t("idle")} />
-        <MetricCell label={t("clearingStatus")} value={t("primaryEvidence")} />
+        <MetricCell
+          label={tSec("matchedTrades")}
+          value={formatInteger(surveillance.matchedTrades.length, locale)}
+        />
+        <MetricCell
+          label={tSec("pendingSettlements")}
+          value={formatInteger(surveillance.pendingSettlements.length, locale)}
+        />
       </MetricStrip>
 
       <PageSection title={t("issuedInstruments")}>
@@ -102,17 +128,76 @@ export default async function SupervisionPage() {
         </DeskLedger>
       </PageSection>
 
+      <PageSection title={tSec("title")} description={tSec("matchedNotSettled")}>
+        <DataList
+          items={[
+            { label: tSec("marketId"), value: "MKT-WHEAT-2027-DEMO-KZT" },
+            { label: t("marketStatus"), value: tSec("demoOpen") },
+            {
+              label: tSec("openOrders"),
+              value: formatInteger(surveillance.openOrders.length, locale),
+            },
+            {
+              label: tSec("matchedTrades"),
+              value: formatInteger(surveillance.matchedTrades.length, locale),
+            },
+            {
+              label: tSec("pendingSettlements"),
+              value: formatInteger(surveillance.pendingSettlements.length, locale),
+            },
+            {
+              label: t("failedSettlements"),
+              value: formatInteger(surveillance.failedSettlements.length, locale),
+            },
+            {
+              label: tSec("rejectedOrders"),
+              value: formatInteger(surveillance.rejected.length, locale),
+            },
+            {
+              label: tSec("eligibilityRejects"),
+              value: formatInteger(surveillance.eligibilityRejects.length, locale),
+            },
+          ]}
+        />
+      </PageSection>
+
       <PageSection title={t("failedSettlements")}>
-        <EmptyState>{t("none")}</EmptyState>
+        <EmptyState kicker={t("failedSettlements")} title={t("none")} />
+      </PageSection>
+
+      <PageSection title={tSec("rejectedOrders")}>
+        {surveillance.rejected.length === 0 ? (
+          <EmptyState kicker={tSec("rejectedOrders")} title={t("none")} />
+        ) : (
+          <DataList
+            items={surveillance.rejected.map((order) => ({
+              label: order.id,
+              value: order.rejectReason ?? order.status,
+            }))}
+          />
+        )}
+      </PageSection>
+
+      <PageSection title={tSec("eligibilityRejects")}>
+        {surveillance.eligibilityRejects.length === 0 ? (
+          <EmptyState kicker={tSec("eligibilityRejects")} title={t("none")} />
+        ) : (
+          <DataList
+            items={surveillance.eligibilityRejects.map((order) => ({
+              label: order.id,
+              value: order.participantId,
+            }))}
+          />
+        )}
       </PageSection>
 
       <PageSection title={t("backingExceptions")}>
-        <EmptyState>{t("none")}</EmptyState>
+        <EmptyState kicker={t("backingExceptions")} title={t("none")} />
       </PageSection>
 
       <PageSection title={t("complianceExceptions")}>
         {blocked.length === 0 ? (
-          <EmptyState>{t("none")}</EmptyState>
+          <EmptyState kicker={t("complianceExceptions")} title={t("none")} />
         ) : (
           <DataList
             items={blocked.map((row) => ({
@@ -139,13 +224,46 @@ export default async function SupervisionPage() {
       </PageSection>
 
       <PageSection title={t("blockedTransfers")}>
-        <EmptyState>{t("noRestrictions")}</EmptyState>
+        <EmptyState kicker={t("blockedTransfers")} title={t("noRestrictions")} />
+      </PageSection>
+
+      <PageSection title={tSec("marketEvents")}>
+        {marketEvents.length === 0 ? (
+          <EmptyState kicker={tSec("marketEvents")} title={t("none")} />
+        ) : (
+          <Table className="min-w-[48rem]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{tSec("time")}</TableHead>
+                <TableHead>{tSec("eventType")}</TableHead>
+                <TableHead>{tSec("actor")}</TableHead>
+                <TableHead>{tSec("participant")}</TableHead>
+                <TableHead>{t("instrument")}</TableHead>
+                <TableHead>{tSec("marketId")}</TableHead>
+                <TableHead>{tSec("entityId")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {marketEvents.map((event) => (
+                <TableRow key={event.id}>
+                  <TableCell className="font-tabular text-xs">{event.timestamp}</TableCell>
+                  <TableCell className="font-mono text-xs">{event.type}</TableCell>
+                  <TableCell className="text-xs">{event.actor}</TableCell>
+                  <TableCell className="text-xs">{event.participantId ?? "—"}</TableCell>
+                  <TableCell className="text-xs">{event.instrumentId}</TableCell>
+                  <TableCell className="font-mono text-xs">{event.marketId}</TableCell>
+                  <TableCell className="font-mono text-xs">{event.entityId}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </PageSection>
 
       <PageSection title={t("auditEvents")}>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-straw">
           {formatInteger(auditCount, locale)} ·{" "}
-          <Link href="/audit" className="text-primary hover:underline">
+          <Link href="/audit" className="text-harvest hover:underline">
             {t("auditLink")}
           </Link>
         </p>
@@ -172,9 +290,7 @@ export default async function SupervisionPage() {
         </DeskLedger>
       </PageSection>
 
-      <DeskNote className="mt-8">
-        {t("noSecondaryTrade")} · {t("idle")}
-      </DeskNote>
+      <DeskNote className="mt-8">{tSec("matchedNotSettled")}</DeskNote>
     </div>
   );
 }

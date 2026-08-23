@@ -153,3 +153,7 @@ export function marketCoreSnapshot() {
 export function noBlockchainMutationInPhase5A(): true {
   return true;
 }
+
+export function noDevnetSettlementInPhase5B(): true {
+  return true;
+}
