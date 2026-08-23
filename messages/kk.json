@@ -1,6 +1,7 @@
 {
   "brand": {
     "name": "Investment Token Platform",
+    "shortName": "Платформа",
     "subtitle": "Нарық инфрақұрылымы · уақытша өнім белгісі",
     "operatedBy": "Оператор: {operator}",
     "protocolNote": "Field to Finance — осы платформадағы ауыл шаруашылығы актив протоколы."

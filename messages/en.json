@@ -1,6 +1,7 @@
 {
   "brand": {
     "name": "Investment Token Platform",
+    "shortName": "Platform",
     "subtitle": "Market infrastructure · temporary product label",
     "operatedBy": "Operated by {operator}",
     "protocolNote": "Field to Finance is an agriculture asset protocol on this platform."

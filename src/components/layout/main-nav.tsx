@@ -124,7 +124,7 @@ export function MobileNav({
           <Button
             variant="outline"
             size="icon"
-            className="lg:hidden"
+            className="shrink-0 lg:hidden"
             aria-label={t("open")}
           />
         }
@@ -138,7 +138,11 @@ export function MobileNav({
           </SheetTitle>
         </SheetHeader>
         <nav aria-label={t("primary")} className="flex flex-col gap-4 px-2 pb-6">
-          {sessionSlot ? <div className="px-1">{sessionSlot}</div> : null}
+          {sessionSlot ? (
+            <div className="px-1" onClick={() => setOpen(false)}>
+              {sessionSlot}
+            </div>
+          ) : null}
           <NavItems
             groups={groups}
             onNavigate={() => setOpen(false)}

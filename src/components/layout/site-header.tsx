@@ -22,6 +22,25 @@ function initials(name: string): string {
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "U";
 }
 
+function BrandMark({
+  fullName,
+  shortName,
+}: {
+  fullName: string;
+  shortName: string;
+}) {
+  return (
+    <Link
+      href="/"
+      aria-label={fullName}
+      className="block text-sm font-medium leading-none text-foreground sm:text-base"
+    >
+      <span className="whitespace-nowrap lg:hidden">{shortName}</span>
+      <span className="hidden whitespace-nowrap lg:inline">{fullName}</span>
+    </Link>
+  );
+}
+
 export async function SiteHeader() {
   const t = await getTranslations();
   let actor = null;
@@ -95,7 +114,7 @@ export async function SiteHeader() {
   return (
     <header className="border-b border-border bg-card">
       <div className="flex items-center justify-between gap-3 bg-primary px-4 py-1 text-primary-foreground sm:px-6">
-        <p className="text-[10px] font-medium tracking-[0.16em] uppercase">
+        <p className="min-w-0 truncate text-[10px] font-medium tracking-[0.16em] uppercase">
           {t("header.badge")}
         </p>
         <p className="hidden text-[10px] tracking-wide sm:block">
@@ -105,15 +124,10 @@ export async function SiteHeader() {
 
       {actor ? (
         <>
-          <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2 sm:px-6">
+          <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:gap-3 sm:px-6">
             <MobileNav groups={groups} />
-            <div className="min-w-0 shrink-0">
-              <Link
-                href="/"
-                className="text-sm font-medium leading-none text-foreground sm:text-base"
-              >
-                {productName}
-              </Link>
+            <div className="min-w-0 flex-1 lg:flex-none">
+              <BrandMark fullName={productName} shortName={t("brand.shortName")} />
               <p className="mt-0.5 hidden text-[10px] leading-snug text-muted-foreground sm:block">
                 {t("brand.operatedBy", { operator: legalOperatorName })}
               </p>
@@ -140,34 +154,41 @@ export async function SiteHeader() {
           </div>
         </>
       ) : (
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5 sm:px-6">
-          <MobileNav groups={groups} />
-          <div className="min-w-0 shrink-0">
-            <Link
-              href="/"
-              className="text-sm font-medium leading-none text-foreground sm:text-base"
-            >
-              {productName}
-            </Link>
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 lg:gap-4">
+          <MobileNav
+            groups={groups}
+            sessionSlot={
+              <div className="flex flex-col gap-2">
+                <Button variant="ghost" size="sm" render={<Link href="/login" />}>
+                  {t("identity.login")}
+                </Button>
+                <Button size="sm" render={<Link href="/register" />}>
+                  {t("identity.register")}
+                </Button>
+              </div>
+            }
+          />
+          <div className="min-w-0 flex-1 lg:flex-none">
+            <BrandMark fullName={productName} shortName={t("brand.shortName")} />
             <p className="mt-1 hidden max-w-xs text-[10px] leading-snug tracking-wide text-muted-foreground uppercase sm:block">
               {t("brand.operatedBy", { operator: legalOperatorName })}
               {" · "}
               {t("brand.subtitle")}
             </p>
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="hidden min-w-0 flex-1 lg:block">
             <MainNav groups={groups} />
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="hidden sm:block">
-              <LanguageSwitcher />
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <LanguageSwitcher />
+            <div className="hidden items-center gap-3 lg:flex">
+              <Button variant="ghost" size="sm" render={<Link href="/login" />}>
+                {t("identity.login")}
+              </Button>
+              <Button size="sm" render={<Link href="/register" />}>
+                {t("identity.register")}
+              </Button>
             </div>
-            <Button variant="ghost" size="sm" render={<Link href="/login" />}>
-              {t("identity.login")}
-            </Button>
-            <Button size="sm" render={<Link href="/register" />}>
-              {t("identity.register")}
-            </Button>
           </div>
         </div>
       )}

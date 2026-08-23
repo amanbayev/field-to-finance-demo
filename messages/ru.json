@@ -1,6 +1,7 @@
 {
   "brand": {
     "name": "Investment Token Platform",
+    "shortName": "Платформа",
     "subtitle": "Рыночная инфраструктура · временная продуктовая метка",
     "operatedBy": "Оператор: {operator}",
     "protocolNote": "Field to Finance — аграрный протокол актива на этой платформе."
