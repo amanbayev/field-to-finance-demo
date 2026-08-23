@@ -359,6 +359,152 @@
           }
         }
       ]
+    },
+    {
+      "name": "settle_secondary_dvp",
+      "discriminator": [
+        143,
+        121,
+        120,
+        191,
+        94,
+        22,
+        137,
+        249
+      ],
+      "accounts": [
+        {
+          "name": "seller",
+          "docs": [
+            "Seller of the instrument. Must sign; pays rent for the one-time receipt PDA."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "buyer",
+          "docs": [
+            "Buyer of the instrument. Must sign; authorizes the settlement-asset transfer."
+          ],
+          "signer": true
+        },
+        {
+          "name": "market_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  99,
+                  111,
+                  110,
+                  100,
+                  97,
+                  114,
+                  121,
+                  95,
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "trade_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instrument_mint",
+          "relations": [
+            "market_config"
+          ]
+        },
+        {
+          "name": "settlement_mint",
+          "relations": [
+            "market_config"
+          ]
+        },
+        {
+          "name": "seller_instrument_ata",
+          "writable": true
+        },
+        {
+          "name": "buyer_instrument_ata",
+          "writable": true
+        },
+        {
+          "name": "buyer_settlement_ata",
+          "writable": true
+        },
+        {
+          "name": "seller_settlement_ata",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "trade_id",
+          "type": "string"
+        },
+        {
+          "name": "quantity",
+          "type": "u64"
+        },
+        {
+          "name": "unit_price",
+          "type": "u64"
+        },
+        {
+          "name": "notional",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -386,6 +532,19 @@
         40,
         91,
         155
+      ]
+    },
+    {
+      "name": "SecondarySettlementReceipt",
+      "discriminator": [
+        145,
+        181,
+        25,
+        153,
+        209,
+        233,
+        82,
+        217
       ]
     }
   ],
@@ -489,6 +648,31 @@
       "code": 6019,
       "name": "ArithmeticOverflow",
       "msg": "arithmetic overflow"
+    },
+    {
+      "code": 6020,
+      "name": "TradeIdEmpty",
+      "msg": "trade_id must be non-empty"
+    },
+    {
+      "code": 6021,
+      "name": "TradeIdTooLong",
+      "msg": "trade_id exceeds the 32-byte PDA seed limit"
+    },
+    {
+      "code": 6022,
+      "name": "TokenAccountFrozen",
+      "msg": "token account is frozen or otherwise invalid"
+    },
+    {
+      "code": 6023,
+      "name": "InsufficientSellerInstrument",
+      "msg": "seller instrument balance is insufficient"
+    },
+    {
+      "code": 6024,
+      "name": "InsufficientBuyerSettlement",
+      "msg": "buyer settlement balance is insufficient"
     }
   ],
   "types": [
@@ -721,6 +905,84 @@
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SecondarySettlementReceipt",
+      "docs": [
+        "On-chain receipt for one secondary DvP. PDA seeds:",
+        "`[\"secondary_settlement\", trade_id.as_bytes()]`",
+        "",
+        "Binds the first successful settlement of `trade_id`. A later instruction",
+        "with the same trade_id cannot initialize this account again."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trade_id",
+            "type": "string"
+          },
+          {
+            "name": "market_config",
+            "type": "pubkey"
+          },
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "instrument_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "quantity",
+            "type": "u64"
+          },
+          {
+            "name": "unit_price",
+            "type": "u64"
+          },
+          {
+            "name": "notional",
+            "type": "u64"
+          },
+          {
+            "name": "settled_at",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "SecondarySettlementStatus"
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SecondarySettlementStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Settled"
           }
         ]
       }

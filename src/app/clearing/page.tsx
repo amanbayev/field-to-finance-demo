@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import type { AppLocale } from "@/i18n/config";
 import { formatDemoKzt, formatInteger, formatTimestamp } from "@/lib/format";
+import { Button } from "@/components/ui/button";
 import { requireRegistrarOrRegulator } from "@/lib/auth/guard";
 import { marketCoreSnapshot } from "@/services/market-core-service";
 import { getSecondaryEngineState } from "@/services/secondary-market-service";
@@ -123,6 +124,13 @@ export default async function ClearingPage() {
             </TableBody>
           </Table>
         )}
+      </PageSection>
+      <PageSection title={tSec("ceremonyTitle")}>
+        <p className="mb-3 text-sm text-muted-foreground">{tSec("ceremonyHelp")}</p>
+        <p className="mb-3 text-sm text-muted-foreground">{tSec("ceremonyDisabled")}</p>
+        <Button type="button" disabled variant="secondary">
+          {tSec("ceremonyControl")}
+        </Button>
       </PageSection>
       {secondaryTrades.map((trade) => (
         <PageSection key={trade.id} title={`${tSec("clearingStatus")} · ${trade.id}`}>
