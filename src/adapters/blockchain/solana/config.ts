@@ -25,6 +25,7 @@ export const MARKET_PROGRAM_ID =
 
 export const MARKET_CONFIG_SEED = "market_config";
 export const PRIMARY_PLACEMENT_SEED = "primary_placement";
+export const SECONDARY_SETTLEMENT_SEED = "secondary_settlement";
 
 export const ON_CHAIN_DEMO_TOKEN_ID = "tok-wheat-2027";
 export const ON_CHAIN_DEMO_PLACEMENT_ID = "PL-ISS001-0001";

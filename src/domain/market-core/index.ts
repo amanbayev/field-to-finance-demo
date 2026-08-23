@@ -138,6 +138,28 @@ export {
   PRIMARY_DVP_INSTRUCTION,
   SECONDARY_DVP_AUDIT,
   SECONDARY_DVP_INSTRUCTION,
+  SECONDARY_OPTIONAL_EXTRA_UI,
+  SECONDARY_REQUIRED_UI_NOTIONAL,
   currentProgramCanSettleSecondaryDvp,
+  settlementBaseAmount,
 } from "./secondary-dvp";
 export type { SecondaryDvpAudit } from "./secondary-dvp";
+export {
+  LOCKED_SEED_TRADE,
+  assertSettlementMatchesLockedTrade,
+} from "./secondary-settlement-binding";
+export {
+  SECONDARY_SETTLEMENT_ENABLED,
+  SecondarySettlementProvider,
+  secondarySettlementProvider,
+} from "./secondary-settlement-provider";
+export {
+  POST_SECONDARY_REGISTRAR_BOOK,
+  PRE_SECONDARY_REGISTRAR_BOOK,
+  SECONDARY_REGISTRAR_FINALIZATION_PLAN,
+  plannedRegistrarBookAfterSecondary,
+} from "./registrar-finalization";
+export {
+  planSettlementExecution,
+  shouldLookupBeforeRetry,
+} from "./settlement-execution";

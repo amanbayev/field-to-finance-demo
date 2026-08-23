@@ -1,18 +1,35 @@
 /**
- * Read-only capability audit: can agricultural_market settle a SECONDARY trade?
+ * Secondary DvP capability.
  *
- * Primary instruction `settle_primary_placement` is not a secondary DvP.
- * No programme change or deploy is performed here.
+ * Source now includes `settle_secondary_dvp`. The deployed Devnet programme
+ * does not yet expose it. No programme upgrade is performed in this phase.
  */
 
-export const SECONDARY_DVP_INSTRUCTION = null;
+export const SECONDARY_DVP_INSTRUCTION = "settle_secondary_dvp";
 
 export const PRIMARY_DVP_INSTRUCTION = "settle_primary_placement";
 
+/** Required DEMO-KZT UI amount for TRD-SEED-001. Convert with mint decimals. */
+export const SECONDARY_REQUIRED_UI_NOTIONAL = 210_000;
+/** Optional extra DEMO-KZT UI buffer. Not required to settle the locked trade. */
+export const SECONDARY_OPTIONAL_EXTRA_UI = 40_000;
+
+export function settlementBaseAmount(uiAmount: number, decimals: number): bigint {
+  if (!Number.isInteger(uiAmount) || uiAmount < 0) {
+    throw new Error("invalid_ui_amount");
+  }
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) {
+    throw new Error("invalid_decimals");
+  }
+  return BigInt(uiAmount) * BigInt(10) ** BigInt(decimals);
+}
+
 export interface SecondaryDvpAudit {
   canExecuteSecondaryAtomicDvpWithCurrentProgram: false;
+  sourceInstructionImplemented: true;
+  deployedProgramHasInstruction: false;
   primaryInstruction: typeof PRIMARY_DVP_INSTRUCTION;
-  requiredNewInstruction: "settle_secondary_dvp";
+  requiredNewInstruction: typeof SECONDARY_DVP_INSTRUCTION;
   programRedeployRequired: true;
   primaryAccounts: {
     signers: ["registrar", "investor"];
@@ -21,7 +38,7 @@ export interface SecondaryDvpAudit {
     demoKztSource: "investor_settlement_ata (authority = investor)";
     demoKztDestination: "issuer_settlement_ata (authority = issuer_settlement_owner)";
   };
-  secondaryWouldNeed: {
+  secondaryAccounts: {
     signers: ["seller", "buyer"];
     wheatSource: "seller WHEAT Token-2022 ATA";
     wheatDestination: "buyer WHEAT Token-2022 ATA";
@@ -33,8 +50,10 @@ export interface SecondaryDvpAudit {
 
 export const SECONDARY_DVP_AUDIT: SecondaryDvpAudit = {
   canExecuteSecondaryAtomicDvpWithCurrentProgram: false,
+  sourceInstructionImplemented: true,
+  deployedProgramHasInstruction: false,
   primaryInstruction: PRIMARY_DVP_INSTRUCTION,
-  requiredNewInstruction: "settle_secondary_dvp",
+  requiredNewInstruction: SECONDARY_DVP_INSTRUCTION,
   programRedeployRequired: true,
   primaryAccounts: {
     signers: ["registrar", "investor"],
@@ -43,7 +62,7 @@ export const SECONDARY_DVP_AUDIT: SecondaryDvpAudit = {
     demoKztSource: "investor_settlement_ata (authority = investor)",
     demoKztDestination: "issuer_settlement_ata (authority = issuer_settlement_owner)",
   },
-  secondaryWouldNeed: {
+  secondaryAccounts: {
     signers: ["seller", "buyer"],
     wheatSource: "seller WHEAT Token-2022 ATA",
     wheatDestination: "buyer WHEAT Token-2022 ATA",

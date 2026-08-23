@@ -101,14 +101,6 @@ export function nextSettlementIntent(
       allowNewChainSubmit: false,
     };
   }
-  if (!input.settlementEnabled) {
-    return {
-      kind: "NONE",
-      reason: "Matching demonstrator is active. Devnet settlement is awaiting approval.",
-      signatureToLookup: signature,
-      allowNewChainSubmit: false,
-    };
-  }
   if (record.status === "SETTLEMENT_SUBMITTED" || record.status === "SETTLEMENT_SUBMITTING") {
     if (signature) {
       return {
@@ -131,6 +123,14 @@ export function nextSettlementIntent(
       kind: "SIGNATURE_LOOKUP",
       reason: "Submit in flight. Look up idempotency reference. Do not open a second transfer.",
       signatureToLookup: record.idempotencyKey,
+      allowNewChainSubmit: false,
+    };
+  }
+  if (!input.settlementEnabled) {
+    return {
+      kind: "NONE",
+      reason: "Matching demonstrator is active. Devnet settlement is awaiting approval.",
+      signatureToLookup: signature,
       allowNewChainSubmit: false,
     };
   }

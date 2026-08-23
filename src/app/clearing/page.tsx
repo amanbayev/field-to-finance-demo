@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import type { AppLocale } from "@/i18n/config";
 import { formatDemoKzt, formatInteger, formatTimestamp } from "@/lib/format";
+import { Button } from "@/components/ui/button";
 import { requireRegistrarOrRegulator } from "@/lib/auth/guard";
 import { marketCoreSnapshot } from "@/services/market-core-service";
 import { getSecondaryEngineState } from "@/services/secondary-market-service";
@@ -58,7 +59,7 @@ export default async function ClearingPage() {
               },
               {
                 label: tSec("settlement"),
-                value: tSec("pending"),
+                value: tSec("ceremonyControl"),
               },
             ]}
           />
@@ -151,6 +152,12 @@ export default async function ClearingPage() {
             </TableBody>
           </Table>
         )}
+      </PageSection>
+      <PageSection title={tSec("ceremonyTitle")} description={tSec("ceremonyHelp")}>
+        <DeskNote className="mb-4">{tSec("ceremonyDisabled")}</DeskNote>
+        <Button type="button" disabled variant="secondary">
+          {tSec("ceremonyControl")}
+        </Button>
       </PageSection>
       {latestSecondary ? (
         <PageSection

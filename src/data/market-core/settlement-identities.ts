@@ -4,6 +4,7 @@ import { GRAIN_DESK_ID, REGISTRAR_ID, STEPPE_CAPITAL_ID } from "@/domain/market-
 export type SettlementIdentityStatus =
   | "MAPPED_ON_CHAIN"
   | "MAPPED_PROOF_ONLY"
+  | "WALLET_ASSIGNED"
   | "NOT_MAPPED";
 
 export interface SettlementIdentity {
@@ -19,6 +20,14 @@ export interface SettlementIdentity {
   requiredPhase5B2Steps: string[];
 }
 
+/** Off-chain designated Grain Desk identity. Secret key is local and gitignored. */
+export const GRAIN_DESK_SOLANA_WALLET =
+  "71G4GdJVawxt5DCVxcghW96TaLDxDqNEA1mLybAuTU9Q";
+export const GRAIN_DESK_WHEAT_ATA =
+  "HQ1eM9ekdQkj3buuDgSdWsQ5DGnQnZc81sPCPC6j8unx";
+export const GRAIN_DESK_DEMO_KZT_ATA =
+  "ARouqPTtPwsVfXAV1yYuZidz2vApM1qKH62xC6i5YrcM";
+
 export function settlementIdentitiesFromProof(): SettlementIdentity[] {
   const proof = recordedPlacementProof();
   return [
@@ -28,10 +37,11 @@ export function settlementIdentitiesFromProof(): SettlementIdentity[] {
       solanaWallet: proof.investorWallet ?? null,
       wheatAta: proof.investorInstrumentAta ?? null,
       demoKztAta: proof.demoKzt?.investorAta ?? null,
-      wheatAtaOnChain: null,
-      demoKztAtaOnChain: null,
-      status: "MAPPED_PROOF_ONLY",
-      notes: "Mapped from primary placement proof PL-ISS001-0001.",
+      wheatAtaOnChain: true,
+      demoKztAtaOnChain: true,
+      status: "MAPPED_ON_CHAIN",
+      notes:
+        "Mapped from primary placement proof PL-ISS001-0001. Read-only Devnet check: WHEAT ATA and DEMO-KZT ATA exist. The wallet system account is unfunded; token accounts are owned by this pubkey.",
       requiredPhase5B2Steps: [],
     },
     {
@@ -49,16 +59,15 @@ export function settlementIdentitiesFromProof(): SettlementIdentity[] {
     {
       participantId: GRAIN_DESK_ID,
       participantName: "Grain Desk",
-      solanaWallet: null,
-      wheatAta: null,
-      demoKztAta: null,
+      solanaWallet: GRAIN_DESK_SOLANA_WALLET,
+      wheatAta: GRAIN_DESK_WHEAT_ATA,
+      demoKztAta: GRAIN_DESK_DEMO_KZT_ATA,
       wheatAtaOnChain: false,
       demoKztAtaOnChain: false,
-      status: "NOT_MAPPED",
+      status: "WALLET_ASSIGNED",
       notes:
-        "No Solana wallet is assigned to Grain Desk / DEMO-TRADER-001. WHEAT and DEMO-KZT ATAs are not derived and are not claimed to exist.",
+        "Off-chain Grain Desk / DEMO-TRADER-001 wallet designated. Token-2022 ATAs are derived and do not exist on Devnet yet. Do not create ATAs in this phase.",
       requiredPhase5B2Steps: [
-        "Designate a Grain Desk Solana wallet and persist the mapping.",
         "Create the WHEAT-2027 Token-2022 ATA (state-changing transaction).",
         "Create the DEMO-KZT Token-2022 ATA (state-changing transaction).",
         "Fund DEMO-KZT for the buyer (state-changing transaction; DEMO-KZT has no monetary value).",

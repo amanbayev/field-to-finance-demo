@@ -88,4 +88,16 @@ describe("settlement lifecycle", () => {
     ).toBe(2);
     expect(wheatReconciliationExceptions(PRE_SETTLEMENT_WHEAT_RECONCILIATION)).toEqual([]);
   });
+
+  it("does not allow a new submit after timeout when no signature is stored", () => {
+    const intent = nextSettlementIntent(
+      record({
+        status: "SETTLEMENT_SUBMITTED",
+        submittedAt: "2026-08-23T12:00:00Z",
+      }),
+      { settlementEnabled: true, lookupResolved: "UNKNOWN" },
+    );
+    expect(intent.kind).toBe("SIGNATURE_LOOKUP");
+    expect(intent.allowNewChainSubmit).toBe(false);
+  });
 });
