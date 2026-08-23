@@ -214,6 +214,9 @@ export interface Market {
   phase: MarketPhase;
   activeChannel: DistributionChannel;
   transacting: boolean;
+  matchingEnabled: boolean;
+  settlementEnabled: boolean;
+  demonstratorStatus: "DEMO_OPEN" | "DEMO_CLOSED";
   settlementAssetId: string;
   settlementAssetLabel: string;
   settlementHasMonetaryValue: false;

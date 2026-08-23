@@ -6,14 +6,12 @@ import {
   availableBalance,
   bidsFromOrders,
   asksFromOrders,
-  cancelOrder,
   canReceive,
   canTrade,
   eligibilityFor,
   GRAIN_DESK_ID,
   participantIdFromInvestorRef,
   STEPPE_CAPITAL_ID,
-  submitLimitOrder,
   WHEAT_DEMO_MARKET_ID,
   type EngineState,
   type Holding,
@@ -21,9 +19,10 @@ import {
 } from "@/domain/market-core";
 import { getMarketInstrument } from "@/services/market-core-service";
 import {
-  mutateSecondaryMarket,
-  readSecondaryMarketState,
-} from "@/services/secondary-market-store";
+  fetchPersistentEngineState,
+  rpcCancelOrder,
+  rpcSubmitLimitOrder,
+} from "@/services/secondary-market-repository";
 
 export function participantIdForActor(actor: ActorContext): string | null {
   return participantIdFromInvestorRef(
@@ -44,11 +43,11 @@ export function canViewAllMarketActivity(actor: ActorContext): boolean {
 }
 
 export async function getSecondaryEngineState(): Promise<EngineState> {
-  return readSecondaryMarketState();
+  return fetchPersistentEngineState();
 }
 
 export async function getSecondaryMarketView(actor: ActorContext) {
-  const state = await readSecondaryMarketState();
+  const state = await fetchPersistentEngineState();
   const market =
     state.markets.find((item) => item.id === WHEAT_DEMO_MARKET_ID) ?? state.markets[0]!;
   const instrument = state.instruments.find((item) => item.id === market.instrumentId)!;
@@ -99,45 +98,45 @@ export async function submitSecondaryOrder(input: {
   side: OrderSide;
   price: number;
   quantity: number;
+  idempotencyKey: string;
 }) {
   if (!canSubmitOrders(input.actor)) {
-    return { error: "INELIGIBLE" as const, state: await readSecondaryMarketState() };
+    return { error: "INELIGIBLE" as const, state: await fetchPersistentEngineState() };
   }
-  const participantId = participantIdForActor(input.actor);
-  if (!participantId) {
-    return { error: "INELIGIBLE" as const, state: await readSecondaryMarketState() };
+  if (!participantIdForActor(input.actor)) {
+    return { error: "INELIGIBLE" as const, state: await fetchPersistentEngineState() };
   }
-  return mutateSecondaryMarket((state) =>
-    submitLimitOrder(state, {
-      marketId: WHEAT_DEMO_MARKET_ID,
-      participantId,
-      actor: input.actor.demoPersona?.displayName ?? input.actor.principal.displayName,
-      side: input.side,
-      orderType: "LIMIT",
-      price: input.price,
-      quantity: input.quantity,
-      sourceChannel: "DIRECT_MTP",
-      now: new Date().toISOString(),
-    }),
-  );
+  const submitted = await rpcSubmitLimitOrder({
+    side: input.side,
+    price: input.price,
+    quantity: input.quantity,
+    idempotencyKey: input.idempotencyKey,
+    marketId: WHEAT_DEMO_MARKET_ID,
+  });
+  const state = await fetchPersistentEngineState();
+  if (!submitted.ok) {
+    return { error: submitted.error ?? "INELIGIBLE", state };
+  }
+  return { error: null, state };
 }
 
 export async function cancelSecondaryOrder(input: {
   actor: ActorContext;
   orderId: string;
+  idempotencyKey: string;
 }) {
-  const participantId = participantIdForActor(input.actor);
-  if (!canSubmitOrders(input.actor) || !participantId) {
-    return { error: "NOT_OWNER" as const, state: await readSecondaryMarketState() };
+  if (!canSubmitOrders(input.actor) || !participantIdForActor(input.actor)) {
+    return { error: "NOT_OWNER" as const, state: await fetchPersistentEngineState() };
   }
-  return mutateSecondaryMarket((state) =>
-    cancelOrder(state, {
-      orderId: input.orderId,
-      participantId,
-      actor: input.actor.demoPersona?.displayName ?? input.actor.principal.displayName,
-      now: new Date().toISOString(),
-    }),
-  );
+  const cancelled = await rpcCancelOrder({
+    orderId: input.orderId,
+    idempotencyKey: input.idempotencyKey,
+  });
+  const state = await fetchPersistentEngineState();
+  if (!cancelled.ok) {
+    return { error: cancelled.error ?? "NOT_OWNER", state };
+  }
+  return { error: null, state };
 }
 
 export function overlayWorkingHoldings(
@@ -155,6 +154,7 @@ export function overlayWorkingHoldings(
     }
     const buckets = {
       ...holding.buckets,
+      owned: working.buckets.owned,
       reservedForOrders: working.buckets.reservedForOrders,
       pendingIn: working.buckets.pendingIn,
       pendingOut: working.buckets.pendingOut,

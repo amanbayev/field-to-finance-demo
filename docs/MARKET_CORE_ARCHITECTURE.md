@@ -48,7 +48,11 @@ BUY reserves `limit × quantity` DEMO-KZT via `DemoSettlementProvider`. DEMO-KZT
 
 ## Concurrency
 
-`submitLimitOrder` / `cancelOrder` clone `EngineState` and apply the mutation in one function (no partial writes). Preview uses an in-process mutex. Distributed SQL locking is specified in `supabase/migrations/20260823060000_secondary_market.sql` and is **not applied** to the shared Production Supabase project in this stage.
+`submitLimitOrder` / `cancelOrder` clone `EngineState` and apply the mutation in one function (no partial writes). Unit tests may still use the in-process store. **Preview and runtime authority is PostgreSQL**: `pg_advisory_xact_lock(hashtext(market_id))` plus `SELECT … FOR UPDATE` inside `market_core_*` SECURITY DEFINER RPCs. Node mutex is not used for correctness. Applied only to the dedicated field-to-finance Supabase project.
+
+Idempotency: `market_core_idempotency` unique `(scope, key)` for `submit`, `cancel`, `match`, and `settlement_submit`. A repeated submit with the same key returns the stored result and does not insert a second order. Matching is not a client-chosen counterparty; `market_core_match_incoming` selects resting orders by price-time under the market lock.
+
+Tables have RLS enabled and **no client policies**. `authenticated` is revoked from table DML. Reads and writes go through SECURITY DEFINER RPCs that check `auth.uid()`, map the session persona / membership to a participant, and reject registrar / regulator / admin trading. `service_role` is not used in the browser bundle.
 
 ## Asset protocols
 
@@ -96,9 +100,15 @@ PL-ISS001-0001 is **primary placement evidence**, not a secondary clearing event
 
 ## Registry
 
-Generic book of holdings with Owned / Available / Reserved / Pledged / Blocked. Registrar remains the legal book of record in the current architecture.
+Generic book of holdings with Owned / Available / Reserved / Pledged / Blocked.
 
-**Unresolved:** disclosed individual holder versus omnibus / nominee custody.
+**Authoritative registered ownership** is `public.registrar_registered_ownership` (Registrar book of record). Legal `owned` is written only by registrar evidence (primary placement or completed secondary settlement). Matching must not write this table.
+
+**`market_core_holdings`** is the market balance view / trading projection around that book: `owned` is a denormalized copy; matching may update `reserved_for_orders`, `pledged`, `blocked`, `pending_in`, `pending_out` only. A trigger rejects `owned` mutations unless `app.registrar_sync = on`.
+
+**`market_core_chain_proof`** is observed / cached proof (`source`, `observed_at`, `slot`, `signature`, `ata`). It is not chain truth. Settlement approval requires `LIVE_RPC` against Solana Devnet.
+
+Unresolved: disclosed individual holder versus omnibus / nominee custody.
 
 ## Distribution channels
 
@@ -191,6 +201,36 @@ Agriculture modules stay on `/protocols/F2F`, not in global regulator nav.
 
 Matching, reservation, settlement-provider, order-book and engine modules must not import SCAS / coverage / wheat-specific market types.
 
+## Environment split (Phase 5B.1)
+
+- **Production application** (Vercel Production / `main`) remains **Phase 5A**. It is not updated by this branch. Phase 5A operational routes (`/fields`, `/contracts`, `/tokens`, `/placements`, `/pools`, `/coverage`, `/scas`, `/finance`, `/documents`, `/monitoring`) do not read `market_core_*` or `registrar_registered_ownership`.
+- **Dedicated field-to-finance Supabase database** (`qnzoghmqnqwfpkzgpede`) has already been extended with additive Phase 5B.1 market schema and RPCs. That is database state, not a Production application deploy.
+- Preview application on this branch reads the dedicated database. Production application code on `main` does not expose the new secondary-market book.
+
+## Repository ↔ remote migrations
+
+Alignment is by **name / content**, not identical timestamps. Do not rewrite already-applied remotes.
+
+| Repo file | Remote version / name |
+| --- | --- |
+| `20260822120000_identity.sql` | `20260822181823_identity` |
+| `20260822231500_identity_security_hardening.sql` | `20260822182016_identity_security_hardening` |
+| `20260822233000_identity_admin_capabilities.sql` | `20260822183954_identity_admin_capabilities` |
+| `20260823060000_secondary_market.sql` | `20260823085648_secondary_market` |
+| *(no useful SQL — do not rewrite)* | `20260823091615_market_core_rpc` (accidental `select 1`) |
+| `20260823120000_market_core_rpc.sql` (helpers + match + submit/cancel + read, combined in repo) | `20260823091641_market_core_rpc_helpers`, `20260823091724_market_core_rpc_match`, `20260823091853_market_core_rpc_submit_cancel`, `20260823091854_market_core_rpc_read` |
+| *(accidental `select 1` during approval — do not rewrite)* | `20260823142920_registrar_book_and_live_proof` |
+| `20260823200000_registrar_book_and_live_proof.sql` (tables / triggers / identities) | `20260823143018_registrar_book_tables` |
+| same file (snapshot + reconcile) | `20260823143635_registrar_book_rpcs` |
+| same file (isolated sell fixture; buy/cleanup RPCs not applied remotely) | `20260823143714_registrar_book_isolated_tests` |
+| same file (revoke isolated execute + search_path) | `20260823150623_revoke_isolated_test_rpcs` |
+
+## Secondary DvP
+
+`agricultural_market` currently exposes only `initialize_market` and `settle_primary_placement`. Primary DvP takes WHEAT from the Registrar ATA and DEMO-KZT from the primary investor, paying the issuer settlement owner. It cannot atomically move WHEAT seller→buyer and DEMO-KZT buyer→seller. A new `settle_secondary_dvp` instruction and programme redeploy are required. No deploy is performed in 5B.1.
+
+Grain Desk (`GRAIN-DESK` / `DEMO-TRADER-001`) has **no** mapped Solana wallet and **no** WHEAT / DEMO-KZT ATA. Those accounts must not be fabricated. Creating them is a state-changing 5B.2 preparation step.
+
 ## Invariants
 
 - Production SHA on `main` is not modified by this branch.
@@ -198,5 +238,5 @@ Matching, reservation, settlement-provider, order-book and engine modules must n
 - No mint, burn, Token-2022 transfer, new primary placement, `agricultural_registry` mutation, or `agricultural_market` programme mutation.
 - Legal WHEAT-2027 ownership remains 1,000 minted / Registrar 990 / Steppe Capital 10 / burned 0 until real DvP.
 - FILLED / MATCHED / CLEARING_READY / AWAITING_DEVNET_SETTLEMENT do not mean SETTLED.
-- Additive SQL in `supabase/migrations/20260823060000_secondary_market.sql` is **not applied** to the shared Production Supabase project in this stage.
+- Additive SQL is applied only to the dedicated field-to-finance Supabase project, not by rewriting Production application code.
 - No merge to `main` as part of this phase.

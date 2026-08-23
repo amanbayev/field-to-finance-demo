@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import {
   DeskFigure,
   DeskLedger,
+  DeskNote,
   DeskRow,
   DeskSplit,
   DeskToolbar,
@@ -19,13 +20,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { availableBalance } from "@/domain/market-core";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { requireRegistrarOrRegulator } from "@/lib/auth/guard";
 import { ASSET_CLASS_KEYS } from "@/lib/market-core/presentation";
-import { getPlacementSnapshot } from "@/services/placement-service";
 import {
   getMarketInstrument,
   listAssetProtocols,
@@ -36,6 +35,9 @@ import {
   getSecondaryEngineState,
   overlayWorkingHoldings,
 } from "@/services/secondary-market-service";
+import { rpcReconcileWheat } from "@/services/secondary-market-repository";
+import { loadLiveWheatReconciliation } from "@/services/wheat-live-reconciliation";
+import { grainDeskSettlementBlockers } from "@/data/market-core/settlement-identities";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketCore");
@@ -56,10 +58,23 @@ export default async function RegistryPage({
   await requireRegistrarOrRegulator();
   const filters = await searchParams;
   const t = await getTranslations("marketCore");
+  const tSec = await getTranslations("secondary");
   const tDesk = await getTranslations("desk");
   const locale = (await getLocale()) as AppLocale;
-  const snapshot = await getPlacementSnapshot();
   const engine = await getSecondaryEngineState();
+  const cachedReconciliation = await rpcReconcileWheat();
+  const wheatHoldings = engine.holdings.filter((row) => row.instrumentId === "WHEAT-2027");
+  const liveReconciliation = await loadLiveWheatReconciliation(
+    wheatHoldings.map((row) => ({
+      participantId: row.holderReference,
+      holderName: row.holderName,
+      registeredOwned: row.buckets.owned,
+      pendingIn: row.buckets.pendingIn,
+      pendingOut: row.buckets.pendingOut,
+    })),
+  );
+  const reconciliation = liveReconciliation.ok ? liveReconciliation : cachedReconciliation;
+  const grainDeskBlockers = grainDeskSettlementBlockers();
   const protocols = listAssetProtocols();
   const instruments = listMarketInstruments();
   const issuers = [...new Map(instruments.map((item) => [item.issuerId, item])).values()];
@@ -72,25 +87,16 @@ export default async function RegistryPage({
       holderReference: filters.holder || undefined,
     }),
     engine,
-  ).map((holding) => {
-    if (holding.instrumentId !== "WHEAT-2027") {
-      return holding;
-    }
-    const owned =
-      holding.holderReference === "REGISTRAR"
-        ? snapshot.supply.registrarInventory
-        : holding.holderReference === "INVESTOR-0001"
-          ? snapshot.supply.circulating
-          : holding.buckets.owned;
-    const buckets = { ...holding.buckets, owned };
-    return { ...holding, buckets, available: availableBalance(buckets) };
-  });
+  );
 
   const holders = [...new Map(listHoldings().map((item) => [item.holderReference, item])).values()];
   const registrar = rows.find((row) => row.holderReference === "REGISTRAR");
   const investor = rows.find((row) => row.holderReference === "INVESTOR-0001");
+  const grainDesk = rows.find((row) => row.holderReference === "GRAIN-DESK");
   const bookTotal =
-    (registrar?.buckets.owned ?? 0) + (investor?.buckets.owned ?? 0);
+    (registrar?.buckets.owned ?? 0) +
+    (investor?.buckets.owned ?? 0) +
+    (grainDesk?.buckets.owned ?? 0);
 
   return (
     <div>
@@ -117,14 +123,78 @@ export default async function RegistryPage({
                       },
                     ]
                   : []),
+                ...(grainDesk
+                  ? [
+                      {
+                        label: grainDesk.holderName,
+                        value: formatInteger(grainDesk.buckets.owned, locale),
+                      },
+                    ]
+                  : []),
               ]}
             />
           ) : undefined
         }
       />
-      <p className="mb-6 max-w-2xl text-sm text-straw">
-        {t("unresolvedCustody")} {t("issuedHoldingsProof")} {t("legalOwnership")}
-      </p>
+      <DeskNote className="mb-4">
+        {t("bookOfRecord")} {t("legalOwnership")}
+      </DeskNote>
+      <DeskNote className="mb-6">
+        {t("unresolvedCustody")} {t("issuedHoldingsProof")}
+      </DeskNote>
+
+      {reconciliation ? (
+        <PageSection
+          title={t("reconciliation")}
+          description={
+            reconciliation.source === "LIVE_RPC"
+              ? t("reconciliationSourceLive")
+              : t("reconciliationSourceCached")
+          }
+        >
+          <p className="mb-3 text-sm text-straw">
+            {reconciliation.rows.some((row) => row.exception)
+              ? t("reconciliationException")
+              : t("reconciliationOk")}
+            {"slot" in reconciliation && reconciliation.slot != null
+              ? ` · slot ${reconciliation.slot}`
+              : ""}
+          </p>
+          {grainDeskBlockers.length > 0 ? (
+            <p className="mb-3 text-sm text-straw">{t("grainDeskUnmapped")}</p>
+          ) : null}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("holder")}</TableHead>
+                <TableHead className="text-right">{tSec("registeredOwnership")}</TableHead>
+                <TableHead className="text-right">{t("onChainBalance")}</TableHead>
+                <TableHead className="text-right">{t("pendingIn")}</TableHead>
+                <TableHead className="text-right">{t("pendingOut")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {reconciliation.rows.map((row) => (
+                <TableRow key={row.participantId}>
+                  <TableCell>{row.holderName}</TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {formatInteger(row.registeredOwned, locale)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {row.chainBalance == null ? "—" : formatInteger(row.chainBalance, locale)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {formatInteger(row.pendingIn, locale)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {formatInteger(row.pendingOut, locale)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </PageSection>
+      ) : null}
 
       <DeskToolbar>
         <p className="label-caps w-full text-harvest">{tDesk("filterRibbon")}</p>
@@ -210,7 +280,11 @@ export default async function RegistryPage({
         </form>
       </DeskToolbar>
 
-      <PageSection title={t("instrumentsTitle")} className="mt-0">
+      <PageSection
+        title={t("instrumentsTitle")}
+        description={`${tSec("registeredOwnership")} · ${t("legalOwnership")}`}
+        className="mt-0"
+      >
         {rows.length === 0 ? (
           <EmptyState
             kicker={t("instrumentsTitle")}

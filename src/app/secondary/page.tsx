@@ -59,11 +59,16 @@ export default async function SecondaryMarketPage({
                 label: t("settlementAsset"),
                 value: view.market.settlementAssetLabel,
               },
+              {
+                label: t("matchingActive"),
+                value: t("settlementAwaiting"),
+              },
             ]}
           />
         }
       />
-      <DeskNote className="mb-8">{t("matchedNotSettled")}</DeskNote>
+      <DeskNote className="mb-4">{t("matchedNotSettled")}</DeskNote>
+      <DeskNote className="mb-8">{t("pendingTransfer")}</DeskNote>
       {params.submitted ? <p className="mb-3 text-sm text-harvest">{t("submitted")}</p> : null}
       {params.cancelled ? <p className="mb-3 text-sm text-harvest">{t("cancelledNotice")}</p> : null}
       {params.error ? (
@@ -152,6 +157,7 @@ export default async function SecondaryMarketPage({
                     (order.status === "OPEN" || order.status === "PARTIALLY_FILLED") ? (
                       <form action={cancelSecondaryOrderAction}>
                         <input type="hidden" name="orderId" value={order.id} />
+                        <input type="hidden" name="idempotencyKey" value={`cancel-${order.id}`} />
                         <Button variant="ghost" size="xs" type="submit">
                           {t("cancel")}
                         </Button>
