@@ -1,7 +1,10 @@
 use {
     agricultural_market::{
         accounts as market_accounts, constants as market_constants, instruction as market_ix,
-        state::{MarketConfig, PlacementStatus, PrimaryPlacementReceipt},
+        state::{
+            MarketConfig, PlacementStatus, PrimaryPlacementReceipt, SecondarySettlementReceipt,
+            SecondarySettlementStatus,
+        },
         ID as MARKET_ID,
     },
     agricultural_registry::{
@@ -41,6 +44,11 @@ const SETTLEMENT_TOTAL: u64 = 1_000_000;
 const MINT_SUPPLY: u64 = 1_000;
 const ELIGIBLE: u64 = 8_300;
 const INVESTOR_KZT: u64 = 2_000_000;
+const TRADE_ID: &str = "TRD-SEED-001";
+const SECONDARY_QTY: u64 = 2;
+const SECONDARY_PRICE: u64 = 105_000;
+const SECONDARY_NOTIONAL: u64 = 210_000;
+const BUYER_KZT: u64 = 500_000;
 
 struct Env {
     svm: LiteSVM,
@@ -52,6 +60,7 @@ struct Env {
     investor: Keypair,
     settlement_owner: Keypair,
     stranger: Keypair,
+    buyer: Keypair,
     instrument_mint: Pubkey,
     settlement_mint: Pubkey,
 }
@@ -273,6 +282,7 @@ fn setup() -> Env {
     let investor = Keypair::new();
     let settlement_owner = Keypair::new();
     let stranger = Keypair::new();
+    let buyer = Keypair::new();
     let mut svm = LiteSVM::new();
     svm.add_program(REGISTRY_ID, registry_bytes()).unwrap();
     svm.add_program(MARKET_ID, market_bytes()).unwrap();
@@ -290,6 +300,7 @@ fn setup() -> Env {
         investor.pubkey(),
         settlement_owner.pubkey(),
         stranger.pubkey(),
+        buyer.pubkey(),
     ] {
         svm.airdrop(&key, LAMPORTS).unwrap();
     }
@@ -470,6 +481,7 @@ fn setup() -> Env {
         investor,
         settlement_owner,
         stranger,
+        buyer,
         instrument_mint,
         settlement_mint,
     }
@@ -596,6 +608,164 @@ fn settle_ok(env: &mut Env) {
 fn settle_fail(env: &mut Env) -> String {
     let ix = default_settle(env);
     send_err(&mut env.svm, &[&env.registrar, &env.investor], ix)
+}
+
+fn secondary_settlement_pda(trade_id: &str) -> Pubkey {
+    Pubkey::find_program_address(
+        &[
+            market_constants::SECONDARY_SETTLEMENT_SEED,
+            trade_id.as_bytes(),
+        ],
+        &MARKET_ID,
+    )
+    .0
+}
+
+fn transfer_tokens(
+    svm: &mut LiteSVM,
+    authority: &Keypair,
+    mint: &Pubkey,
+    from: &Pubkey,
+    to: &Pubkey,
+    amount: u64,
+) {
+    send(
+        svm,
+        &[authority],
+        spl_token_2022::instruction::transfer_checked(
+            &TOKEN_2022_ID,
+            from,
+            mint,
+            to,
+            &authority.pubkey(),
+            &[],
+            amount,
+            0,
+        )
+        .unwrap(),
+    );
+}
+
+fn freeze_ata(svm: &mut LiteSVM, authority: &Keypair, mint: &Pubkey, account: &Pubkey) {
+    send(
+        svm,
+        &[authority],
+        spl_token_2022::instruction::freeze_account(
+            &TOKEN_2022_ID,
+            account,
+            mint,
+            &authority.pubkey(),
+            &[],
+        )
+        .unwrap(),
+    );
+}
+
+fn settle_secondary_ix(
+    env: &Env,
+    seller: Pubkey,
+    buyer: Pubkey,
+    trade_id: &str,
+    quantity: u64,
+    unit_price: u64,
+    notional: u64,
+    instrument_mint: Pubkey,
+    settlement_mint: Pubkey,
+) -> anchor_lang::solana_program::instruction::Instruction {
+    anchor_lang::solana_program::instruction::Instruction::new_with_bytes(
+        MARKET_ID,
+        &market_ix::SettleSecondaryDvp {
+            trade_id: trade_id.to_string(),
+            quantity,
+            unit_price,
+            notional,
+        }
+        .data(),
+        market_accounts::SettleSecondaryDvp {
+            seller,
+            buyer,
+            market_config: market_config_pda(),
+            settlement: secondary_settlement_pda(trade_id),
+            instrument_mint,
+            settlement_mint,
+            seller_instrument_ata: ata(&seller, &instrument_mint),
+            buyer_instrument_ata: ata(&buyer, &instrument_mint),
+            buyer_settlement_ata: ata(&buyer, &settlement_mint),
+            seller_settlement_ata: ata(&seller, &settlement_mint),
+            token_program: TOKEN_2022_ID,
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    )
+}
+
+fn default_secondary(env: &Env) -> anchor_lang::solana_program::instruction::Instruction {
+    settle_secondary_ix(
+        env,
+        env.investor.pubkey(),
+        env.buyer.pubkey(),
+        TRADE_ID,
+        SECONDARY_QTY,
+        SECONDARY_PRICE,
+        SECONDARY_NOTIONAL,
+        env.instrument_mint,
+        env.settlement_mint,
+    )
+}
+
+fn prepare_secondary(env: &mut Env) {
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.investor.pubkey(),
+        &env.instrument_mint,
+    );
+    transfer_tokens(
+        &mut env.svm,
+        &env.registrar,
+        &env.instrument_mint,
+        &ata(&env.registrar.pubkey(), &env.instrument_mint),
+        &ata(&env.investor.pubkey(), &env.instrument_mint),
+        10,
+    );
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.buyer.pubkey(),
+        &env.instrument_mint,
+    );
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.buyer.pubkey(),
+        &env.settlement_mint,
+    );
+    mint_to(
+        &mut env.svm,
+        &env.registrar,
+        &env.settlement_mint,
+        &ata(&env.buyer.pubkey(), &env.settlement_mint),
+        BUYER_KZT,
+    );
+}
+
+fn load_secondary(env: &Env, trade_id: &str) -> SecondarySettlementReceipt {
+    let account = env
+        .svm
+        .get_account(&secondary_settlement_pda(trade_id))
+        .unwrap();
+    let mut data: &[u8] = &account.data;
+    SecondarySettlementReceipt::try_deserialize(&mut data).unwrap()
+}
+
+fn secondary_ok(env: &mut Env) {
+    let ix = default_secondary(env);
+    send(&mut env.svm, &[&env.investor, &env.buyer], ix);
+}
+
+fn secondary_fail(env: &mut Env) -> String {
+    let ix = default_secondary(env);
+    send_err(&mut env.svm, &[&env.investor, &env.buyer], ix)
 }
 
 #[test]
@@ -1129,6 +1299,480 @@ fn coverage_breach_blocks_placement() {
     let logs = settle_fail(&mut env);
     assert!(
         logs.contains("CoverageBreach") || logs.contains("exceeds eligible"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_dvp_success_moves_wheat_and_demo_kzt() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let registrar_wheat = token_amount(
+        &env.svm,
+        &ata(&env.registrar.pubkey(), &env.instrument_mint),
+    );
+    secondary_ok(&mut env);
+    let receipt = load_secondary(&env, TRADE_ID);
+    assert_eq!(receipt.trade_id, TRADE_ID);
+    assert_eq!(receipt.seller, env.investor.pubkey());
+    assert_eq!(receipt.buyer, env.buyer.pubkey());
+    assert_eq!(receipt.quantity, SECONDARY_QTY);
+    assert_eq!(receipt.unit_price, SECONDARY_PRICE);
+    assert_eq!(receipt.notional, SECONDARY_NOTIONAL);
+    assert_eq!(receipt.status, SecondarySettlementStatus::Settled);
+    assert_eq!(
+        token_amount(
+            &env.svm,
+            &ata(&env.investor.pubkey(), &env.instrument_mint)
+        ),
+        8
+    );
+    assert_eq!(
+        token_amount(&env.svm, &ata(&env.buyer.pubkey(), &env.instrument_mint)),
+        2
+    );
+    assert_eq!(
+        token_amount(&env.svm, &ata(&env.buyer.pubkey(), &env.settlement_mint)),
+        BUYER_KZT - SECONDARY_NOTIONAL
+    );
+    assert_eq!(
+        token_amount(
+            &env.svm,
+            &ata(&env.investor.pubkey(), &env.settlement_mint)
+        ),
+        INVESTOR_KZT + SECONDARY_NOTIONAL
+    );
+    assert_eq!(
+        token_amount(
+            &env.svm,
+            &ata(&env.registrar.pubkey(), &env.instrument_mint)
+        ),
+        registrar_wheat
+    );
+    assert_eq!(mint_supply(&env.svm, &env.instrument_mint), MINT_SUPPLY);
+}
+
+#[test]
+fn secondary_does_not_use_primary_simulation_price() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    secondary_ok(&mut env);
+    let config = load_config(&env);
+    assert_eq!(config.simulated_unit_price, UNIT_PRICE);
+    assert_ne!(SECONDARY_PRICE, UNIT_PRICE);
+}
+
+#[test]
+fn secondary_after_primary_leaves_registrar_inventory_unchanged() {
+    let mut env = setup();
+    settle_ok(&mut env);
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.buyer.pubkey(),
+        &env.instrument_mint,
+    );
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.buyer.pubkey(),
+        &env.settlement_mint,
+    );
+    mint_to(
+        &mut env.svm,
+        &env.registrar,
+        &env.settlement_mint,
+        &ata(&env.buyer.pubkey(), &env.settlement_mint),
+        BUYER_KZT,
+    );
+    let registrar_wheat = token_amount(
+        &env.svm,
+        &ata(&env.registrar.pubkey(), &env.instrument_mint),
+    );
+    secondary_ok(&mut env);
+    assert_eq!(
+        token_amount(
+            &env.svm,
+            &ata(&env.registrar.pubkey(), &env.instrument_mint)
+        ),
+        registrar_wheat
+    );
+    assert_eq!(
+        token_amount(
+            &env.svm,
+            &ata(&env.investor.pubkey(), &env.instrument_mint)
+        ),
+        8
+    );
+    assert_eq!(
+        token_amount(&env.svm, &ata(&env.buyer.pubkey(), &env.instrument_mint)),
+        2
+    );
+}
+
+#[test]
+fn initialize_market_still_works_with_secondary_instruction_present() {
+    let env = setup();
+    let config = load_config(&env);
+    assert_eq!(config.issuance_id, ISSUANCE_ID);
+    assert_eq!(config.simulated_unit_price, UNIT_PRICE);
+}
+
+#[test]
+fn secondary_insufficient_seller_wheat_is_atomic() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    transfer_tokens(
+        &mut env.svm,
+        &env.investor,
+        &env.instrument_mint,
+        &ata(&env.investor.pubkey(), &env.instrument_mint),
+        &ata(&env.registrar.pubkey(), &env.instrument_mint),
+        9,
+    );
+    let seller_wheat_before = token_amount(
+        &env.svm,
+        &ata(&env.investor.pubkey(), &env.instrument_mint),
+    );
+    let buyer_kzt_before = token_amount(
+        &env.svm,
+        &ata(&env.buyer.pubkey(), &env.settlement_mint),
+    );
+    let logs = secondary_fail(&mut env);
+    assert!(
+        logs.contains("InsufficientSellerInstrument") || logs.contains("insufficient"),
+        "{logs}"
+    );
+    assert_eq!(
+        token_amount(
+            &env.svm,
+            &ata(&env.investor.pubkey(), &env.instrument_mint)
+        ),
+        seller_wheat_before
+    );
+    assert_eq!(
+        token_amount(&env.svm, &ata(&env.buyer.pubkey(), &env.settlement_mint)),
+        buyer_kzt_before
+    );
+    assert!(env
+        .svm
+        .get_account(&secondary_settlement_pda(TRADE_ID))
+        .is_none());
+}
+
+#[test]
+fn secondary_insufficient_buyer_kzt_is_atomic() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    transfer_tokens(
+        &mut env.svm,
+        &env.buyer,
+        &env.settlement_mint,
+        &ata(&env.buyer.pubkey(), &env.settlement_mint),
+        &ata(&env.investor.pubkey(), &env.settlement_mint),
+        BUYER_KZT - 1_000,
+    );
+    let seller_wheat_before = token_amount(
+        &env.svm,
+        &ata(&env.investor.pubkey(), &env.instrument_mint),
+    );
+    let buyer_kzt_before = token_amount(
+        &env.svm,
+        &ata(&env.buyer.pubkey(), &env.settlement_mint),
+    );
+    let logs = secondary_fail(&mut env);
+    assert!(
+        logs.contains("InsufficientBuyerSettlement") || logs.contains("insufficient"),
+        "{logs}"
+    );
+    assert_eq!(
+        token_amount(
+            &env.svm,
+            &ata(&env.investor.pubkey(), &env.instrument_mint)
+        ),
+        seller_wheat_before
+    );
+    assert_eq!(
+        token_amount(&env.svm, &ata(&env.buyer.pubkey(), &env.settlement_mint)),
+        buyer_kzt_before
+    );
+}
+
+#[test]
+fn secondary_frozen_destination_rolls_back_both_legs() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    freeze_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.settlement_mint,
+        &ata(&env.investor.pubkey(), &env.settlement_mint),
+    );
+    let seller_wheat_before = token_amount(
+        &env.svm,
+        &ata(&env.investor.pubkey(), &env.instrument_mint),
+    );
+    let buyer_kzt_before = token_amount(
+        &env.svm,
+        &ata(&env.buyer.pubkey(), &env.settlement_mint),
+    );
+    let logs = secondary_fail(&mut env);
+    assert!(
+        logs.contains("TokenAccountFrozen")
+            || logs.to_lowercase().contains("frozen")
+            || logs.contains("AccountFrozen"),
+        "{logs}"
+    );
+    assert_eq!(
+        token_amount(
+            &env.svm,
+            &ata(&env.investor.pubkey(), &env.instrument_mint)
+        ),
+        seller_wheat_before
+    );
+    assert_eq!(
+        token_amount(&env.svm, &ata(&env.buyer.pubkey(), &env.settlement_mint)),
+        buyer_kzt_before
+    );
+}
+
+#[test]
+fn secondary_wrong_instrument_mint_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let other = create_mint(&mut env.svm, &env.registrar, &env.registrar.pubkey());
+    let ix = settle_secondary_ix(
+        &env,
+        env.investor.pubkey(),
+        env.buyer.pubkey(),
+        TRADE_ID,
+        SECONDARY_QTY,
+        SECONDARY_PRICE,
+        SECONDARY_NOTIONAL,
+        other,
+        env.settlement_mint,
+    );
+    let logs = send_err(&mut env.svm, &[&env.investor, &env.buyer], ix);
+    assert!(
+        logs.contains("WrongInstrumentMint") || logs.contains("has one constraint"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_wrong_settlement_mint_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let other = create_mint(&mut env.svm, &env.registrar, &env.registrar.pubkey());
+    let ix = settle_secondary_ix(
+        &env,
+        env.investor.pubkey(),
+        env.buyer.pubkey(),
+        TRADE_ID,
+        SECONDARY_QTY,
+        SECONDARY_PRICE,
+        SECONDARY_NOTIONAL,
+        env.instrument_mint,
+        other,
+    );
+    let logs = send_err(&mut env.svm, &[&env.investor, &env.buyer], ix);
+    assert!(
+        logs.contains("WrongSettlementMint") || logs.contains("has one constraint"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_wrong_seller_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.stranger.pubkey(),
+        &env.instrument_mint,
+    );
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.stranger.pubkey(),
+        &env.settlement_mint,
+    );
+    let ix = settle_secondary_ix(
+        &env,
+        env.stranger.pubkey(),
+        env.buyer.pubkey(),
+        TRADE_ID,
+        SECONDARY_QTY,
+        SECONDARY_PRICE,
+        SECONDARY_NOTIONAL,
+        env.instrument_mint,
+        env.settlement_mint,
+    );
+    let logs = send_err(&mut env.svm, &[&env.stranger, &env.buyer], ix);
+    assert!(
+        logs.contains("InsufficientSellerInstrument")
+            || logs.contains("constraint")
+            || logs.contains("insufficient"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_wrong_buyer_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.stranger.pubkey(),
+        &env.instrument_mint,
+    );
+    create_ata(
+        &mut env.svm,
+        &env.registrar,
+        &env.stranger.pubkey(),
+        &env.settlement_mint,
+    );
+    let ix = settle_secondary_ix(
+        &env,
+        env.investor.pubkey(),
+        env.stranger.pubkey(),
+        TRADE_ID,
+        SECONDARY_QTY,
+        SECONDARY_PRICE,
+        SECONDARY_NOTIONAL,
+        env.instrument_mint,
+        env.settlement_mint,
+    );
+    let logs = send_err(&mut env.svm, &[&env.investor, &env.stranger], ix);
+    assert!(
+        logs.contains("InsufficientBuyerSettlement")
+            || logs.contains("constraint")
+            || logs.contains("insufficient"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_wrong_quantity_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let ix = settle_secondary_ix(
+        &env,
+        env.investor.pubkey(),
+        env.buyer.pubkey(),
+        TRADE_ID,
+        3,
+        SECONDARY_PRICE,
+        SECONDARY_NOTIONAL,
+        env.instrument_mint,
+        env.settlement_mint,
+    );
+    let logs = send_err(&mut env.svm, &[&env.investor, &env.buyer], ix);
+    assert!(
+        logs.contains("SettlementAmountMismatch") || logs.contains("does not equal"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_notional_mismatch_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let ix = settle_secondary_ix(
+        &env,
+        env.investor.pubkey(),
+        env.buyer.pubkey(),
+        TRADE_ID,
+        SECONDARY_QTY,
+        SECONDARY_PRICE,
+        200_000,
+        env.instrument_mint,
+        env.settlement_mint,
+    );
+    let logs = send_err(&mut env.svm, &[&env.investor, &env.buyer], ix);
+    assert!(
+        logs.contains("SettlementAmountMismatch") || logs.contains("does not equal"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_duplicate_trade_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    secondary_ok(&mut env);
+    let logs = secondary_fail(&mut env);
+    assert!(
+        logs.to_lowercase().contains("already in use")
+            || logs.contains("already initialized")
+            || logs.contains("AccountAlreadyInitialized"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_missing_seller_signature_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let ix = default_secondary(&env);
+    let logs = send_err(&mut env.svm, &[&env.buyer], ix);
+    assert!(
+        logs.to_lowercase().contains("signature")
+            || logs.to_lowercase().contains("signer")
+            || logs.contains("MissingRequiredSignature"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_missing_buyer_signature_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let ix = default_secondary(&env);
+    let logs = send_err(&mut env.svm, &[&env.investor], ix);
+    assert!(
+        logs.to_lowercase().contains("signature")
+            || logs.to_lowercase().contains("signer")
+            || logs.contains("MissingRequiredSignature"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_zero_quantity_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let ix = settle_secondary_ix(
+        &env,
+        env.investor.pubkey(),
+        env.buyer.pubkey(),
+        TRADE_ID,
+        0,
+        SECONDARY_PRICE,
+        0,
+        env.instrument_mint,
+        env.settlement_mint,
+    );
+    let logs = send_err(&mut env.svm, &[&env.investor, &env.buyer], ix);
+    assert!(
+        logs.contains("QuantityZero") || logs.contains("greater than zero"),
+        "{logs}"
+    );
+}
+
+#[test]
+fn secondary_wrong_market_config_rejected() {
+    let mut env = setup();
+    prepare_secondary(&mut env);
+    let mut ix = default_secondary(&env);
+    ix.accounts[2].pubkey = pool_pda(POOL_ID);
+    let logs = send_err(&mut env.svm, &[&env.investor, &env.buyer], ix);
+    assert!(
+        logs.to_lowercase().contains("constraint")
+            || logs.contains("seeds")
+            || logs.contains("Wrong"),
         "{logs}"
     );
 }

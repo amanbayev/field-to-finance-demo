@@ -11,7 +11,9 @@ describe("secondary DvP programme audit", () => {
     expect(currentProgramCanSettleSecondaryDvp()).toBe(false);
     expect(SECONDARY_DVP_AUDIT.programRedeployRequired).toBe(true);
     expect(SECONDARY_DVP_AUDIT.requiredNewInstruction).toBe("settle_secondary_dvp");
-    expect(SECONDARY_DVP_AUDIT.secondaryWouldNeed.wheatSource).toContain("seller");
-    expect(SECONDARY_DVP_AUDIT.secondaryWouldNeed.demoKztSource).toContain("buyer");
+    expect(SECONDARY_DVP_AUDIT.sourceInstructionImplemented).toBe(true);
+    expect(SECONDARY_DVP_AUDIT.deployedProgramHasInstruction).toBe(false);
+    expect(SECONDARY_DVP_AUDIT.secondaryAccounts.wheatSource).toContain("seller");
+    expect(SECONDARY_DVP_AUDIT.secondaryAccounts.demoKztSource).toContain("buyer");
   });
 });

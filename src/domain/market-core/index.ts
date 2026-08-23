@@ -141,3 +141,12 @@ export {
   currentProgramCanSettleSecondaryDvp,
 } from "./secondary-dvp";
 export type { SecondaryDvpAudit } from "./secondary-dvp";
+export {
+  LOCKED_SEED_TRADE,
+  assertSettlementMatchesLockedTrade,
+} from "./secondary-settlement-binding";
+export {
+  SECONDARY_SETTLEMENT_ENABLED,
+  SecondarySettlementProvider,
+  secondarySettlementProvider,
+} from "./secondary-settlement-provider";
