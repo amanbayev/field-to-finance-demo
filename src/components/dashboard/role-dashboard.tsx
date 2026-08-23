@@ -323,6 +323,11 @@ async function TraderHome() {
         {t("marketCore.clearingDistinct")}
       </p>
       <p className="mt-3 text-sm text-muted-foreground">{t("workspace.secondaryBody")}</p>
+      <p className="mt-3">
+        <Link href="/secondary" className="text-xs text-primary hover:underline">
+          {t("nav.secondary")}
+        </Link>
+      </p>
     </div>
   );
 }

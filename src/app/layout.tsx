@@ -48,11 +48,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang={locale}
       className={`${ibmPlexSans.variable} ${sourceSerif.variable} ${ibmPlexMono.variable} h-full`}
     >
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col overflow-x-hidden">
         <NextIntlClientProvider locale={locale} messages={messages}>
           <TooltipProvider>
             <SiteHeader />
-            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+            <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-4 py-6 sm:px-6">
               {children}
             </main>
             <SiteFooter />

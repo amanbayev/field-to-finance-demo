@@ -69,11 +69,33 @@ export const MARKET_PHASES = ["CLOSED", "PRIMARY_ONLY", "SECONDARY_OPEN"] as con
 
 export type MarketPhase = (typeof MARKET_PHASES)[number];
 
-export const ORDER_STATUSES = ["NONE", "OPEN", "MATCHED", "CANCELLED"] as const;
+export const ORDER_SIDES = ["BUY", "SELL"] as const;
+
+export type OrderSide = (typeof ORDER_SIDES)[number];
+
+export const ORDER_TYPES = ["LIMIT"] as const;
+
+export type OrderType = (typeof ORDER_TYPES)[number];
+
+export const ORDER_SOURCE_CHANNELS = ["DIRECT_MTP"] as const;
+
+export type OrderSourceChannel = (typeof ORDER_SOURCE_CHANNELS)[number];
+
+export const ORDER_STATUSES = [
+  "OPEN",
+  "PARTIALLY_FILLED",
+  "FILLED",
+  "CANCELLED",
+  "REJECTED",
+] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-export const TRADE_STATUSES = ["NONE", "MATCHED", "CLEARED", "FAILED"] as const;
+export const TRADE_STATUSES = [
+  "MATCHED",
+  "CLEARING_READY",
+  "AWAITING_DEVNET_SETTLEMENT",
+] as const;
 
 export type TradeStatus = (typeof TRADE_STATUSES)[number];
 
@@ -85,6 +107,37 @@ export const SETTLEMENT_STATUSES = [
 ] as const;
 
 export type SettlementStatus = (typeof SETTLEMENT_STATUSES)[number];
+
+export const RESERVATION_KINDS = ["ASSET", "SETTLEMENT"] as const;
+
+export type ReservationKind = (typeof RESERVATION_KINDS)[number];
+
+export const RESERVATION_STATUSES = [
+  "ACTIVE",
+  "RELEASED",
+  "HELD_PENDING_SETTLEMENT",
+] as const;
+
+export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
+
+export const MARKET_EVENT_TYPES = [
+  "order_submitted",
+  "order_reserved",
+  "order_matched",
+  "order_cancelled",
+  "order_rejected",
+  "trade_created",
+  "clearing_started",
+  "eligibility_rechecked",
+  "settlement_reservation_confirmed",
+] as const;
+
+export type MarketEventType = (typeof MARKET_EVENT_TYPES)[number];
+
+export const SETTLED_EVENT_TYPES = [
+  "settlement_finalized",
+  "registry_transfer_completed",
+] as const;
 
 export const ELIGIBILITY_STATES = [
   "ELIGIBLE",
@@ -160,22 +213,64 @@ export interface Market {
   instrumentId: string;
   phase: MarketPhase;
   activeChannel: DistributionChannel;
-  transacting: false;
+  transacting: boolean;
+  settlementAssetId: string;
+  settlementAssetLabel: string;
+  settlementHasMonetaryValue: false;
+  marketType: "REGULATED_INSTITUTIONAL_DEMONSTRATOR";
+  allowedOrderTypes: readonly OrderType[];
+  wholeQuantityOnly: true;
 }
 
 export interface Order {
   id: string;
   marketId: string;
   instrumentId: string;
+  participantId: string;
+  side: OrderSide;
+  orderType: OrderType;
+  price: number;
+  originalQuantity: number;
+  remainingQuantity: number;
+  filledQuantity: number;
   status: OrderStatus;
+  sequence: number;
+  createdAt: string;
+  updatedAt: string;
+  sourceChannel: OrderSourceChannel;
+  rejectReason?: string;
+}
+
+export interface OrderReservation {
+  id: string;
+  orderId: string;
+  marketId: string;
+  instrumentId: string;
+  participantId: string;
+  kind: ReservationKind;
+  quantity: number;
+  status: ReservationStatus;
 }
 
 export interface Trade {
   id: string;
-  orderId: string;
+  marketId: string;
   instrumentId: string;
+  buyOrderId: string;
+  sellOrderId: string;
+  buyerParticipantId: string;
+  sellerParticipantId: string;
+  quantity: number;
+  price: number;
+  notional: number;
   status: TradeStatus;
   kind: "PRIMARY_PLACEMENT" | "SECONDARY";
+  createdAt: string;
+  updatedAt: string;
+  eligibilityRecheckPassed: boolean;
+  dvpStatus: "PENDING";
+  registryUpdateStatus: "PENDING";
+  finalSettlementStatus: "PENDING";
 }
 
 export interface Settlement {
@@ -183,6 +278,7 @@ export interface Settlement {
   tradeId: string;
   status: SettlementStatus;
   evidenceLabel: "PRIMARY_PLACEMENT_EVIDENCE" | null;
+  kind: "PRIMARY" | "SECONDARY";
 }
 
 export interface HoldingBuckets {
@@ -190,6 +286,8 @@ export interface HoldingBuckets {
   reservedForOrders: number;
   pledged: number;
   blocked: number;
+  pendingIn: number;
+  pendingOut: number;
 }
 
 export interface Holding {
@@ -223,7 +321,46 @@ export interface CustodyProviderAdapter {
 export interface SettlementProviderAdapter {
   id: string;
   label: string;
-  implemented: false;
+  implemented: boolean;
+}
+
+export interface SettlementAccount {
+  participantId: string;
+  assetId: string;
+  available: number;
+  reserved: number;
+}
+
+export interface MarketEvent {
+  id: string;
+  timestamp: string;
+  actor: string;
+  participantId: string | null;
+  instrumentId: string;
+  marketId: string;
+  entityId: string;
+  type: MarketEventType;
+  metadata: Record<string, string | number | boolean | null>;
+}
+
+export interface EngineState {
+  now: string;
+  nextOrderSeq: number;
+  nextOrderId: number;
+  nextTradeId: number;
+  nextReservationId: number;
+  nextSettlementId: number;
+  nextEventId: number;
+  markets: Market[];
+  instruments: MarketInstrument[];
+  orders: Order[];
+  reservations: OrderReservation[];
+  trades: Trade[];
+  settlements: Settlement[];
+  holdings: Holding[];
+  eligibility: ParticipantInstrumentEligibility[];
+  settlementAccounts: SettlementAccount[];
+  events: MarketEvent[];
 }
 
 export interface ClearingStep {

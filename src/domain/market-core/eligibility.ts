@@ -40,7 +40,10 @@ export function canTrade(input: {
   instrument: MarketInstrument;
   market: Market;
 }): boolean {
-  if (input.market.transacting) {
+  if (input.instrument.instrumentType === "PROTOCOL_INVESTMENT") {
+    return false;
+  }
+  if (!input.market.transacting) {
     return false;
   }
   if (input.market.phase !== "SECONDARY_OPEN") {

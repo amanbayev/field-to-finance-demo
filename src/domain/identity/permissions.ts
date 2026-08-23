@@ -50,13 +50,14 @@ const ROLE_PERMISSIONS: Record<PlatformRoleId, readonly Permission[]> = {
   ],
   INVESTOR: [
     "market.read",
+    "market.trade",
     "placement.read.own",
     "portfolio.read.own",
     "issuance.read",
     "pools.read",
     "compliance.read",
   ],
-  TRADER: ["market.read", "issuance.read", "pools.read"],
+  TRADER: ["market.read", "market.trade", "issuance.read", "pools.read"],
   COMPLIANCE_OFFICER: [
     "compliance.read",
     "compliance.manage",

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { AuditTrail } from "@/components/regulator/audit-trail";
+import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { PageHeader } from "@/components/shared/page-header";
-import { PageSection } from "@/components/shared/page-section";
 import {
   Table,
   TableBody,
@@ -14,6 +14,7 @@ import {
 import { requirePermission } from "@/lib/auth/guard";
 import { loadAuditEvents } from "@/services/admin-service";
 import { listLedgerEvents } from "@/services/regulator-service";
+import { getSecondaryEngineState } from "@/services/secondary-market-service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("workspace");
@@ -24,9 +25,11 @@ export default async function AuditPage() {
   await requirePermission("audit.read");
   const t = await getTranslations("workspace");
   const tAdmin = await getTranslations("admin");
-  const [applicationEvents, ledger] = await Promise.all([
+  const tSec = await getTranslations("secondary");
+  const [applicationEvents, ledger, engine] = await Promise.all([
     loadAuditEvents(),
     listLedgerEvents(),
+    getSecondaryEngineState(),
   ]);
   const chainEvents = ledger.filter(
     (event) =>
@@ -84,6 +87,38 @@ export default async function AuditPage() {
             )}
           </TableBody>
         </Table>
+      </PageSection>
+      <PageSection title={tSec("marketEvents")} description={tSec("matchedNotSettled")}>
+        {engine.events.length === 0 ? (
+          <EmptyState>{t("emptyChainEvidence")}</EmptyState>
+        ) : (
+          <Table className="min-w-[56rem]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{tSec("time")}</TableHead>
+                <TableHead>{tSec("eventType")}</TableHead>
+                <TableHead>{tSec("actor")}</TableHead>
+                <TableHead>{tSec("participant")}</TableHead>
+                <TableHead>{tSec("instrument")}</TableHead>
+                <TableHead>{tSec("marketId")}</TableHead>
+                <TableHead>{tSec("entityId")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...engine.events].reverse().map((event) => (
+                <TableRow key={event.id}>
+                  <TableCell className="font-tabular text-xs">{event.timestamp}</TableCell>
+                  <TableCell className="font-mono text-xs">{event.type}</TableCell>
+                  <TableCell className="text-xs">{event.actor}</TableCell>
+                  <TableCell className="text-xs">{event.participantId ?? "—"}</TableCell>
+                  <TableCell className="text-xs">{event.instrumentId}</TableCell>
+                  <TableCell className="font-mono text-xs">{event.marketId}</TableCell>
+                  <TableCell className="font-mono text-xs">{event.entityId}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </PageSection>
       <PageSection title={t("blockchainEvidence")}>
         <AuditTrail events={chainEvents} />

@@ -352,13 +352,20 @@ export default async function InstrumentDetailPage({
       {section === "market" ? (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">{t("marketClosed")}</p>
+          {market?.phase === "SECONDARY_OPEN" ? (
+            <p className="text-sm">
+              <Link href="/secondary" className="text-primary hover:underline">
+                {t("stageSECONDARY_MARKET")}
+              </Link>
+            </p>
+          ) : null}
           <DataList
             items={[
               {
                 label: t("sectionMarket"),
                 value: market ? t("primaryOnly") : t("protocolInvestmentStatus"),
               },
-              { label: t("noOrders"), value: t("noSecondaryTrade") },
+              { label: t("marketStatus"), value: market?.id ?? t("protocolInvestmentStatus") },
             ]}
           />
           <MarketClearingSplit

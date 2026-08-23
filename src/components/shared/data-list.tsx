@@ -5,9 +5,9 @@ export function DataList({
 }) {
   return (
     <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-      {items.map((item) => (
+      {items.map((item, index) => (
         <div
-          key={item.label}
+          key={`${item.label}-${index}`}
           className="flex items-baseline justify-between gap-4 border-b border-border/70 py-2"
         >
           <dt className="label-caps shrink-0">{item.label}</dt>

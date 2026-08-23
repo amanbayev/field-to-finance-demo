@@ -57,6 +57,7 @@ export const PERMISSIONS = [
   "issuance.read",
   "issuance.manage",
   "market.read",
+  "market.trade",
   "placement.read.own",
   "placement.read.all",
   "portfolio.read.own",
