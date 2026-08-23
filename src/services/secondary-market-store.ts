@@ -21,17 +21,8 @@ function box(): StoreBox {
 }
 
 /**
- * In-process mutex around a cloned-state engine.
- *
- * Concurrency model:
- * - submitLimitOrder / cancelOrder clone EngineState and apply mutations atomically
- *   in memory (no partial writes).
- * - This lock serializes Preview/local requests on one Node process so two SELL
- *   reservations cannot consume the same available balance in that process.
- * - Serverless instances do not share memory. The first WHEAT scenario is seeded
- *   per process so review UI is visible without a Production Supabase migration.
- * - Distributed/database locking is specified in the additive SQL migration and
- *   is not applied to the shared Production project in this Preview stage.
+ * In-process store for unit-test fixtures only.
+ * Preview/runtime market authority is PostgreSQL via market_core_* RPCs.
  */
 export async function mutateSecondaryMarket<T extends { state: EngineState }>(
   fn: (state: EngineState) => T | Promise<T>,

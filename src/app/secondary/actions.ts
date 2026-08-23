@@ -30,6 +30,7 @@ export async function submitSecondaryOrderAction(formData: FormData) {
     side,
     quantity,
     price,
+    idempotencyKey: String(formData.get("idempotencyKey") || crypto.randomUUID()),
   });
   refreshMarketPaths();
   if (result.error) {
@@ -44,7 +45,11 @@ export async function cancelSecondaryOrderAction(formData: FormData) {
   if (!orderId) {
     redirect("/secondary?error=ORDER_NOT_FOUND");
   }
-  const result = await cancelSecondaryOrder({ actor, orderId });
+  const result = await cancelSecondaryOrder({
+    actor,
+    orderId,
+    idempotencyKey: String(formData.get("idempotencyKey") || crypto.randomUUID()),
+  });
   refreshMarketPaths();
   if (result.error) {
     redirect(`/secondary?error=${result.error}`);

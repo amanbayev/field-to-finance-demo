@@ -114,3 +114,30 @@ export {
   hasAvailable,
   legalOwnedUnchanged,
 } from "./reservation";
+export {
+  PARKED_DEMO_SETTLEMENT_STATE,
+  POST_SETTLEMENT_WHEAT_RECONCILIATION,
+  PRE_SETTLEMENT_WHEAT_RECONCILIATION,
+  SETTLEMENT_PIPELINE,
+  canMarkSettled,
+  knownSettlementSignature,
+  nextSettlementIntent,
+  wheatReconciliationExceptions,
+} from "./settlement-lifecycle";
+export type {
+  SettlementIntent,
+  SettlementLifecycleState,
+  SettlementRecord,
+} from "./settlement-lifecycle";
+export {
+  participantMayTrade,
+  roleMayDirectMatching,
+  roleMayReadAllMarketRecords,
+} from "./actor-gate";
+export {
+  PRIMARY_DVP_INSTRUCTION,
+  SECONDARY_DVP_AUDIT,
+  SECONDARY_DVP_INSTRUCTION,
+  currentProgramCanSettleSecondaryDvp,
+} from "./secondary-dvp";
+export type { SecondaryDvpAudit } from "./secondary-dvp";

@@ -53,6 +53,7 @@ export default async function SecondaryMarketPage({
         description={t("intro")}
       />
       <p className="mb-4 text-sm text-muted-foreground">{t("matchedNotSettled")}</p>
+      <p className="mb-4 text-xs text-muted-foreground">{t("pendingTransfer")}</p>
       {params.submitted ? (
         <p className="mb-3 text-sm text-primary">{t("submitted")}</p>
       ) : null}
@@ -91,6 +92,8 @@ export default async function SecondaryMarketPage({
           <dt className="label-caps text-muted-foreground">{t("marketStatus")}</dt>
           <dd>
             <MarketStatusChip label={t("demoOpen")} tone="SECONDARY_OPEN" />
+            <span className="mt-1 block text-xs text-muted-foreground">{t("matchingActive")}</span>
+            <span className="block text-xs text-muted-foreground">{t("settlementAwaiting")}</span>
           </dd>
         </div>
       </dl>

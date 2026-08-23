@@ -12,13 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { availableBalance } from "@/domain/market-core";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { requireRegistrarOrRegulator } from "@/lib/auth/guard";
 import { ASSET_CLASS_KEYS } from "@/lib/market-core/presentation";
-import { getPlacementSnapshot } from "@/services/placement-service";
 import {
   getMarketInstrument,
   listAssetProtocols,
@@ -29,6 +27,9 @@ import {
   getSecondaryEngineState,
   overlayWorkingHoldings,
 } from "@/services/secondary-market-service";
+import { rpcReconcileWheat } from "@/services/secondary-market-repository";
+import { loadLiveWheatReconciliation } from "@/services/wheat-live-reconciliation";
+import { grainDeskSettlementBlockers } from "@/data/market-core/settlement-identities";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketCore");
@@ -50,8 +51,20 @@ export default async function RegistryPage({
   const filters = await searchParams;
   const t = await getTranslations("marketCore");
   const locale = (await getLocale()) as AppLocale;
-  const snapshot = await getPlacementSnapshot();
   const engine = await getSecondaryEngineState();
+  const cachedReconciliation = await rpcReconcileWheat();
+  const wheatHoldings = engine.holdings.filter((row) => row.instrumentId === "WHEAT-2027");
+  const liveReconciliation = await loadLiveWheatReconciliation(
+    wheatHoldings.map((row) => ({
+      participantId: row.holderReference,
+      holderName: row.holderName,
+      registeredOwned: row.buckets.owned,
+      pendingIn: row.buckets.pendingIn,
+      pendingOut: row.buckets.pendingOut,
+    })),
+  );
+  const reconciliation = liveReconciliation.ok ? liveReconciliation : cachedReconciliation;
+  const grainDeskBlockers = grainDeskSettlementBlockers();
   const protocols = listAssetProtocols();
   const instruments = listMarketInstruments();
   const issuers = [...new Map(instruments.map((item) => [item.issuerId, item])).values()];
@@ -64,23 +77,12 @@ export default async function RegistryPage({
       holderReference: filters.holder || undefined,
     }),
     engine,
-  ).map((holding) => {
-    if (holding.instrumentId !== "WHEAT-2027") {
-      return holding;
-    }
-    const owned =
-      holding.holderReference === "REGISTRAR"
-        ? snapshot.supply.registrarInventory
-        : holding.holderReference === "INVESTOR-0001"
-          ? snapshot.supply.circulating
-          : holding.buckets.owned;
-    const buckets = { ...holding.buckets, owned };
-    return { ...holding, buckets, available: availableBalance(buckets) };
-  });
+  );
 
   const holders = [...new Map(listHoldings().map((item) => [item.holderReference, item])).values()];
   const registrar = rows.find((row) => row.holderReference === "REGISTRAR");
   const investor = rows.find((row) => row.holderReference === "INVESTOR-0001");
+  const grainDesk = rows.find((row) => row.holderReference === "GRAIN-DESK");
 
   return (
     <div>
@@ -92,6 +94,7 @@ export default async function RegistryPage({
       <p className="mb-4 text-xs text-muted-foreground">
         {t("unresolvedCustody")} {t("issuedHoldingsProof")} {t("legalOwnership")}
       </p>
+      <p className="mb-4 text-xs text-muted-foreground">{t("bookOfRecord")}</p>
       {registrar && investor ? (
         <MetricStrip className="mb-6">
           <MetricCell
@@ -102,15 +105,71 @@ export default async function RegistryPage({
             label={investor.holderName}
             value={formatInteger(investor.buckets.owned, locale)}
           />
+          {grainDesk ? (
+            <MetricCell
+              label={grainDesk.holderName}
+              value={formatInteger(grainDesk.buckets.owned, locale)}
+            />
+          ) : null}
           <MetricCell
             emphasis="primary"
             label="WHEAT-2027"
             value={formatInteger(
-              registrar.buckets.owned + investor.buckets.owned,
+              registrar.buckets.owned + investor.buckets.owned + (grainDesk?.buckets.owned ?? 0),
               locale,
             )}
           />
         </MetricStrip>
+      ) : null}
+      {reconciliation && ("source" in reconciliation || reconciliation.ok) ? (
+        <PageSection title={t("reconciliation")} className="mb-6">
+          <p className="mb-3 text-xs text-muted-foreground">
+            {"source" in reconciliation && reconciliation.source === "LIVE_RPC"
+              ? t("reconciliationSourceLive")
+              : t("reconciliationSourceCached")}
+            {"slot" in reconciliation && reconciliation.slot != null
+              ? ` · slot ${reconciliation.slot}`
+              : ""}
+          </p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            {reconciliation.rows.some((row) => row.exception)
+              ? t("reconciliationException")
+              : t("reconciliationOk")}
+          </p>
+          {grainDeskBlockers.length > 0 ? (
+            <p className="mb-3 text-xs text-muted-foreground">{t("grainDeskUnmapped")}</p>
+          ) : null}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("holder")}</TableHead>
+                <TableHead className="text-right">{t("owned")}</TableHead>
+                <TableHead className="text-right">{t("onChainBalance")}</TableHead>
+                <TableHead className="text-right">{t("pendingIn")}</TableHead>
+                <TableHead className="text-right">{t("pendingOut")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {reconciliation.rows.map((row) => (
+                <TableRow key={row.participantId}>
+                  <TableCell>{row.holderName}</TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {formatInteger(row.registeredOwned, locale)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {row.chainBalance == null ? "—" : formatInteger(row.chainBalance, locale)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {formatInteger(row.pendingIn, locale)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {formatInteger(row.pendingOut, locale)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </PageSection>
       ) : null}
 
       <form className="mb-6 flex flex-wrap items-end gap-3 text-xs">

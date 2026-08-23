@@ -51,8 +51,18 @@ export function OrderEntry({
   }, [quantity, price]);
 
   return (
-    <form action={submitSecondaryOrderAction} className="grid gap-4">
+    <form
+      action={submitSecondaryOrderAction}
+      className="grid gap-4"
+      onSubmit={(event) => {
+        const field = event.currentTarget.elements.namedItem("idempotencyKey");
+        if (field instanceof HTMLInputElement && !field.value) {
+          field.value = crypto.randomUUID();
+        }
+      }}
+    >
       <input type="hidden" name="side" value={side} />
+      <input type="hidden" name="idempotencyKey" defaultValue="" />
       <div className="flex gap-2">
         <Button
           type="button"
