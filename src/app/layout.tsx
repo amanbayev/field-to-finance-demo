@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Inter, Source_Serif_4 } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppChrome } from "@/components/layout/app-chrome";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { productName } from "@/lib/navigation";
@@ -28,6 +29,12 @@ const ibmPlexMono = IBM_Plex_Mono({
   weight: ["400", "500"],
 });
 
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin", "cyrillic"],
+  display: "swap",
+});
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations();
   return {
@@ -46,16 +53,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang={locale}
-      className={`${ibmPlexSans.variable} ${sourceSerif.variable} ${ibmPlexMono.variable} h-full`}
+      className={`${ibmPlexSans.variable} ${sourceSerif.variable} ${ibmPlexMono.variable} ${inter.variable} h-full`}
     >
       <body className="flex min-h-full flex-col overflow-x-hidden">
         <NextIntlClientProvider locale={locale} messages={messages}>
           <TooltipProvider>
-            <SiteHeader />
-            <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-4 py-6 sm:px-6">
+            <AppChrome header={<SiteHeader />} footer={<SiteFooter />}>
               {children}
-            </main>
-            <SiteFooter />
+            </AppChrome>
           </TooltipProvider>
         </NextIntlClientProvider>
       </body>

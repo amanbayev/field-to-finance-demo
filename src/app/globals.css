@@ -122,3 +122,53 @@
     @apply sticky left-0 z-10 bg-card;
   }
 }
+
+[data-shell="institutional"] {
+  --background: #f7f8f5;
+  --foreground: #17201b;
+  --card: #ffffff;
+  --card-foreground: #17201b;
+  --popover: #ffffff;
+  --popover-foreground: #17201b;
+  --primary: #0b5d3b;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f4f1;
+  --secondary-foreground: #17201b;
+  --muted: #f1f4f1;
+  --muted-foreground: #59645d;
+  --accent: #eaf4ee;
+  --accent-foreground: #084a30;
+  --destructive: #b42318;
+  --border: #d8ded9;
+  --input: #d8ded9;
+  --ring: #0b5d3b;
+  --sidebar: #f1f4f1;
+  --sidebar-foreground: #17201b;
+  --sidebar-primary: #0b5d3b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eaf4ee;
+  --sidebar-accent-foreground: #084a30;
+  --sidebar-border: #d8ded9;
+  --radius: 0.5rem;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-shell="institutional"] h1,
+[data-shell="institutional"] h2,
+[data-shell="institutional"] h3,
+[data-shell="institutional"] .font-heading {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-shell="institutional"] [data-slot="table-head"] {
+  height: 2.75rem;
+}
+
+[data-shell="institutional"] [data-slot="table-cell"] {
+  height: 2.75rem;
+  padding-top: 0;
+  padding-bottom: 0;
+}
