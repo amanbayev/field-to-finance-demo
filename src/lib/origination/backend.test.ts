@@ -2,13 +2,23 @@ import { describe, expect, it } from "vitest";
 import { resolveOriginationBackend } from "@/lib/origination/backend";
 
 describe("origination backend contract", () => {
-  it("uses memory for unit tests", () => {
+  it("uses memory for unit tests even when a service secret is present", () => {
+    expect(
+      resolveOriginationBackend({
+        nodeEnv: "test",
+        hasServiceRole: true,
+      }),
+    ).toBe("memory");
     expect(
       resolveOriginationBackend({
         nodeEnv: "test",
         hasServiceRole: false,
       }),
     ).toBe("memory");
+  });
+
+  it("does not treat a present service secret as permission to run live origination tests", () => {
+    expect(process.env.RUN_LIVE_ORIGINATION_TESTS).not.toBe("1");
   });
 
   it("uses memory for explicit local development", () => {

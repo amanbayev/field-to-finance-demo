@@ -56,18 +56,15 @@ export default async function RootLayout({
       lang={locale}
       data-scroll-behavior="smooth"
       className={`${geologica.variable} ${jetbrains.variable} h-full`}
-      suppressHydrationWarning
     >
       <body
         className={`${geologica.className} flex min-h-full flex-col overflow-x-hidden bg-background`}
-        suppressHydrationWarning
       >
         <NextIntlClientProvider locale={locale} messages={messages}>
           <TooltipProvider>
             <a
               href="#content"
               className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[80] focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground"
-              suppressHydrationWarning
             >
               {t("skipToContent")}
             </a>

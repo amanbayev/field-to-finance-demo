@@ -52,15 +52,14 @@ export function DocumentPanel({
         bucket?: string;
         objectPath?: string;
         token?: string;
-        documentId?: string;
-        version?: number;
+        uploadIntentId?: string;
         error?: string;
         message?: string;
       };
       if (!intentRes.ok) {
         throw new Error(intent.message ?? intent.error ?? "upload");
       }
-      if (intent.mode === "signed" && intent.bucket && intent.token && intent.objectPath) {
+      if (intent.mode === "signed" && intent.bucket && intent.token && intent.objectPath && intent.uploadIntentId) {
         const supabase = createBrowserSupabaseClient();
         const { error: uploadError } = await supabase.storage
           .from(intent.bucket)
@@ -72,14 +71,7 @@ export function DocumentPanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fieldId,
-            documentId: intent.documentId,
-            documentType,
-            filename: file.name,
-            mimeType: file.type,
-            objectPath: intent.objectPath,
-            version: intent.version,
-            replacesDocumentId,
+            uploadIntentId: intent.uploadIntentId,
           }),
         });
         if (!complete.ok) {
@@ -127,7 +119,7 @@ export function DocumentPanel({
                     if (!file) {
                       return;
                     }
-                    void upload(file, type, existing && canReplace ? existing.id : undefined);
+                    void upload(file, type, existing ? existing.id : undefined);
                     event.currentTarget.value = "";
                   }}
                 />
@@ -162,7 +154,7 @@ export function DocumentPanel({
               >
                 {t("preview")}
               </a>
-              {canEdit && document.current ? (
+              {canEdit && !canReplace && document.current ? (
                 <form action={removeDraftDocumentAction}>
                   <input type="hidden" name="fieldId" value={fieldPublicId} />
                   <input type="hidden" name="documentId" value={document.id} />

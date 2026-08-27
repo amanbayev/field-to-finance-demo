@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:origination:live": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

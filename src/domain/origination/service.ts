@@ -18,9 +18,13 @@ import {
 } from "./files";
 import type { OriginationStore } from "./store";
 import {
+  ALLOWED_FIELD_MIME_TYPES,
   FIELD_DOCUMENT_BUCKET,
+  MAX_FIELD_FILE_BYTES,
   OriginationError,
   SCAS_EVIDENCE_BUCKET,
+  UPLOAD_INTENT_TTL_MS,
+  type AllowedFieldMimeType,
   type FieldCadastreVerificationRecord,
   type FieldDocumentRecord,
   type FieldDocumentType,
@@ -28,6 +32,7 @@ import {
   type FieldMessageType,
   type FieldSubmissionRecord,
   type FieldVerificationCaseRecord,
+  type FieldVerificationMessageRecord,
   type OriginationEventType,
   type ProducerDeclaredData,
   type ProducerFieldFilter,
@@ -169,7 +174,7 @@ export class OriginationService {
       ? await this.store.listMessages(verificationCase.id)
       : [];
     const snapshot = await this.store.getSnapshotByField(field.id);
-        const events = await this.store.listEventsByField(field.id);
+    const events = await this.store.listEventsByField(field.id);
     const latestRequest = [...messages]
       .reverse()
       .find((message) => message.messageType === "DOCUMENT_REQUEST" || message.messageType === "DECISION");
@@ -227,7 +232,27 @@ export class OriginationService {
       version: plan.version,
       filename: input.filename,
     });
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const intent = await this.store.insertUploadIntent({
+      id: randomUUID(),
+      organizationId: field.organizationId,
+      fieldId: field.id,
+      documentId,
+      documentType: input.documentType,
+      objectPath,
+      originalFilename: input.filename,
+      mimeType: input.mimeType,
+      expectedSizeBytes: input.sizeBytes,
+      version: plan.version,
+      replacesDocumentId: plan.replaces?.id ?? null,
+      createdByUserId: stamp.userId,
+      createdAt: at,
+      expiresAt: new Date(Date.parse(at) + UPLOAD_INTENT_TTL_MS).toISOString(),
+      status: "PREPARED",
+    });
     return {
+      uploadIntentId: intent.id,
       fieldId: field.id,
       documentId,
       version: plan.version,
@@ -240,33 +265,72 @@ export class OriginationService {
     };
   }
 
-  async commitDirectUpload(
-    actor: ActorContext,
-    input: {
-      fieldId: string;
-      documentId: string;
-      documentType: FieldDocumentType;
-      filename: string;
-      mimeType: string;
-      objectPath: string;
-      version: number;
-      replacesDocumentId?: string | null;
-    },
-  ) {
-    const field = await this.requireManageableField(actor, input.fieldId);
-    this.assertUploadWindow(field, input.replacesDocumentId);
-    const blob = await this.store.getBlob(FIELD_DOCUMENT_BUCKET, input.objectPath);
+  async commitDirectUpload(actor: ActorContext, input: { uploadIntentId: string }) {
+    const intent = await this.store.getUploadIntent(input.uploadIntentId);
+    if (!intent) {
+      throw new OriginationError("not_found");
+    }
+    if (!canManageProducerOrgFields(actor, intent.organizationId)) {
+      throw new OriginationError("forbidden");
+    }
+    const field = await this.requireManageableField(actor, intent.fieldId);
+    if (intent.organizationId !== field.organizationId) {
+      throw new OriginationError("forbidden");
+    }
+    if (intent.status === "COMMITTED") {
+      const existing = await this.store.getDocument(intent.documentId);
+      if (existing) {
+        return existing;
+      }
+    }
+    if (Date.parse(intent.expiresAt) <= Date.parse(this.clock())) {
+      throw new OriginationError("invalid_state", "Upload intent expired.");
+    }
+    this.assertUploadWindow(field, intent.replacesDocumentId);
+    const blob = await this.store.getBlob(FIELD_DOCUMENT_BUCKET, intent.objectPath);
     if (!blob) {
       throw new OriginationError("storage", "Uploaded object was not found.");
     }
+    const canonical = fieldDocumentObjectPath({
+      organizationId: intent.organizationId,
+      fieldId: intent.fieldId,
+      submissionId: field.currentSubmissionId ?? "draft",
+      documentId: intent.documentId,
+      version: intent.version,
+      filename: intent.originalFilename,
+    });
+    if (canonical !== intent.objectPath) {
+      throw new OriginationError("forbidden");
+    }
+    if (
+      blob.bytes.byteLength <= 0 ||
+      blob.bytes.byteLength > MAX_FIELD_FILE_BYTES ||
+      blob.bytes.byteLength > intent.expectedSizeBytes
+    ) {
+      throw new OriginationError("validation", "Uploaded object size is not valid.");
+    }
+    const contentType = blob.contentType?.trim() || intent.mimeType;
+    if (
+      contentType !== "application/octet-stream" &&
+      !ALLOWED_FIELD_MIME_TYPES.includes(contentType as AllowedFieldMimeType) &&
+      contentType !== intent.mimeType
+    ) {
+      throw new OriginationError("validation", "Uploaded object type is not allowed.");
+    }
+    assertAllowedUpload({
+      filename: intent.originalFilename,
+      mimeType: intent.mimeType,
+      sizeBytes: blob.bytes.byteLength,
+    });
     return this.recordDocument(actor, field, {
-      documentId: input.documentId,
-      documentType: input.documentType,
-      filename: input.filename,
-      mimeType: input.mimeType,
-      objectPath: input.objectPath,
-      version: input.version,
-      replacesDocumentId: input.replacesDocumentId,
+      intentId: intent.id,
+      documentId: intent.documentId,
+      documentType: intent.documentType,
+      filename: intent.originalFilename,
+      mimeType: intent.mimeType,
+      objectPath: intent.objectPath,
+      version: intent.version,
+      replacesDocumentId: intent.replacesDocumentId,
       bytes: blob.bytes,
     });
   }
@@ -306,6 +370,7 @@ export class OriginationService {
       contentType: input.mimeType,
     });
     return this.recordDocument(actor, field, {
+      intentId: null,
       documentId,
       documentType: input.documentType,
       filename: input.filename,
@@ -399,6 +464,19 @@ export class OriginationService {
     if (producer && verificationCase.status === "REJECTED") {
       throw new OriginationError("invalid_state");
     }
+    const type: FieldMessageType = input.messageType ?? "COMMENT";
+    if (producer && !verifier && type !== "COMMENT") {
+      throw new OriginationError("forbidden", "Producer messages must be comments.");
+    }
+    if (verifier && type !== "COMMENT" && type !== "DOCUMENT_REQUEST" && type !== "DECISION") {
+      throw new OriginationError("forbidden");
+    }
+    if (input.linkedDocumentId) {
+      const linked = await this.store.getDocument(input.linkedDocumentId);
+      if (!linked || linked.fieldId !== verificationCase.fieldId) {
+        throw new OriginationError("validation", "Linked document does not belong to this field.");
+      }
+    }
     const stamp = actorStamp(actor);
     const message = {
       id: randomUUID(),
@@ -408,7 +486,7 @@ export class OriginationService {
       senderRole: stamp.role,
       senderPersonaId: stamp.personaId,
       body,
-      messageType: input.messageType ?? "COMMENT",
+      messageType: type,
       linkedDocumentId: input.linkedDocumentId ?? null,
       createdAt: this.clock(),
     };
@@ -447,17 +525,44 @@ export class OriginationService {
     if (!document) {
       throw new OriginationError("not_found");
     }
-    const verificationCase = await this.requireWritableCaseByField(actor, document.fieldId);
+    const field = await this.store.getFieldById(document.fieldId);
+    if (!field) {
+      throw new OriginationError("not_found");
+    }
+    const verificationCase = await this.requireOpenVerifierCaseByField(actor, document.fieldId);
+    const at = this.clock();
+    const stamp = actorStamp(actor);
     const updated = { ...document, status: "REPLACEMENT_REQUESTED" as const };
-    await this.store.updateDocument(updated);
-    await this.sendMessage(actor, {
+    const nextField = { ...field, status: "CHANGES_REQUESTED" as const, updatedAt: at };
+    const nextCase = { ...verificationCase, status: "CHANGES_REQUESTED" as const, updatedAt: at };
+    const message: FieldVerificationMessageRecord = {
+      id: randomUUID(),
       caseId: verificationCase.id,
+      fieldId: document.fieldId,
+      senderUserId: stamp.userId,
+      senderRole: stamp.role,
+      senderPersonaId: stamp.personaId,
       body: note,
       messageType: "DOCUMENT_REQUEST",
       linkedDocumentId: document.id,
-    });
-    await this.audit(actor, "document_replacement_requested", "document", document.id, {
-      fieldId: document.fieldId,
+      createdAt: at,
+    };
+    await this.store.applyChangeRequestBundle({
+      field: nextField,
+      verificationCase: nextCase,
+      document: updated,
+      message,
+      events: [
+        ...this.maybeVerificationStarted(actor, verificationCase, document.fieldId),
+        this.makeEvent(actor, "document_replacement_requested", "document", document.id, {
+          fieldId: document.fieldId,
+        }),
+        this.makeEvent(actor, "message_sent", "message", message.id, {
+          caseId: verificationCase.id,
+          fieldId: document.fieldId,
+          messageType: message.messageType,
+        }),
+      ],
     });
     return updated;
   }
@@ -588,25 +693,41 @@ export class OriginationService {
     if (!note) {
       throw new OriginationError("validation", "Requesting changes requires an explanation.");
     }
-    const verificationCase = await this.requireWritableCase(actor, caseId);
+    const verificationCase = await this.requireOpenVerifierCase(actor, caseId);
     const field = await this.store.getFieldById(verificationCase.fieldId);
     if (!field) {
       throw new OriginationError("not_found");
     }
     const at = this.clock();
-    await this.store.updateField({ ...field, status: "CHANGES_REQUESTED", updatedAt: at });
-    await this.store.updateCase({
-      ...verificationCase,
-      status: "CHANGES_REQUESTED",
-      updatedAt: at,
-    });
-    await this.sendMessage(actor, {
+    const stamp = actorStamp(actor);
+    const nextField = { ...field, status: "CHANGES_REQUESTED" as const, updatedAt: at };
+    const nextCase = { ...verificationCase, status: "CHANGES_REQUESTED" as const, updatedAt: at };
+    const message: FieldVerificationMessageRecord = {
+      id: randomUUID(),
       caseId: verificationCase.id,
+      fieldId: field.id,
+      senderUserId: stamp.userId,
+      senderRole: stamp.role,
+      senderPersonaId: stamp.personaId,
       body: note,
       messageType: "DECISION",
-    });
-    await this.audit(actor, "changes_requested", "case", verificationCase.id, {
-      fieldId: field.id,
+      linkedDocumentId: null,
+      createdAt: at,
+    };
+    await this.store.applyChangeRequestBundle({
+      field: nextField,
+      verificationCase: nextCase,
+      document: null,
+      message,
+      events: [
+        ...this.maybeVerificationStarted(actor, verificationCase, field.id),
+        this.makeEvent(actor, "changes_requested", "case", verificationCase.id, { fieldId: field.id }),
+        this.makeEvent(actor, "message_sent", "message", message.id, {
+          caseId: verificationCase.id,
+          fieldId: field.id,
+          messageType: message.messageType,
+        }),
+      ],
     });
   }
 
@@ -616,25 +737,38 @@ export class OriginationService {
     if (!note) {
       throw new OriginationError("validation", "Rejection requires a reason.");
     }
-    const verificationCase = await this.requireWritableCase(actor, caseId);
+    const verificationCase = await this.requireOpenVerifierCase(actor, caseId);
     const field = await this.store.getFieldById(verificationCase.fieldId);
     if (!field) {
       throw new OriginationError("not_found");
     }
     const at = this.clock();
-    await this.store.updateField({ ...field, status: "REJECTED", updatedAt: at });
-    await this.store.updateCase({ ...verificationCase, status: "REJECTED", updatedAt: at });
-    await this.sendMessage(actor, {
+    const stamp = actorStamp(actor);
+    const nextField = { ...field, status: "REJECTED" as const, updatedAt: at };
+    const nextCase = { ...verificationCase, status: "REJECTED" as const, updatedAt: at };
+    const message: FieldVerificationMessageRecord = {
+      id: randomUUID(),
       caseId: verificationCase.id,
+      fieldId: field.id,
+      senderUserId: stamp.userId,
+      senderRole: stamp.role,
+      senderPersonaId: stamp.personaId,
       body: note,
       messageType: "DECISION",
+      linkedDocumentId: null,
+      createdAt: at,
+    };
+    await this.store.applyRejectionBundle({
+      field: nextField,
+      verificationCase: nextCase,
+      message,
+      event: this.makeEvent(actor, "field_rejected", "field", field.id, { caseId: verificationCase.id }),
     });
-    await this.audit(actor, "field_rejected", "field", field.id, { caseId: verificationCase.id });
   }
 
   async approveField(actor: ActorContext, caseId: string) {
     this.requireVerifier(actor);
-    const verificationCase = await this.requireWritableCase(actor, caseId);
+    const verificationCase = await this.requireOpenVerifierCase(actor, caseId);
     const field = await this.store.getFieldById(verificationCase.fieldId);
     if (!field) {
       throw new OriginationError("not_found");
@@ -643,21 +777,65 @@ export class OriginationService {
     if (!cadastre) {
       throw new OriginationError("invalid_state", "Cadastral verification is required before approval.");
     }
-    const documents = currentDocuments(await this.store.listDocuments(field.id));
-    if (documents.length === 0 || documents.some((document) => document.status !== "ACCEPTED")) {
+    const submission = await this.store.getSubmission(verificationCase.currentSubmissionId);
+    if (!submission) {
+      throw new OriginationError("invalid_state", "Approval requires the current submission snapshot.");
+    }
+    const documents = await this.store.listDocuments(field.id);
+    const submitted = submission.documentIds.map((id) => {
+      const match = documents.find((document) => document.id === id);
+      if (!match) {
+        throw new OriginationError("invalid_state", "A submitted document is missing.");
+      }
+      return match;
+    });
+    if (submitted.length === 0 || submitted.some((document) => document.status !== "ACCEPTED")) {
       throw new OriginationError("invalid_state", "Required evidence must be reviewed and accepted.");
+    }
+    const extraAccepted = documents.filter(
+      (document) =>
+        document.current &&
+        document.status === "ACCEPTED" &&
+        !submission.documentIds.includes(document.id),
+    );
+    if (extraAccepted.length > 0) {
+      throw new OriginationError(
+        "invalid_state",
+        "Accepted evidence exists outside the current submission snapshot.",
+      );
     }
     const stamp = actorStamp(actor);
     const at = this.clock();
     const evidence = await this.store.listEvidence(verificationCase.id);
-    const snapshot = await this.store.insertSnapshot({
+    const snapshotId = randomUUID();
+    const message: FieldVerificationMessageRecord = {
       id: randomUUID(),
+      caseId: verificationCase.id,
+      fieldId: field.id,
+      senderUserId: stamp.userId,
+      senderRole: stamp.role,
+      senderPersonaId: stamp.personaId,
+      body: "Field approved. Verified field snapshot recorded. No DAC was created.",
+      messageType: "DECISION",
+      linkedDocumentId: null,
+      createdAt: at,
+    };
+    const snapshot = {
+      id: snapshotId,
       fieldId: field.id,
       caseId: verificationCase.id,
-      submissionId: verificationCase.currentSubmissionId,
+      submissionId: submission.id,
       payload: {
-        producerDeclared: field.declared,
-        acceptedDocumentIds: documents.map((document) => document.id),
+        producerDeclared: submission.declared,
+        submissionId: submission.id,
+        submissionVersion: submission.version,
+        acceptedDocumentIds: submitted.map((document) => document.id),
+        acceptedDocuments: submitted.map((document) => ({
+          id: document.id,
+          documentType: document.documentType,
+          version: document.version,
+          sha256: document.sha256,
+        })),
         cadastreVerification: cadastre,
         evidenceIds: evidence.map((item) => item.id),
         reviewerUserId: stamp.userId,
@@ -669,25 +847,24 @@ export class OriginationService {
       approvedByRole: stamp.role,
       approvedByPersonaId: stamp.personaId,
       approvedAt: at,
+    };
+    return this.store.applyApprovalBundle({
+      snapshot,
+      field: {
+        ...field,
+        status: "VERIFIED",
+        verifiedSnapshotId: snapshotId,
+        updatedAt: at,
+      },
+      verificationCase: { ...verificationCase, status: "VERIFIED", updatedAt: at },
+      message,
+      event: this.makeEvent(actor, "field_verified", "field", field.id, {
+        snapshotId,
+        submissionId: submission.id,
+        reviewerUserId: stamp.userId,
+        reviewerPersonaId: stamp.personaId,
+      }),
     });
-    await this.store.updateField({
-      ...field,
-      status: "VERIFIED",
-      verifiedSnapshotId: snapshot.id,
-      updatedAt: at,
-    });
-    await this.store.updateCase({ ...verificationCase, status: "VERIFIED", updatedAt: at });
-    await this.sendMessage(actor, {
-      caseId: verificationCase.id,
-      body: "Field approved. Verified field snapshot recorded. No DAC was created.",
-      messageType: "DECISION",
-    });
-    await this.audit(actor, "field_verified", "field", field.id, {
-      snapshotId: snapshot.id,
-      reviewerUserId: stamp.userId,
-      reviewerPersonaId: stamp.personaId,
-    });
-    return snapshot;
   }
 
   async tryHardDeleteVerified(actor: ActorContext, fieldId: string) {
@@ -737,18 +914,10 @@ export class OriginationService {
     return this.store.hasPublicObjectUrl(bucket, objectPath);
   }
 
-  private assertUploadWindow(field: ProducerFieldRecord, replacesDocumentId?: string | null) {
-    const draftLike = field.status === "DRAFT";
-    const replacementWindow =
-      field.status === "CHANGES_REQUESTED" ||
-      field.status === "RESUBMITTED" ||
-      field.status === "UNDER_REVIEW" ||
-      field.status === "SUBMITTED";
-    if (!draftLike && !replacementWindow) {
-      throw new OriginationError("immutable", "Evidence cannot be overwritten after submission.");
-    }
-    if (!draftLike && !replacesDocumentId) {
-      throw new OriginationError("validation", "After submission, only a replacement version can be uploaded.");
+  private assertUploadWindow(field: ProducerFieldRecord, _replacesDocumentId?: string | null) {
+    void _replacesDocumentId;
+    if (field.status !== "DRAFT" && field.status !== "CHANGES_REQUESTED") {
+      throw new OriginationError("immutable", "Producer evidence is frozen until SCAS requests changes.");
     }
   }
 
@@ -767,20 +936,25 @@ export class OriginationService {
       if (!replaces || replaces.fieldId !== fieldId) {
         throw new OriginationError("not_found");
       }
-      if (
-        field.status !== "DRAFT" &&
-        replaces.status !== "REPLACEMENT_REQUESTED" &&
-        replaces.status !== "UPLOADED"
-      ) {
-        throw new OriginationError("invalid_state", "Only a requested or uploaded current file can be replaced.");
+      if (replaces.documentType !== documentType) {
+        throw new OriginationError("invalid_state", "A replacement must keep the same document type.");
+      }
+      if (field.status !== "DRAFT" && field.status !== "CHANGES_REQUESTED") {
+        throw new OriginationError("invalid_state", "Producer evidence is frozen until SCAS requests changes.");
       }
       return { version: replaces.version + 1, replaces };
     }
-    const lineage = currentDocuments(documents).filter(
+    const currentSameType = currentDocuments(documents).find(
       (document) => document.documentType === documentType,
     );
+    if (currentSameType) {
+      if (field.status !== "DRAFT") {
+        throw new OriginationError("validation", "After submission, only a replacement version can be uploaded.");
+      }
+      return { version: currentSameType.version + 1, replaces: currentSameType };
+    }
     return {
-      version: lineage.reduce((max, document) => Math.max(max, document.version), 0) + 1,
+      version: 1,
       replaces: null as FieldDocumentRecord | null,
     };
   }
@@ -789,6 +963,7 @@ export class OriginationService {
     actor: ActorContext,
     field: ProducerFieldRecord,
     input: {
+      intentId?: string | null;
       documentId: string;
       documentType: FieldDocumentType;
       filename: string;
@@ -799,16 +974,6 @@ export class OriginationService {
       bytes: Uint8Array;
     },
   ) {
-    if (input.replacesDocumentId) {
-      const replaces = await this.store.getDocument(input.replacesDocumentId);
-      if (replaces) {
-        await this.store.updateDocument({
-          ...replaces,
-          status: "SUPERSEDED",
-          current: false,
-        });
-      }
-    }
     const stamp = actorStamp(actor);
     const at = this.clock();
     const record: FieldDocumentRecord = {
@@ -832,22 +997,11 @@ export class OriginationService {
       replacesDocumentId: input.replacesDocumentId ?? null,
       current: true,
     };
-    await this.store.insertDocument(record);
-    await this.audit(
-      actor,
-      input.replacesDocumentId ? "document_replaced" : "document_uploaded",
-      "document",
-      record.id,
-      {
-        fieldId: field.id,
-        version: input.version,
-        documentType: record.documentType,
-      },
-    );
+    let message: FieldVerificationMessageRecord | null = null;
     if (field.status !== "DRAFT") {
       const verificationCase = await this.store.getCaseByFieldId(field.id);
       if (verificationCase) {
-        await this.store.insertMessage({
+        message = {
           id: randomUUID(),
           caseId: verificationCase.id,
           fieldId: field.id,
@@ -858,10 +1012,26 @@ export class OriginationService {
           messageType: "DOCUMENT_UPLOADED",
           linkedDocumentId: record.id,
           createdAt: at,
-        });
+        };
       }
     }
-    return record;
+    return this.store.commitDocumentBundle({
+      intentId: input.intentId ?? null,
+      document: record,
+      supersededId: input.replacesDocumentId ?? null,
+      message,
+      event: this.makeEvent(
+        actor,
+        input.replacesDocumentId ? "document_replaced" : "document_uploaded",
+        "document",
+        record.id,
+        {
+          fieldId: field.id,
+          version: input.version,
+          documentType: record.documentType,
+        },
+      ),
+    });
   }
 
   private async freezeAndOpenCase(
@@ -888,11 +1058,11 @@ export class OriginationService {
       submittedByPersonaId: stamp.personaId,
       submittedAt: at,
     };
-    await this.store.insertSubmission(submission);
     let verificationCase = await this.store.getCaseByFieldId(field.id);
+    const caseIsNew = !verificationCase;
     if (!verificationCase) {
       const caseSeq = await this.store.nextCaseSequence();
-      verificationCase = await this.store.insertCase({
+      verificationCase = {
         id: randomUUID(),
         publicId: `VCASE-${field.declared.season}-${pad(caseSeq)}`,
         fieldId: field.id,
@@ -903,26 +1073,32 @@ export class OriginationService {
         assignedReviewerPersonaId: null,
         createdAt: at,
         updatedAt: at,
-      });
+      };
     } else {
-      verificationCase = await this.store.updateCase({
+      verificationCase = {
         ...verificationCase,
         currentSubmissionId: submission.id,
         status: caseStatus,
         updatedAt: at,
-      });
+      };
     }
-    const updatedField = await this.store.updateField({
+    const updatedField = {
       ...field,
       status: fieldStatus,
       currentSubmissionId: submission.id,
       updatedAt: at,
+    };
+    return this.store.applySubmissionBundle({
+      expectedFieldStatus: field.status === "DRAFT" ? "DRAFT" : "CHANGES_REQUESTED",
+      field: updatedField,
+      submission,
+      verificationCase,
+      caseIsNew,
+      event: this.makeEvent(actor, eventType, "field", field.id, {
+        submissionId: submission.id,
+        publicId: field.publicId,
+      }),
     });
-    await this.audit(actor, eventType, "field", field.id, {
-      submissionId: submission.id,
-      publicId: field.publicId,
-    });
-    return { field: updatedField, submission, verificationCase };
   }
 
   private async requireManageableField(actor: ActorContext, fieldRef: string) {
@@ -967,6 +1143,42 @@ export class OriginationService {
     return this.requireWritableCase(actor, verificationCase.id);
   }
 
+  private async requireOpenVerifierCase(actor: ActorContext, caseRef: string) {
+    this.requireVerifier(actor);
+    const verificationCase = await this.resolveCase(caseRef);
+    if (!verificationCase) {
+      throw new OriginationError("not_found");
+    }
+    if (verificationCase.status === "VERIFIED" || verificationCase.status === "REJECTED") {
+      throw new OriginationError("invalid_state");
+    }
+    return verificationCase;
+  }
+
+  private async requireOpenVerifierCaseByField(actor: ActorContext, fieldId: string) {
+    const verificationCase = await this.store.getCaseByFieldId(fieldId);
+    if (!verificationCase) {
+      throw new OriginationError("not_found");
+    }
+    return this.requireOpenVerifierCase(actor, verificationCase.id);
+  }
+
+  private maybeVerificationStarted(
+    actor: ActorContext,
+    verificationCase: FieldVerificationCaseRecord,
+    fieldId: string,
+  ) {
+    if (verificationCase.status !== "NEW" && verificationCase.status !== "RESUBMITTED") {
+      return [];
+    }
+    return [
+      this.makeEvent(actor, "verification_started", "case", verificationCase.id, {
+        fieldId,
+        from: verificationCase.status,
+      }),
+    ];
+  }
+
   private async markUnderReview(actor: ActorContext, verificationCase: FieldVerificationCaseRecord) {
     if (verificationCase.status === "NEW" || verificationCase.status === "RESUBMITTED") {
       const field = await this.store.getFieldById(verificationCase.fieldId);
@@ -1000,6 +1212,29 @@ export class OriginationService {
       (await this.store.getCaseById(caseRef)) ??
       (await this.store.getCaseByPublicId(caseRef))
     );
+  }
+
+  private makeEvent(
+    actor: ActorContext,
+    eventType: OriginationEventType,
+    objectType: string,
+    objectId: string,
+    metadata: Record<string, unknown>,
+  ) {
+    const stamp = actorStamp(actor);
+    return {
+      id: randomUUID(),
+      occurredAt: this.clock(),
+      actorUserId: stamp.userId,
+      effectiveRole: stamp.role,
+      personaId: stamp.personaId,
+      organizationId: stamp.organizationId,
+      eventType,
+      objectType,
+      objectId,
+      result: "ok" as const,
+      metadata,
+    };
   }
 
   private async audit(

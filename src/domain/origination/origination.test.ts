@@ -187,6 +187,9 @@ describe("origination O1", () => {
     });
     const submitted = await service.submitToScas(farm, field.id);
     await service.requestDocumentReplacement(reviewer, v1.id, "The cadastral extract is outdated.");
+    const afterRequest = await service.getFieldBundle(farm, field.id);
+    expect(afterRequest.field.status).toBe("CHANGES_REQUESTED");
+    expect(afterRequest.verificationCase?.status).toBe("CHANGES_REQUESTED");
     const v2 = await service.uploadDocument(farm, {
       fieldId: field.id,
       documentType: "CADASTRE_EXTRACT",
@@ -244,6 +247,18 @@ describe("origination O1", () => {
     expect(snapshot.payload.reviewerPersonaId).toBe("DEMO-SCAS-001");
     expect(snapshot.payload.producerDeclared.declaredAreaHa).toBe(1240);
     expect(snapshot.payload.cadastreVerification.registeredAreaHa).toBe(1238.6);
+    expect(snapshot.payload.submissionId).toBe(bundle.verificationCase!.currentSubmissionId);
+    expect(snapshot.payload.submissionVersion).toBe(2);
+    expect(snapshot.payload.acceptedDocuments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: current.id,
+          documentType: "CADASTRE_EXTRACT",
+          version: 2,
+          sha256: current.sha256,
+        }),
+      ]),
+    );
     const verified = await service.getFieldBundle(farm, field.id);
     expect(verified.field.status).toBe("VERIFIED");
     expect(verified.events.map((event) => event.eventType)).toEqual(
@@ -349,5 +364,249 @@ describe("origination O1", () => {
     ).toThrow(/not connected/i);
     const source = readFileSync("src/domain/origination/service.ts", "utf8");
     expect(source).not.toMatch(/solana|blockchain|recordedPlacement/i);
+  });
+});
+
+describe("origination O1.2 hardening", () => {
+  it("does not let producer A finalize producer B's private object even when the path is known", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const a = producer();
+    const b = producerTwo();
+    const fieldB = await service.createDraft(b, { ...sample, name: "South plot 4" });
+    const preparedB = await service.prepareDirectUpload(b, {
+      fieldId: fieldB.id,
+      documentType: "CADASTRE_EXTRACT",
+      filename: "b-extract.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 8,
+    });
+    await store.putBlob({
+      bucket: preparedB.bucket,
+      objectPath: preparedB.objectPath,
+      bytes: pdf().bytes,
+      contentType: "application/pdf",
+    });
+    await expect(
+      service.commitDirectUpload(a, { uploadIntentId: preparedB.uploadIntentId }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    const stolen = await service.commitDirectUpload(b, { uploadIntentId: preparedB.uploadIntentId });
+    await expect(service.authorizedBlob(a, stolen.bucket, stolen.objectPath)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    const fieldA = await service.createDraft(a, sample);
+    const preparedA = await service.prepareDirectUpload(a, {
+      fieldId: fieldA.id,
+      documentType: "CADASTRE_EXTRACT",
+      filename: "a-extract.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 8,
+    });
+    expect(preparedA.objectPath).not.toBe(preparedB.objectPath);
+    await expect(
+      service.commitDirectUpload(a, { uploadIntentId: preparedB.uploadIntentId }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("commits an upload intent idempotently and refuses a second prepared lineage", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const actor = producer();
+    const field = await draft(service, actor);
+    const prepared = await service.prepareDirectUpload(actor, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      filename: "cadastre.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 8,
+    });
+    await expect(
+      service.prepareDirectUpload(actor, {
+        fieldId: field.id,
+        documentType: "CADASTRE_EXTRACT",
+        filename: "cadastre-2.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 8,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_state" });
+    await store.putBlob({
+      bucket: prepared.bucket,
+      objectPath: prepared.objectPath,
+      bytes: pdf().bytes,
+      contentType: "application/pdf",
+    });
+    const [first, second] = await Promise.all([
+      service.commitDirectUpload(actor, { uploadIntentId: prepared.uploadIntentId }),
+      service.commitDirectUpload(actor, { uploadIntentId: prepared.uploadIntentId }),
+    ]);
+    expect(first.id).toBe(second.id);
+    expect(first.version).toBe(1);
+    const bundle = await service.getFieldBundle(actor, field.id);
+    expect(bundle.documents.filter((item) => item.current)).toHaveLength(1);
+  });
+
+  it("freezes producer evidence after submit and after resubmit", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const farm = producer();
+    const reviewer = scas();
+    const field = await draft(service, farm);
+    const v1 = await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf(),
+    });
+    await service.submitToScas(farm, field.id);
+    await expect(
+      service.uploadDocument(farm, {
+        fieldId: field.id,
+        documentType: "CADASTRE_EXTRACT",
+        replacesDocumentId: v1.id,
+        ...pdf("late.pdf"),
+      }),
+    ).rejects.toMatchObject({ code: "immutable" });
+    await service.requestChanges(reviewer, (await service.getFieldBundle(farm, field.id)).verificationCase!.id, "Fix the extract.");
+    const v2 = await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      replacesDocumentId: v1.id,
+      ...pdf("extract-v2.pdf"),
+    });
+    await service.resubmit(farm, field.id);
+    await expect(
+      service.uploadDocument(farm, {
+        fieldId: field.id,
+        documentType: "CADASTRE_EXTRACT",
+        replacesDocumentId: v2.id,
+        ...pdf("extract-v3.pdf"),
+      }),
+    ).rejects.toMatchObject({ code: "immutable" });
+  });
+
+  it("refuses double submit, double approval, and approval of evidence outside the current snapshot", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const farm = producer();
+    const reviewer = scas();
+    const field = await draft(service, farm);
+    const v1 = await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf(),
+    });
+    const [submitA, submitB] = await Promise.allSettled([
+      service.submitToScas(farm, field.id),
+      service.submitToScas(farm, field.id),
+    ]);
+    const submitted = submitA.status === "fulfilled" ? submitA.value : submitB.status === "fulfilled" ? submitB.value : null;
+    expect(submitted).toBeTruthy();
+    expect([submitA.status, submitB.status].filter((status) => status === "rejected")).toHaveLength(1);
+
+    await service.requestDocumentReplacement(reviewer, v1.id, "Replace the extract.");
+    const v2 = await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      replacesDocumentId: v1.id,
+      ...pdf("extract-v2.pdf"),
+    });
+    await service.acceptDocument(reviewer, v2.id);
+    await service.recordCadastreVerification(reviewer, submitted!.verificationCase.id, {
+      cadastreNumber: sample.cadastreNumber,
+      rightHolder: "Akmola Agro LLP",
+      rightType: "lease",
+      registeredAreaHa: 1240,
+      region: "Akmola",
+      district: "Astrakhan",
+      validityStatus: "active",
+      sourceReference: "manual",
+      notes: "",
+    });
+    await expect(service.approveField(reviewer, submitted!.verificationCase.id)).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+
+    await service.resubmit(farm, field.id);
+    const bundle = await service.getFieldBundle(farm, field.id);
+    await service.acceptDocument(reviewer, v2.id);
+    const [approveA, approveB] = await Promise.allSettled([
+      service.approveField(reviewer, bundle.verificationCase!.id),
+      service.approveField(reviewer, bundle.verificationCase!.id),
+    ]);
+    const approved = [approveA, approveB].filter((item) => item.status === "fulfilled");
+    const rejected = [approveA, approveB].filter((item) => item.status === "rejected");
+    expect(approved).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    if (approved[0]?.status === "fulfilled") {
+      expect(approved[0].value.payload.submissionId).toBe(bundle.verificationCase!.currentSubmissionId);
+      expect(approved[0].value.payload.acceptedDocumentIds).toEqual([v2.id]);
+    }
+  });
+
+  it("blocks producer system, decision, and document-request messages and cross-type replacement", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const farm = producer();
+    const reviewer = scas();
+    const fieldA = await draft(service, farm);
+    const cadastre = await service.uploadDocument(farm, {
+      fieldId: fieldA.id,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf(),
+    });
+    const land = await service.uploadDocument(farm, {
+      fieldId: fieldA.id,
+      documentType: "LAND_OWNERSHIP",
+      ...pdf("title.pdf"),
+    });
+    const submitted = await service.submitToScas(farm, fieldA.id);
+    await expect(
+      service.sendMessage(farm, {
+        caseId: submitted.verificationCase.id,
+        body: "approve this",
+        messageType: "DECISION",
+      }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      service.sendMessage(farm, {
+        caseId: submitted.verificationCase.id,
+        body: "system",
+        messageType: "SYSTEM",
+      }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      service.sendMessage(farm, {
+        caseId: submitted.verificationCase.id,
+        body: "send another file",
+        messageType: "DOCUMENT_REQUEST",
+        linkedDocumentId: cadastre.id,
+      }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+
+    const fieldB = await service.createDraft(farm, { ...sample, name: "East plot 3" });
+    const other = await service.uploadDocument(farm, {
+      fieldId: fieldB.id,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf("other.pdf"),
+    });
+    await expect(
+      service.sendMessage(reviewer, {
+        caseId: submitted.verificationCase.id,
+        body: "wrong field",
+        linkedDocumentId: other.id,
+      }),
+    ).rejects.toMatchObject({ code: "validation" });
+
+    await service.requestChanges(reviewer, submitted.verificationCase.id, "Replace ownership, not cadastre.");
+    await expect(
+      service.uploadDocument(farm, {
+        fieldId: fieldA.id,
+        documentType: "LAND_OWNERSHIP",
+        replacesDocumentId: cadastre.id,
+        ...pdf("wrong-type.pdf"),
+      }),
+    ).rejects.toMatchObject({ code: "invalid_state" });
+    await service.uploadDocument(farm, {
+      fieldId: fieldA.id,
+      documentType: "LAND_OWNERSHIP",
+      replacesDocumentId: land.id,
+      ...pdf("title-v2.pdf"),
+    });
   });
 });

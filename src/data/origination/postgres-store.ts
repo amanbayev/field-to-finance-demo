@@ -4,6 +4,7 @@ import type {
   FieldCadastreVerificationRecord,
   FieldDocumentRecord,
   FieldSubmissionRecord,
+  FieldUploadIntentRecord,
   FieldVerificationCaseRecord,
   FieldVerificationEvidenceRecord,
   FieldVerificationMessageRecord,
@@ -12,12 +13,29 @@ import type {
   ProducerFieldRecord,
   VerifiedFieldSnapshotRecord,
 } from "@/domain/origination/types";
+import type {
+  ApprovalBundle,
+  ChangeRequestBundle,
+  DocumentCommitBundle,
+  RejectionBundle,
+  SubmissionBundle,
+} from "@/domain/origination/tx";
 import type { OriginationBlob, OriginationStore } from "@/domain/origination/store";
 
 type Row = Record<string, unknown>;
 
-function fail(error: { message?: string } | null, fallback = "storage"): never {
-  throw new OriginationError("storage", error?.message ?? fallback);
+function fail(error: { message?: string; code?: string } | null, fallback = "storage"): never {
+  const message = error?.message ?? fallback;
+  if (
+    error?.code === "23505" ||
+    /already verified|duplicate|expected state|not usable|current version/i.test(message)
+  ) {
+    throw new OriginationError("invalid_state", message);
+  }
+  if (/not found/i.test(message) && error?.code !== "PGRST116") {
+    throw new OriginationError("not_found", message);
+  }
+  throw new OriginationError("storage", message);
 }
 
 function num(value: unknown): number | null {
@@ -587,6 +605,116 @@ export class PostgresOriginationStore implements OriginationStore {
     const { data } = await this.client.storage.getBucket(bucket);
     return Boolean(data?.public);
   }
+
+  async insertUploadIntent(record: FieldUploadIntentRecord) {
+    const { data, error } = await this.client
+      .from("field_upload_intents")
+      .insert(intentToRow(record))
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return intentFrom(data as Row);
+  }
+
+  async getUploadIntent(id: string) {
+    const { data, error } = await this.client
+      .from("field_upload_intents")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? intentFrom(data as Row) : null;
+  }
+
+  async commitDocumentBundle(input: DocumentCommitBundle) {
+    const { data, error } = await this.client.rpc("origination_commit_document", {
+      payload: {
+        intent_id: input.intentId,
+        document: documentToRow(input.document),
+        superseded_id: input.supersededId,
+        message: input.message ? messageToRow(input.message) : null,
+        event: eventToRow(input.event),
+      },
+    });
+    if (error) {
+      fail(error);
+    }
+    const row = (data as { document?: Row } | null)?.document;
+    if (!row) {
+      fail({ message: "commit document returned no row" });
+    }
+    return documentFrom(row);
+  }
+
+  async applySubmissionBundle(input: SubmissionBundle) {
+    const { error } = await this.client.rpc("origination_apply_submission", {
+      payload: {
+        expected_field_status: input.expectedFieldStatus,
+        case_is_new: input.caseIsNew,
+        field: fieldToRow(input.field),
+        submission: submissionToRow(input.submission),
+        verification_case: caseToRow(input.verificationCase),
+        event: eventToRow(input.event),
+      },
+    });
+    if (error) {
+      fail(error);
+    }
+    return {
+      field: input.field,
+      submission: input.submission,
+      verificationCase: input.verificationCase,
+    };
+  }
+
+  async applyChangeRequestBundle(input: ChangeRequestBundle) {
+    const { error } = await this.client.rpc("origination_apply_change_request", {
+      payload: {
+        field: fieldToRow(input.field),
+        verification_case: caseToRow(input.verificationCase),
+        document: input.document ? documentToRow(input.document) : null,
+        message: messageToRow(input.message),
+        events: input.events.map(eventToRow),
+      },
+    });
+    if (error) {
+      fail(error);
+    }
+  }
+
+  async applyApprovalBundle(input: ApprovalBundle) {
+    const { error } = await this.client.rpc("origination_apply_approval", {
+      payload: {
+        field: fieldToRow(input.field),
+        verification_case: caseToRow(input.verificationCase),
+        snapshot: snapshotToRow(input.snapshot),
+        message: messageToRow(input.message),
+        event: eventToRow(input.event),
+      },
+    });
+    if (error) {
+      fail(error);
+    }
+    return input.snapshot;
+  }
+
+  async applyRejectionBundle(input: RejectionBundle) {
+    const { error } = await this.client.rpc("origination_apply_rejection", {
+      payload: {
+        field: fieldToRow(input.field),
+        verification_case: caseToRow(input.verificationCase),
+        message: messageToRow(input.message),
+        event: eventToRow(input.event),
+      },
+    });
+    if (error) {
+      fail(error);
+    }
+  }
 }
 
 function submissionFrom(row: Row): FieldSubmissionRecord {
@@ -759,5 +887,106 @@ function eventFrom(row: Row): OriginationAuditEvent {
     objectId: String(row.object_id),
     result: String(row.result ?? "ok"),
     metadata: (row.metadata as Record<string, unknown>) ?? {},
+  };
+}
+
+function intentToRow(record: FieldUploadIntentRecord): Row {
+  return {
+    id: record.id,
+    organization_id: record.organizationId,
+    field_id: record.fieldId,
+    document_id: record.documentId,
+    document_type: record.documentType,
+    object_path: record.objectPath,
+    original_filename: record.originalFilename,
+    mime_type: record.mimeType,
+    expected_size_bytes: record.expectedSizeBytes,
+    version: record.version,
+    replaces_document_id: record.replacesDocumentId,
+    created_by_user_id: record.createdByUserId,
+    created_at: record.createdAt,
+    expires_at: record.expiresAt,
+    status: record.status,
+  };
+}
+
+function intentFrom(row: Row): FieldUploadIntentRecord {
+  return {
+    id: String(row.id),
+    organizationId: String(row.organization_id),
+    fieldId: String(row.field_id),
+    documentId: String(row.document_id),
+    documentType: row.document_type as FieldUploadIntentRecord["documentType"],
+    objectPath: String(row.object_path),
+    originalFilename: String(row.original_filename),
+    mimeType: String(row.mime_type),
+    expectedSizeBytes: Number(row.expected_size_bytes ?? 0),
+    version: Number(row.version ?? 1),
+    replacesDocumentId: (row.replaces_document_id as string | null) ?? null,
+    createdByUserId: String(row.created_by_user_id),
+    createdAt: String(row.created_at),
+    expiresAt: String(row.expires_at),
+    status: row.status as FieldUploadIntentRecord["status"],
+  };
+}
+
+function submissionToRow(record: FieldSubmissionRecord): Row {
+  return {
+    id: record.id,
+    public_id: record.publicId,
+    field_id: record.fieldId,
+    organization_id: record.organizationId,
+    version: record.version,
+    declared_data: record.declared,
+    document_ids: record.documentIds,
+    submitted_by_user_id: record.submittedByUserId,
+    submitted_by_role: record.submittedByRole,
+    submitted_by_persona_id: record.submittedByPersonaId,
+    submitted_at: record.submittedAt,
+  };
+}
+
+function eventToRow(record: OriginationAuditEvent): Row {
+  return {
+    id: record.id,
+    occurred_at: record.occurredAt,
+    actor_user_id: record.actorUserId,
+    effective_role: record.effectiveRole,
+    persona_id: record.personaId,
+    organization_id: record.organizationId,
+    event_type: record.eventType,
+    object_type: record.objectType,
+    object_id: record.objectId,
+    result: record.result,
+    metadata: record.metadata,
+  };
+}
+
+function messageToRow(record: FieldVerificationMessageRecord): Row {
+  return {
+    id: record.id,
+    case_id: record.caseId,
+    field_id: record.fieldId,
+    sender_user_id: record.senderUserId,
+    sender_role: record.senderRole,
+    sender_persona_id: record.senderPersonaId,
+    body: record.body,
+    message_type: record.messageType,
+    linked_document_id: record.linkedDocumentId,
+    created_at: record.createdAt,
+  };
+}
+
+function snapshotToRow(record: VerifiedFieldSnapshotRecord): Row {
+  return {
+    id: record.id,
+    field_id: record.fieldId,
+    case_id: record.caseId,
+    submission_id: record.submissionId,
+    payload: record.payload,
+    approved_by_user_id: record.approvedByUserId,
+    approved_by_role: record.approvedByRole,
+    approved_by_persona_id: record.approvedByPersonaId,
+    approved_at: record.approvedAt,
   };
 }

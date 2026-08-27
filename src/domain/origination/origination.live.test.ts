@@ -42,7 +42,9 @@ function loadLocalEnv() {
   }
 }
 
-loadLocalEnv();
+if (process.env.RUN_LIVE_ORIGINATION_TESTS === "1") {
+  loadLocalEnv();
+}
 
 const farm1 = DEMO_ORGANIZATIONS.find((item) => item.slug === "akmola-agro")!;
 const farm2 = DEMO_ORGANIZATIONS.find((item) => item.slug === "steppe-grain")!;
@@ -50,10 +52,12 @@ const scasOrg = DEMO_ORGANIZATIONS.find((item) => item.slug === "scas")!;
 const issuerOrg = DEMO_ORGANIZATIONS.find((item) => item.slug === "agro-issuer")!;
 const registrarOrg = DEMO_ORGANIZATIONS.find((item) => item.slug === "agricultural-registrar")!;
 const platform = DEMO_ORGANIZATIONS.find((item) => item.slug === "field-to-finance")!;
-const live = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
-);
+const live =
+  process.env.RUN_LIVE_ORIGINATION_TESTS === "1" &&
+  Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
+  );
 
 function membership(
   overrides: Partial<MembershipRecord> & Pick<MembershipRecord, "organizationId" | "roleIds">,
@@ -125,7 +129,7 @@ function pdf(name: string) {
   };
 }
 
-describe.skipIf(!live)("origination O1.1 live postgres", () => {
+describe.skipIf(!live)("origination live postgres (explicit RUN_LIVE_ORIGINATION_TESTS=1 only)", () => {
   it("persists a Producer ↔ SCAS workflow without DAC or public files", async () => {
     const client = createServiceRoleClient();
     expect(client).toBeTruthy();

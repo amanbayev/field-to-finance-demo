@@ -122,11 +122,7 @@ export default async function FieldDetailPage({
   const tab = TABS.includes(query.tab as (typeof TABS)[number]) ? query.tab : "overview";
   const nextCopy = tOrig(producerNextActionMessageKey(field.status));
   const canEdit = field.status === "DRAFT" || field.status === "CHANGES_REQUESTED";
-  const canReplace =
-    field.status === "CHANGES_REQUESTED" ||
-    field.status === "RESUBMITTED" ||
-    field.status === "UNDER_REVIEW" ||
-    field.status === "SUBMITTED";
+  const canReplace = field.status === "CHANGES_REQUESTED";
 
   return (
     <div>
@@ -276,7 +272,7 @@ export default async function FieldDetailPage({
           fieldId={field.id}
           fieldPublicId={field.publicId}
           documents={documents}
-          canEdit={field.status === "DRAFT"}
+          canEdit={canEdit}
           canReplace={canReplace}
         />
       ) : null}

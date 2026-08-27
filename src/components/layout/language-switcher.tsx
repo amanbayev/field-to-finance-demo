@@ -41,7 +41,6 @@ export function LanguageSwitcher() {
                 ? "bg-harvest text-primary-foreground"
                 : "text-straw hover:text-bone",
             )}
-            suppressHydrationWarning
           >
             {localeLabels[code]}
           </button>

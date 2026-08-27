@@ -57,6 +57,7 @@ export function PersonaSwitcher({
           name="personaId"
           defaultValue={currentPersonaId ?? ""}
           className="desk-control h-7 w-full min-w-0 max-w-[18rem] truncate px-2"
+          // Native <select> can restore a previous option before React hydrates defaultValue.
           suppressHydrationWarning
           onChange={(event) => {
             if (event.currentTarget.value) {

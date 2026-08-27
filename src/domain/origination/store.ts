@@ -1,7 +1,15 @@
 import type {
+  ApprovalBundle,
+  ChangeRequestBundle,
+  DocumentCommitBundle,
+  RejectionBundle,
+  SubmissionBundle,
+} from "./tx";
+import type {
   FieldCadastreVerificationRecord,
   FieldDocumentRecord,
   FieldSubmissionRecord,
+  FieldUploadIntentRecord,
   FieldVerificationCaseRecord,
   FieldVerificationEvidenceRecord,
   FieldVerificationMessageRecord,
@@ -56,4 +64,15 @@ export interface OriginationStore {
   getBlob(bucket: string, objectPath: string): Promise<OriginationBlob | null>;
   removeBlob(bucket: string, objectPath: string): Promise<void>;
   hasPublicObjectUrl(bucket: string, objectPath: string): Promise<boolean>;
+  insertUploadIntent(record: FieldUploadIntentRecord): Promise<FieldUploadIntentRecord>;
+  getUploadIntent(id: string): Promise<FieldUploadIntentRecord | null>;
+  commitDocumentBundle(input: DocumentCommitBundle): Promise<FieldDocumentRecord>;
+  applySubmissionBundle(input: SubmissionBundle): Promise<{
+    field: ProducerFieldRecord;
+    submission: FieldSubmissionRecord;
+    verificationCase: FieldVerificationCaseRecord;
+  }>;
+  applyChangeRequestBundle(input: ChangeRequestBundle): Promise<void>;
+  applyApprovalBundle(input: ApprovalBundle): Promise<VerifiedFieldSnapshotRecord>;
+  applyRejectionBundle(input: RejectionBundle): Promise<void>;
 }

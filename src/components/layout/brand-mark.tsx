@@ -17,10 +17,9 @@ export function BrandMark({
       href="/"
       aria-label={fullName}
       className="flex min-w-0 items-center gap-2 text-bone transition-colors duration-150 ease-out hover:text-harvest"
-      suppressHydrationWarning
     >
       <WheatMark className="size-6 shrink-0 text-harvest" />
-      <span className="min-w-0" suppressHydrationWarning>
+      <span className="min-w-0">
         <span className="block truncate font-wordmark text-sm tracking-tight">
           {shortName}
         </span>

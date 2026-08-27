@@ -90,7 +90,7 @@ export async function SiteHeader() {
 
   if (actor) {
     return (
-      <header className="sticky top-0 z-50 h-12 overflow-x-clip border-b border-harvest/20 bg-ink/92 backdrop-blur-md" suppressHydrationWarning>
+      <header className="sticky top-0 z-50 h-12 overflow-x-clip border-b border-harvest/20 bg-ink/92 backdrop-blur-md">
         <div className="flex h-12 min-w-0 items-center gap-2 px-2 sm:gap-3 sm:px-5">
           <MobileNav groups={groups} sessionSlot={personaSwitcherMobile} />
           <BrandMark

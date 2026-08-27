@@ -87,6 +87,12 @@ export const FIELD_EVIDENCE_KINDS = [
 
 export type FieldEvidenceKind = (typeof FIELD_EVIDENCE_KINDS)[number];
 
+export const FIELD_UPLOAD_INTENT_STATUSES = ["PREPARED", "COMMITTED", "EXPIRED"] as const;
+
+export type FieldUploadIntentStatus = (typeof FIELD_UPLOAD_INTENT_STATUSES)[number];
+
+export const UPLOAD_INTENT_TTL_MS = 30 * 60 * 1000;
+
 export const ORIGINATION_EVENT_TYPES = [
   "field_created",
   "field_updated",
@@ -277,15 +283,43 @@ export interface VerifiedFieldSnapshotRecord {
   approvedAt: string;
 }
 
+export interface VerifiedAcceptedDocument {
+  id: string;
+  documentType: FieldDocumentType;
+  version: number;
+  sha256: string;
+}
+
 export interface VerifiedFieldSnapshotPayload {
   producerDeclared: ProducerDeclaredData;
+  submissionId: string;
+  submissionVersion: number;
   acceptedDocumentIds: string[];
+  acceptedDocuments: VerifiedAcceptedDocument[];
   cadastreVerification: FieldCadastreVerificationRecord;
   evidenceIds: string[];
   reviewerUserId: string;
   reviewerRole: string;
   reviewerPersonaId: string | null;
   approvedAt: string;
+}
+
+export interface FieldUploadIntentRecord {
+  id: string;
+  organizationId: string;
+  fieldId: string;
+  documentId: string;
+  documentType: FieldDocumentType;
+  objectPath: string;
+  originalFilename: string;
+  mimeType: string;
+  expectedSizeBytes: number;
+  version: number;
+  replacesDocumentId: string | null;
+  createdByUserId: string;
+  createdAt: string;
+  expiresAt: string;
+  status: FieldUploadIntentStatus;
 }
 
 export interface OriginationAuditEvent {

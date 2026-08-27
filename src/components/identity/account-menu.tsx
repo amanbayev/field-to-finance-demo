@@ -65,7 +65,7 @@ export function AccountMenu({
   const itemClass = cn(buttonVariants({ variant: "ghost", size: "xs" }), "w-full justify-start");
 
   return (
-    <div className="relative shrink-0" ref={rootRef} suppressHydrationWarning>
+    <div className="relative shrink-0" ref={rootRef}>
       <button
         type="button"
         className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-0.5 hover:bg-muted/60"

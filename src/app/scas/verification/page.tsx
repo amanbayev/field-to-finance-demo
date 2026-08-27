@@ -34,11 +34,13 @@ export default async function ScasVerificationQueuePage({
     ? (params.filter as ScasCaseFilter)
     : "all";
   let cases: FieldVerificationCaseRecord[] = [];
+  let storageDown = false;
   try {
     cases = await originationService().listVerificationQueue(actor, filter);
   } catch (error) {
     if (error instanceof OriginationError && error.code === "storage") {
       cases = [];
+      storageDown = true;
     } else {
       throw error;
     }
@@ -63,10 +65,12 @@ export default async function ScasVerificationQueuePage({
         photoPosition={media.position}
         kenBurnsOrigin={media.kenBurnsOrigin}
         figure={
-          <DeskFigure
-            label={t("scasNew")}
-            value={formatNumber(rows.filter((row) => row.item.status === "NEW").length, locale)}
-          />
+          storageDown ? undefined : (
+            <DeskFigure
+              label={t("scasNew")}
+              value={formatNumber(rows.filter((row) => row.item.status === "NEW").length, locale)}
+            />
+          )
         }
       />
       <nav className="mb-6 flex flex-wrap gap-x-5 gap-y-2 overflow-x-auto" aria-label={tDesk("filterRibbon")}>
@@ -95,7 +99,10 @@ export default async function ScasVerificationQueuePage({
         ))}
       </nav>
       {rows.length === 0 ? (
-        <EmptyState title={t("queueTitle")} body={t("queueLead")} />
+        <EmptyState
+          title={storageDown ? t("queueStorageTitle") : t("queueEmptyTitle")}
+          body={storageDown ? t("queueStorageBody") : t("queueEmptyBody")}
+        />
       ) : (
         <DeskLedger>
           {rows.map((row, index) => (

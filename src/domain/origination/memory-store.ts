@@ -4,6 +4,7 @@ import type {
   FieldCadastreVerificationRecord,
   FieldDocumentRecord,
   FieldSubmissionRecord,
+  FieldUploadIntentRecord,
   FieldVerificationCaseRecord,
   FieldVerificationEvidenceRecord,
   FieldVerificationMessageRecord,
@@ -11,6 +12,14 @@ import type {
   ProducerFieldRecord,
   VerifiedFieldSnapshotRecord,
 } from "./types";
+import { OriginationError } from "./types";
+import type {
+  ApprovalBundle,
+  ChangeRequestBundle,
+  DocumentCommitBundle,
+  RejectionBundle,
+  SubmissionBundle,
+} from "./tx";
 import type { OriginationBlob, OriginationStore } from "./store";
 
 function clone<T>(value: T): T {
@@ -37,6 +46,7 @@ type DiskState = {
   messages: FieldVerificationMessageRecord[];
   snapshots: VerifiedFieldSnapshotRecord[];
   events: OriginationAuditEvent[];
+  intents: FieldUploadIntentRecord[];
   blobs: DiskBlob[];
 };
 
@@ -53,6 +63,7 @@ export class MemoryOriginationStore implements OriginationStore {
   private messages: FieldVerificationMessageRecord[] = [];
   private snapshots = new Map<string, VerifiedFieldSnapshotRecord>();
   private events: OriginationAuditEvent[] = [];
+  private intents = new Map<string, FieldUploadIntentRecord>();
   private blobs = new Map<string, OriginationBlob>();
 
   constructor(private readonly persistPath?: string) {
@@ -76,6 +87,7 @@ export class MemoryOriginationStore implements OriginationStore {
     this.messages = parsed.messages ?? [];
     this.snapshots = new Map((parsed.snapshots ?? []).map((record) => [record.fieldId, record]));
     this.events = parsed.events ?? [];
+    this.intents = new Map((parsed.intents ?? []).map((record) => [record.id, record]));
     this.blobs = new Map(
       (parsed.blobs ?? []).map((blob) => [
         `${blob.bucket}:${blob.objectPath}`,
@@ -107,6 +119,7 @@ export class MemoryOriginationStore implements OriginationStore {
       messages: this.messages,
       snapshots: [...this.snapshots.values()],
       events: this.events,
+      intents: [...this.intents.values()],
       blobs: [...this.blobs.values()].map((blob) => ({
         bucket: blob.bucket,
         objectPath: blob.objectPath,
@@ -194,8 +207,28 @@ export class MemoryOriginationStore implements OriginationStore {
     return this.read(() => [...this.fields.values()].map(clone));
   }
 
+  private assertDocumentLineage(record: FieldDocumentRecord, replacingId?: string | null) {
+    for (const existing of this.documents.values()) {
+      if (existing.id === record.id || existing.fieldId !== record.fieldId) {
+        continue;
+      }
+      if (existing.documentType === record.documentType && existing.version === record.version) {
+        throw new OriginationError("invalid_state", "Duplicate document version.");
+      }
+      if (
+        record.current &&
+        existing.current &&
+        existing.documentType === record.documentType &&
+        existing.id !== replacingId
+      ) {
+        throw new OriginationError("invalid_state", "A current version already exists for this document type.");
+      }
+    }
+  }
+
   async insertDocument(record: FieldDocumentRecord) {
     return this.write(() => {
+      this.assertDocumentLineage(record, record.replacesDocumentId);
       this.documents.set(record.id, clone(record));
       return clone(record);
     });
@@ -334,6 +367,9 @@ export class MemoryOriginationStore implements OriginationStore {
 
   async insertSnapshot(record: VerifiedFieldSnapshotRecord) {
     return this.write(() => {
+      if (this.snapshots.has(record.fieldId)) {
+        throw new OriginationError("invalid_state", "A verified snapshot already exists.");
+      }
       this.snapshots.set(record.fieldId, clone(record));
       return clone(record);
     });
@@ -396,5 +432,141 @@ export class MemoryOriginationStore implements OriginationStore {
 
   async hasPublicObjectUrl() {
     return false;
+  }
+
+  async insertUploadIntent(record: FieldUploadIntentRecord) {
+    return this.write(() => {
+      if (record.status === "PREPARED") {
+        for (const existing of this.intents.values()) {
+          if (
+            existing.status === "PREPARED" &&
+            existing.fieldId === record.fieldId &&
+            existing.documentType === record.documentType &&
+            existing.id !== record.id
+          ) {
+            throw new OriginationError(
+              "invalid_state",
+              "An upload is already in progress for this document type.",
+            );
+          }
+        }
+      }
+      this.intents.set(record.id, clone(record));
+      return clone(record);
+    });
+  }
+
+  async getUploadIntent(id: string) {
+    return this.read(() => {
+      const record = this.intents.get(id);
+      return record ? clone(record) : null;
+    });
+  }
+
+  async commitDocumentBundle(input: DocumentCommitBundle) {
+    return this.write(() => {
+      if (input.intentId) {
+        const intent = this.intents.get(input.intentId);
+        if (!intent) {
+          throw new OriginationError("not_found");
+        }
+        if (intent.status === "COMMITTED") {
+          const existing = this.documents.get(intent.documentId);
+          if (existing) {
+            return clone(existing);
+          }
+          throw new OriginationError("invalid_state", "Upload intent is not usable.");
+        }
+        if (intent.status !== "PREPARED") {
+          throw new OriginationError("invalid_state", "Upload intent is not usable.");
+        }
+        if (Date.parse(intent.expiresAt) <= Date.now()) {
+          this.intents.set(intent.id, { ...intent, status: "EXPIRED" });
+          throw new OriginationError("invalid_state", "Upload intent expired.");
+        }
+      }
+      if (input.supersededId) {
+        const superseded = this.documents.get(input.supersededId);
+        if (superseded) {
+          this.documents.set(input.supersededId, {
+            ...superseded,
+            status: "SUPERSEDED",
+            current: false,
+          });
+        }
+      }
+      this.assertDocumentLineage(input.document, input.supersededId);
+      this.documents.set(input.document.id, clone(input.document));
+      if (input.intentId) {
+        const intent = this.intents.get(input.intentId);
+        if (intent) {
+          this.intents.set(intent.id, { ...intent, status: "COMMITTED" });
+        }
+      }
+      this.events.push(clone(input.event));
+      if (input.message) {
+        this.messages.push(clone(input.message));
+      }
+      return clone(input.document);
+    });
+  }
+
+  async applySubmissionBundle(input: SubmissionBundle) {
+    return this.write(() => {
+      const current = this.fields.get(input.field.id);
+      if (!current || current.status !== input.expectedFieldStatus) {
+        throw new OriginationError("invalid_state");
+      }
+      const duplicateVersion = [...this.submissions.values()].some(
+        (item) => item.fieldId === input.submission.fieldId && item.version === input.submission.version,
+      );
+      if (duplicateVersion) {
+        throw new OriginationError("invalid_state", "Duplicate submission version.");
+      }
+      this.submissions.set(input.submission.id, clone(input.submission));
+      this.cases.set(input.verificationCase.id, clone(input.verificationCase));
+      this.fields.set(input.field.id, clone(input.field));
+      this.events.push(clone(input.event));
+      return {
+        field: clone(input.field),
+        submission: clone(input.submission),
+        verificationCase: clone(input.verificationCase),
+      };
+    });
+  }
+
+  async applyChangeRequestBundle(input: ChangeRequestBundle) {
+    this.write(() => {
+      this.fields.set(input.field.id, clone(input.field));
+      this.cases.set(input.verificationCase.id, clone(input.verificationCase));
+      if (input.document) {
+        this.documents.set(input.document.id, clone(input.document));
+      }
+      this.messages.push(clone(input.message));
+      this.events.push(...input.events.map(clone));
+    });
+  }
+
+  async applyApprovalBundle(input: ApprovalBundle) {
+    return this.write(() => {
+      if (this.snapshots.has(input.snapshot.fieldId)) {
+        throw new OriginationError("invalid_state", "A verified snapshot already exists.");
+      }
+      this.snapshots.set(input.snapshot.fieldId, clone(input.snapshot));
+      this.fields.set(input.field.id, clone(input.field));
+      this.cases.set(input.verificationCase.id, clone(input.verificationCase));
+      this.messages.push(clone(input.message));
+      this.events.push(clone(input.event));
+      return clone(input.snapshot);
+    });
+  }
+
+  async applyRejectionBundle(input: RejectionBundle) {
+    this.write(() => {
+      this.fields.set(input.field.id, clone(input.field));
+      this.cases.set(input.verificationCase.id, clone(input.verificationCase));
+      this.messages.push(clone(input.message));
+      this.events.push(clone(input.event));
+    });
   }
 }
