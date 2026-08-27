@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import type {
   FieldCadastreVerificationRecord,
   FieldDocumentRecord,
+  FieldDocumentType,
   FieldSubmissionRecord,
   FieldUploadIntentRecord,
   FieldVerificationCaseRecord,
@@ -20,6 +21,12 @@ import type {
   RejectionBundle,
   SubmissionBundle,
 } from "./tx";
+import {
+  allowsApproval,
+  allowsChangeRequest,
+  allowsProducerUpload,
+  allowsRejection,
+} from "./state-guards";
 import type { OriginationBlob, OriginationStore } from "./store";
 
 function clone<T>(value: T): T {
@@ -66,7 +73,10 @@ export class MemoryOriginationStore implements OriginationStore {
   private intents = new Map<string, FieldUploadIntentRecord>();
   private blobs = new Map<string, OriginationBlob>();
 
-  constructor(private readonly persistPath?: string) {
+  constructor(
+    private readonly persistPath?: string,
+    private readonly now: () => number = Date.now,
+  ) {
     this.hydrate();
   }
 
@@ -434,22 +444,61 @@ export class MemoryOriginationStore implements OriginationStore {
     return false;
   }
 
-  async insertUploadIntent(record: FieldUploadIntentRecord) {
+  private expireStalePrepared(fieldId: string, documentType: FieldDocumentType, now: number) {
+    for (const intent of [...this.intents.values()]) {
+      if (
+        intent.fieldId === fieldId &&
+        intent.documentType === documentType &&
+        intent.status === "PREPARED" &&
+        Date.parse(intent.expiresAt) <= now
+      ) {
+        this.intents.set(intent.id, { ...intent, status: "EXPIRED" });
+      }
+    }
+  }
+
+  private expireAllPrepared(fieldId: string) {
+    for (const intent of [...this.intents.values()]) {
+      if (intent.fieldId === fieldId && intent.status === "PREPARED") {
+        this.intents.set(intent.id, { ...intent, status: "EXPIRED" });
+      }
+    }
+  }
+
+  async prepareUploadIntent(record: FieldUploadIntentRecord) {
     return this.write(() => {
-      if (record.status === "PREPARED") {
-        for (const existing of this.intents.values()) {
-          if (
-            existing.status === "PREPARED" &&
-            existing.fieldId === record.fieldId &&
-            existing.documentType === record.documentType &&
-            existing.id !== record.id
-          ) {
-            throw new OriginationError(
-              "invalid_state",
-              "An upload is already in progress for this document type.",
-            );
-          }
+      const field = this.fields.get(record.fieldId);
+      if (!field) {
+        throw new OriginationError("not_found");
+      }
+      if (field.organizationId !== record.organizationId) {
+        throw new OriginationError("invalid_state", "Upload intent does not belong to this field.");
+      }
+      if (!allowsProducerUpload(field.status)) {
+        throw new OriginationError("invalid_state", "Upload window is closed.");
+      }
+      this.expireStalePrepared(record.fieldId, record.documentType, this.now());
+      let existing: FieldUploadIntentRecord | null = null;
+      for (const intent of this.intents.values()) {
+        if (
+          intent.status === "PREPARED" &&
+          intent.fieldId === record.fieldId &&
+          intent.documentType === record.documentType
+        ) {
+          existing = intent;
+          break;
         }
+      }
+      if (existing) {
+        if (
+          existing.originalFilename === record.originalFilename &&
+          existing.mimeType === record.mimeType &&
+          existing.expectedSizeBytes === record.expectedSizeBytes &&
+          existing.replacesDocumentId === record.replacesDocumentId
+        ) {
+          return clone(existing);
+        }
+        throw new OriginationError("invalid_state", "An upload is already in progress for this document type.");
       }
       this.intents.set(record.id, clone(record));
       return clone(record);
@@ -465,6 +514,7 @@ export class MemoryOriginationStore implements OriginationStore {
 
   async commitDocumentBundle(input: DocumentCommitBundle) {
     return this.write(() => {
+      let fieldId = input.document.fieldId;
       if (input.intentId) {
         const intent = this.intents.get(input.intentId);
         if (!intent) {
@@ -477,14 +527,36 @@ export class MemoryOriginationStore implements OriginationStore {
           }
           throw new OriginationError("invalid_state", "Upload intent is not usable.");
         }
+        fieldId = intent.fieldId;
+      }
+
+      const field = this.fields.get(fieldId);
+      if (!field) {
+        throw new OriginationError("not_found");
+      }
+
+      if (input.intentId) {
+        const intent = this.intents.get(input.intentId)!;
+        if (
+          intent.organizationId !== field.organizationId ||
+          intent.fieldId !== field.id ||
+          intent.fieldId !== input.document.fieldId
+        ) {
+          throw new OriginationError("invalid_state", "Upload intent does not belong to this field.");
+        }
         if (intent.status !== "PREPARED") {
           throw new OriginationError("invalid_state", "Upload intent is not usable.");
         }
-        if (Date.parse(intent.expiresAt) <= Date.now()) {
+        if (Date.parse(intent.expiresAt) <= this.now()) {
           this.intents.set(intent.id, { ...intent, status: "EXPIRED" });
           throw new OriginationError("invalid_state", "Upload intent expired.");
         }
       }
+
+      if (!allowsProducerUpload(field.status)) {
+        throw new OriginationError("invalid_state", "Upload window is closed.");
+      }
+
       if (input.supersededId) {
         const superseded = this.documents.get(input.supersededId);
         if (superseded) {
@@ -517,6 +589,27 @@ export class MemoryOriginationStore implements OriginationStore {
       if (!current || current.status !== input.expectedFieldStatus) {
         throw new OriginationError("invalid_state");
       }
+      if (input.caseIsNew) {
+        if (input.expectedFieldStatus !== "DRAFT") {
+          throw new OriginationError("invalid_state");
+        }
+        const existingCase = [...this.cases.values()].some((item) => item.fieldId === current.id);
+        if (existingCase) {
+          throw new OriginationError("invalid_state", "A verification case already exists.");
+        }
+      } else {
+        if (input.expectedFieldStatus !== "CHANGES_REQUESTED") {
+          throw new OriginationError("invalid_state");
+        }
+        const currentCase = this.cases.get(input.verificationCase.id);
+        if (
+          !currentCase ||
+          currentCase.fieldId !== current.id ||
+          currentCase.status !== "CHANGES_REQUESTED"
+        ) {
+          throw new OriginationError("invalid_state", "Verification case is not in the expected state.");
+        }
+      }
       const duplicateVersion = [...this.submissions.values()].some(
         (item) => item.fieldId === input.submission.fieldId && item.version === input.submission.version,
       );
@@ -526,6 +619,7 @@ export class MemoryOriginationStore implements OriginationStore {
       this.submissions.set(input.submission.id, clone(input.submission));
       this.cases.set(input.verificationCase.id, clone(input.verificationCase));
       this.fields.set(input.field.id, clone(input.field));
+      this.expireAllPrepared(current.id);
       this.events.push(clone(input.event));
       return {
         field: clone(input.field),
@@ -537,6 +631,26 @@ export class MemoryOriginationStore implements OriginationStore {
 
   async applyChangeRequestBundle(input: ChangeRequestBundle) {
     this.write(() => {
+      const currentField = this.fields.get(input.field.id);
+      const currentCase = this.cases.get(input.verificationCase.id);
+      if (!currentField || !currentCase) {
+        throw new OriginationError("not_found");
+      }
+      if (
+        currentField.status === "VERIFIED" ||
+        currentField.status === "REJECTED" ||
+        currentField.status === "ARCHIVED" ||
+        currentCase.status === "VERIFIED" ||
+        currentCase.status === "REJECTED"
+      ) {
+        throw new OriginationError("invalid_state", "Terminal state cannot be overwritten.");
+      }
+      if (
+        !allowsChangeRequest(currentField.status, currentCase.status) ||
+        currentCase.fieldId !== currentField.id
+      ) {
+        throw new OriginationError("invalid_state", "Not in an allowed source state.");
+      }
       this.fields.set(input.field.id, clone(input.field));
       this.cases.set(input.verificationCase.id, clone(input.verificationCase));
       if (input.document) {
@@ -549,8 +663,30 @@ export class MemoryOriginationStore implements OriginationStore {
 
   async applyApprovalBundle(input: ApprovalBundle) {
     return this.write(() => {
-      if (this.snapshots.has(input.snapshot.fieldId)) {
+      const currentField = this.fields.get(input.field.id);
+      const currentCase = this.cases.get(input.verificationCase.id);
+      if (!currentField || !currentCase) {
+        throw new OriginationError("not_found");
+      }
+      if (
+        currentField.status === "VERIFIED" ||
+        currentField.status === "REJECTED" ||
+        currentCase.status === "VERIFIED" ||
+        currentCase.status === "REJECTED" ||
+        this.snapshots.has(input.snapshot.fieldId)
+      ) {
         throw new OriginationError("invalid_state", "A verified snapshot already exists.");
+      }
+      if (!allowsApproval(currentField.status, currentCase.status)) {
+        throw new OriginationError("invalid_state", "Approval requires under review.");
+      }
+      if (
+        currentCase.currentSubmissionId !== input.snapshot.submissionId ||
+        currentField.currentSubmissionId !== input.snapshot.submissionId ||
+        input.snapshot.fieldId !== currentField.id ||
+        input.snapshot.caseId !== currentCase.id
+      ) {
+        throw new OriginationError("invalid_state", "Approval is not bound to the current submission.");
       }
       this.snapshots.set(input.snapshot.fieldId, clone(input.snapshot));
       this.fields.set(input.field.id, clone(input.field));
@@ -563,6 +699,25 @@ export class MemoryOriginationStore implements OriginationStore {
 
   async applyRejectionBundle(input: RejectionBundle) {
     this.write(() => {
+      const currentField = this.fields.get(input.field.id);
+      const currentCase = this.cases.get(input.verificationCase.id);
+      if (!currentField || !currentCase) {
+        throw new OriginationError("not_found");
+      }
+      if (
+        currentField.status === "VERIFIED" ||
+        currentField.status === "REJECTED" ||
+        currentCase.status === "VERIFIED" ||
+        currentCase.status === "REJECTED"
+      ) {
+        throw new OriginationError("invalid_state", "Terminal state cannot be overwritten.");
+      }
+      if (
+        !allowsRejection(currentField.status, currentCase.status) ||
+        currentCase.fieldId !== currentField.id
+      ) {
+        throw new OriginationError("invalid_state", "Not in an allowed source state.");
+      }
       this.fields.set(input.field.id, clone(input.field));
       this.cases.set(input.verificationCase.id, clone(input.verificationCase));
       this.messages.push(clone(input.message));

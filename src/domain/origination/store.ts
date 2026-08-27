@@ -64,7 +64,7 @@ export interface OriginationStore {
   getBlob(bucket: string, objectPath: string): Promise<OriginationBlob | null>;
   removeBlob(bucket: string, objectPath: string): Promise<void>;
   hasPublicObjectUrl(bucket: string, objectPath: string): Promise<boolean>;
-  insertUploadIntent(record: FieldUploadIntentRecord): Promise<FieldUploadIntentRecord>;
+  prepareUploadIntent(record: FieldUploadIntentRecord): Promise<FieldUploadIntentRecord>;
   getUploadIntent(id: string): Promise<FieldUploadIntentRecord | null>;
   commitDocumentBundle(input: DocumentCommitBundle): Promise<FieldDocumentRecord>;
   applySubmissionBundle(input: SubmissionBundle): Promise<{

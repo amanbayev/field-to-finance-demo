@@ -28,7 +28,10 @@ function fail(error: { message?: string; code?: string } | null, fallback = "sto
   const message = error?.message ?? fallback;
   if (
     error?.code === "23505" ||
-    /already verified|duplicate|expected state|not usable|current version/i.test(message)
+    error?.code === "P0001" ||
+    /already verified|duplicate|expected state|not usable|current version|already in progress|upload window|not allowed source|approval requires|terminal state|not bound|does not belong|case is not in the expected/i.test(
+      message,
+    )
   ) {
     throw new OriginationError("invalid_state", message);
   }
@@ -606,16 +609,18 @@ export class PostgresOriginationStore implements OriginationStore {
     return Boolean(data?.public);
   }
 
-  async insertUploadIntent(record: FieldUploadIntentRecord) {
-    const { data, error } = await this.client
-      .from("field_upload_intents")
-      .insert(intentToRow(record))
-      .select()
-      .single();
+  async prepareUploadIntent(record: FieldUploadIntentRecord) {
+    const { data, error } = await this.client.rpc("origination_prepare_upload_intent", {
+      payload: { intent: intentToRow(record) },
+    });
     if (error) {
       fail(error);
     }
-    return intentFrom(data as Row);
+    const row = (data as { intent?: Row } | null)?.intent;
+    if (!row) {
+      fail({ message: "prepare upload intent returned no row" });
+    }
+    return intentFrom(row);
   }
 
   async getUploadIntent(id: string) {

@@ -16,6 +16,12 @@ import {
   fieldDocumentObjectPath,
   scasEvidenceObjectPath,
 } from "./files";
+import {
+  allowsApproval,
+  allowsChangeRequest,
+  allowsProducerUpload,
+  allowsRejection,
+} from "./state-guards";
 import type { OriginationStore } from "./store";
 import {
   ALLOWED_FIELD_MIME_TYPES,
@@ -234,7 +240,7 @@ export class OriginationService {
     });
     const stamp = actorStamp(actor);
     const at = this.clock();
-    const intent = await this.store.insertUploadIntent({
+    const intent = await this.store.prepareUploadIntent({
       id: randomUUID(),
       organizationId: field.organizationId,
       fieldId: field.id,
@@ -254,14 +260,14 @@ export class OriginationService {
     return {
       uploadIntentId: intent.id,
       fieldId: field.id,
-      documentId,
-      version: plan.version,
-      objectPath,
+      documentId: intent.documentId,
+      version: intent.version,
+      objectPath: intent.objectPath,
       bucket: FIELD_DOCUMENT_BUCKET,
-      replacesDocumentId: plan.replaces?.id ?? null,
-      documentType: input.documentType,
-      filename: input.filename,
-      mimeType: input.mimeType,
+      replacesDocumentId: intent.replacesDocumentId,
+      documentType: intent.documentType,
+      filename: intent.originalFilename,
+      mimeType: intent.mimeType,
     };
   }
 
@@ -530,6 +536,9 @@ export class OriginationService {
       throw new OriginationError("not_found");
     }
     const verificationCase = await this.requireOpenVerifierCaseByField(actor, document.fieldId);
+    if (!allowsChangeRequest(field.status, verificationCase.status)) {
+      throw new OriginationError("invalid_state", "Changes cannot be requested from this state.");
+    }
     const at = this.clock();
     const stamp = actorStamp(actor);
     const updated = { ...document, status: "REPLACEMENT_REQUESTED" as const };
@@ -698,6 +707,9 @@ export class OriginationService {
     if (!field) {
       throw new OriginationError("not_found");
     }
+    if (!allowsChangeRequest(field.status, verificationCase.status)) {
+      throw new OriginationError("invalid_state", "Changes cannot be requested from this state.");
+    }
     const at = this.clock();
     const stamp = actorStamp(actor);
     const nextField = { ...field, status: "CHANGES_REQUESTED" as const, updatedAt: at };
@@ -742,6 +754,9 @@ export class OriginationService {
     if (!field) {
       throw new OriginationError("not_found");
     }
+    if (!allowsRejection(field.status, verificationCase.status)) {
+      throw new OriginationError("invalid_state", "Rejection is not allowed from this state.");
+    }
     const at = this.clock();
     const stamp = actorStamp(actor);
     const nextField = { ...field, status: "REJECTED" as const, updatedAt: at };
@@ -768,10 +783,25 @@ export class OriginationService {
 
   async approveField(actor: ActorContext, caseId: string) {
     this.requireVerifier(actor);
-    const verificationCase = await this.requireOpenVerifierCase(actor, caseId);
+    const verificationCase = await this.resolveCase(caseId);
+    if (!verificationCase) {
+      throw new OriginationError("not_found");
+    }
     const field = await this.store.getFieldById(verificationCase.fieldId);
     if (!field) {
       throw new OriginationError("not_found");
+    }
+    if (!allowsApproval(field.status, verificationCase.status)) {
+      throw new OriginationError(
+        "invalid_state",
+        "Approval is only available while the field is under review.",
+      );
+    }
+    if (
+      field.currentSubmissionId !== verificationCase.currentSubmissionId ||
+      !verificationCase.currentSubmissionId
+    ) {
+      throw new OriginationError("invalid_state", "Approval is not bound to the current submission.");
     }
     const cadastre = await this.store.getCadastreByCase(verificationCase.id);
     if (!cadastre) {
@@ -916,7 +946,7 @@ export class OriginationService {
 
   private assertUploadWindow(field: ProducerFieldRecord, _replacesDocumentId?: string | null) {
     void _replacesDocumentId;
-    if (field.status !== "DRAFT" && field.status !== "CHANGES_REQUESTED") {
+    if (!allowsProducerUpload(field.status)) {
       throw new OriginationError("immutable", "Producer evidence is frozen until SCAS requests changes.");
     }
   }
