@@ -1,27 +1,43 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
-import type { ActorContext } from "@/domain/identity";
+import type { ActorContext, PlatformRoleId } from "@/domain/identity";
 import { listContractsForActor } from "@/services/access-service";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
 import { getInvestorPortfolio } from "@/services/portfolio-service";
 import { loadAdminOverview } from "@/services/admin-service";
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
-import { remainingCoverageCapacity } from "@/services/workspace-view";
+import { isComplianceAlert, remainingCoverageCapacity } from "@/services/workspace-view";
 import { listAssetInstruments, listProtocolInvestments } from "@/services/market-core-service";
+import { getScasSnapshot } from "@/services/scas-service";
+import { listParticipantCompliance } from "@/services/compliance-service";
+import { stageMediaForRole } from "@/lib/surface/role-media";
 import {
   DeskFigure,
   DeskLedger,
   DeskNote,
   DeskRow,
-  DeskStage,
   deskIndex,
 } from "@/components/surface/desk-stage";
+import { DeskStage } from "@/components/surface/desk-stage-hero";
 import { EmptyState } from "@/components/shared/page-section";
 import { buttonVariants } from "@/components/ui/button";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { formatInteger } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { AppLocale } from "@/i18n/config";
+
+async function overviewStage(role: PlatformRoleId) {
+  const t = await getTranslations();
+  const media = stageMediaForRole(role);
+  return {
+    variant: "overview" as const,
+    photo: media.src,
+    photoAlt: t(`desk.${media.altKey}`),
+    photoPosition: media.position,
+    kenBurnsOrigin: media.kenBurnsOrigin,
+    asOfLabel: t("surface.clockLabel"),
+  };
+}
 
 export async function RoleDashboard({ actor }: { actor: ActorContext }) {
   const role = actor.effective.roleId;
@@ -32,7 +48,7 @@ export async function RoleDashboard({ actor }: { actor: ActorContext }) {
     return <RegulatorHome />;
   }
   if (role === "SCAS_OPERATOR") {
-    return <ScasHome actor={actor} />;
+    return <ScasHome />;
   }
   if (role === "ISSUER_OPERATOR") {
     return <IssuerHome />;
@@ -59,13 +75,14 @@ async function AdminHome() {
   const t = await getTranslations();
   const overview = await loadAdminOverview();
   const pending = overview?.pendingRequests ?? 0;
+  const stage = await overviewStage("SYSTEM_ADMIN");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={t("admin.eyebrow")}
         title={t("desk.adminTitle")}
         lead={t("admin.dashboardIntro")}
-        photo="/media/grain-kernel-macro.png"
         figure={
           <DeskFigure
             label={t("admin.pendingRequests")}
@@ -114,13 +131,14 @@ async function RegulatorHome() {
     ...listAssetInstruments().filter((item) => item.status !== "ISSUED"),
     ...listProtocolInvestments(),
   ];
+  const stage = await overviewStage("REGULATOR");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={t("nav.supervision")}
         title={t("desk.regulatorTitle")}
         lead={t("dashboard.regulatorIntro")}
-        photo="/media/grain-kernel-macro.png"
         figure={
           <DeskFigure
             label={t("marketCore.marketStatus")}
@@ -173,13 +191,14 @@ async function IssuerHome() {
   const { metrics } = await getDashboardSnapshot();
   const coverage = wheatPoolCoverageFromEngine();
   const remaining = remainingCoverageCapacity(coverage, metrics.wheatMintedSupply);
+  const stage = await overviewStage("ISSUER_OPERATOR");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={t("dashboard.issuerEyebrow")}
         title={t("desk.issuerTitle")}
         lead={t("workspace.issuerOverviewIntro")}
-        photo="/media/hero-harvest-dusk.png"
         figure={
           <DeskFigure
             label={t("workspace.availableIssuance")}
@@ -236,13 +255,14 @@ async function RegistrarHome() {
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
   const { metrics } = await getDashboardSnapshot();
+  const stage = await overviewStage("REGISTRAR_OPERATOR");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={t("dashboard.registrarEyebrow")}
         title={t("desk.registrarTitle")}
         lead={t("dashboard.registrarIntro")}
-        photo="/media/grain-kernel-macro.png"
         figure={
           <DeskFigure
             label={t("dashboard.eligibleCoverage")}
@@ -310,13 +330,14 @@ async function ProducerHome({ actor }: { actor: ActorContext }) {
     (sum, item) => sum + item.contract.production.expectedProductionTonnes,
     0,
   );
+  const stage = await overviewStage("PRODUCER_ADMIN");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={actor.effective.organization?.name}
         title={t("desk.producerTitle")}
         lead={t("dashboard.producerIntro")}
-        photo="/media/hero-harvest-dusk.png"
         figure={
           <DeskFigure
             label={t("dashboard.ownVolume")}
@@ -374,45 +395,67 @@ async function ProducerHome({ actor }: { actor: ActorContext }) {
   );
 }
 
-async function ScasHome({ actor }: { actor: ActorContext }) {
+async function ScasHome() {
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
-  const contracts = listContractsForActor(actor);
+  const snapshot = getScasSnapshot();
+  const stage = await overviewStage("SCAS_OPERATOR");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={t("nav.scas")}
         title={t("desk.scasTitle")}
         lead={t("dashboard.scasIntro")}
-        photo="/media/grain-kernel-macro.png"
         figure={
           <DeskFigure
-            label={t("dashboard.verifiedOnChain")}
-            value={formatInteger(contracts.length, locale)}
+            label={t("scas.metrics.pending")}
+            value={formatInteger(snapshot.pendingCount, locale)}
+            meta={[
+              {
+                label: t("scas.metrics.attested"),
+                value: formatInteger(snapshot.attestedCount, locale),
+              },
+              {
+                label: t("desk.openListings"),
+                value: formatInteger(snapshot.listings.length, locale),
+              },
+              {
+                label: t("scas.metrics.lockedContracts"),
+                value: formatInteger(snapshot.lockedContracts.length, locale),
+              },
+            ]}
           />
         }
       />
-      {contracts.length === 0 ? (
-        <EmptyState
-          kicker={t("nav.scas")}
-          title={t("desk.noneOnBook")}
-          body={t("dashboard.scasIntro")}
+      <DeskLedger>
+        <DeskRow
+          href="/scas"
+          index={deskIndex(0)}
+          kicker={t("nav.attestation")}
+          title={t("scas.queueTitle")}
+          value={formatInteger(snapshot.pendingCount, locale)}
         />
-      ) : (
-        <DeskLedger>
-          {contracts.slice(0, 8).map((item, index) => (
-            <DeskRow
-              key={item.contract.id}
-              href={`/contracts/${item.contract.id}`}
-              index={deskIndex(index)}
-              kicker={item.contract.id}
-              title={item.producer.legalName}
-              hint={item.contract.status}
-            />
-          ))}
-          <DeskRow href="/scas" index={deskIndex(contracts.length)} title={t("nav.scas")} />
-        </DeskLedger>
-      )}
+        <DeskRow
+          href="/scas/matching"
+          index={deskIndex(1)}
+          kicker={t("nav.matching")}
+          title={t("scas.matching.title")}
+          value={formatInteger(snapshot.listings.length, locale)}
+        />
+        <DeskRow
+          href="/scas/monitoring"
+          index={deskIndex(2)}
+          kicker={t("nav.scasMonitoring")}
+          title={t("workspace.scasMonitoringTitle")}
+        />
+        <DeskRow
+          href="/coverage"
+          index={deskIndex(3)}
+          kicker={t("nav.coverage")}
+          title={t("scas.payload.eligible")}
+        />
+      </DeskLedger>
     </>
   );
 }
@@ -425,13 +468,14 @@ async function InvestorHome({ actor }: { actor: ActorContext }) {
     portfolio?.quantityLive != null
       ? formatInteger(portfolio.quantityLive, locale)
       : t("portfolio.unavailable");
+  const stage = await overviewStage("INVESTOR");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={actor.effective.organization?.name}
         title={t("desk.investorTitle")}
         lead={t("dashboard.investorIntro")}
-        photo="/media/grain-kernel-macro.png"
         figure={
           <DeskFigure
             label={t("portfolio.holding")}
@@ -468,13 +512,14 @@ async function InvestorHome({ actor }: { actor: ActorContext }) {
 
 async function TraderHome() {
   const t = await getTranslations();
+  const stage = await overviewStage("TRADER");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={t("nav.markets")}
         title={t("desk.traderTitle")}
         lead={t("dashboard.traderIntro")}
-        photo="/media/empty-silo-light.png"
         figure={
           <DeskFigure
             label={t("marketCore.sectionMarket")}
@@ -498,19 +543,62 @@ async function TraderHome() {
 
 async function ComplianceHome() {
   const t = await getTranslations();
+  const locale = (await getLocale()) as AppLocale;
+  const rows = listParticipantCompliance();
+  const alerts = rows.filter((row) => isComplianceAlert(row.record)).length;
+  const blocked = rows.filter((row) => row.record.eligibility === "BLOCKED").length;
+  const stage = await overviewStage("COMPLIANCE_OFFICER");
   return (
     <>
       <DeskStage
+        {...stage}
         kicker={t("nav.compliance")}
         title={t("desk.complianceTitle")}
         lead={t("dashboard.complianceIntro")}
-        photo="/media/empty-silo-light.png"
+        figure={
+          <DeskFigure
+            label={t("desk.openAlerts")}
+            value={formatInteger(alerts, locale)}
+            meta={[
+              {
+                label: t("desk.blockedParticipants"),
+                value: formatInteger(blocked, locale),
+              },
+              {
+                label: t("desk.clearParticipants"),
+                value: formatInteger(rows.length - blocked, locale),
+              },
+            ]}
+          />
+        }
       />
       <DeskLedger>
-        <DeskRow href="/compliance/checks" index={deskIndex(0)} title={t("nav.checks")} />
-        <DeskRow href="/compliance/alerts" index={deskIndex(1)} title={t("nav.alerts")} />
-        <DeskRow href="/compliance/eligibility" index={deskIndex(2)} title={t("nav.eligibility")} />
-        <DeskRow href="/participants" index={deskIndex(3)} title={t("nav.participants")} />
+        <DeskRow
+          href="/compliance/checks"
+          index={deskIndex(0)}
+          kicker={t("nav.checks")}
+          title={t("workspace.checksTitle")}
+        />
+        <DeskRow
+          href="/compliance/alerts"
+          index={deskIndex(1)}
+          kicker={t("nav.alerts")}
+          title={t("workspace.alertsTitle")}
+          value={formatInteger(alerts, locale)}
+        />
+        <DeskRow
+          href="/compliance/eligibility"
+          index={deskIndex(2)}
+          kicker={t("nav.eligibility")}
+          title={t("workspace.eligibilityTitle")}
+        />
+        <DeskRow
+          href="/participants"
+          index={deskIndex(3)}
+          kicker={t("nav.participants")}
+          title={t("workspace.participantsTitle")}
+          value={formatInteger(rows.length, locale)}
+        />
       </DeskLedger>
     </>
   );

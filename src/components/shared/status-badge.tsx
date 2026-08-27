@@ -49,6 +49,15 @@ const caution = new Set([
   "CANCELLED",
   "SIMULATION_ONLY",
   "DEMO_SIMULATED",
+  "UPLOADED",
+  "REPLACEMENT_REQUESTED",
+  "SUPERSEDED",
+  "SUBMITTED",
+  "UNDER_REVIEW",
+  "CHANGES_REQUESTED",
+  "RESUBMITTED",
+  "ARCHIVED",
+  "NEW",
 ]);
 
 const negative = new Set([

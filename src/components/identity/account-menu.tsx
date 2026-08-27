@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   exitPersonaAction,
@@ -35,8 +36,9 @@ export function AccountMenu({
 }) {
   const t = useTranslations("identity");
   return (
-    <details className="relative shrink-0">
+    <details className="relative shrink-0" suppressHydrationWarning>
       <summary
+        suppressHydrationWarning
         className={cn(
           "flex cursor-pointer list-none items-center gap-2 rounded-sm px-1 py-0.5 hover:bg-muted/60 [&::-webkit-details-marker]:hidden",
         )}
@@ -58,11 +60,13 @@ export function AccountMenu({
         >
           {initials}
         </div>
-        <span className="text-[10px] text-muted-foreground" aria-hidden>
-          ▼
-        </span>
+        {compact ? null : (
+          <span className="text-[10px] text-muted-foreground" aria-hidden>
+            ▼
+          </span>
+        )}
       </summary>
-      <div className="absolute right-0 z-30 mt-1 w-56 border border-border bg-card p-2 shadow-sm">
+      <div className="absolute right-0 z-30 mt-1 w-56 max-w-[calc(100vw-1rem)] border border-harvest/25 bg-background p-2">
         <p className="truncate px-1 text-xs font-medium">{principalName}</p>
         {organizationName ? (
           <p className="truncate px-1 text-[10px] text-muted-foreground">{organizationName}</p>
@@ -87,6 +91,12 @@ export function AccountMenu({
             </select>
           </form>
         ) : null}
+        <Link
+          href="/help"
+          className="flex h-6 items-center rounded-[min(var(--radius-md),10px)] px-2 text-xs hover:bg-muted"
+        >
+          {t("help")}
+        </Link>
         {canOpenAdmin ? (
           <form action={openAdminConsoleAction}>
             <FormSubmitButton

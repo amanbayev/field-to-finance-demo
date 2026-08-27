@@ -11,6 +11,13 @@ import { PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
 import {
+  DeskBackLink,
+  DeskLedger,
+  DeskRow,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
+import {
   Table,
   TableBody,
   TableCell,
@@ -66,13 +73,7 @@ export default async function PoolDetailPage({
 
   return (
     <div>
-      <p className="mb-4 text-sm">
-        <Link href="/pools" className="text-muted-foreground hover:text-foreground">
-          {tNav("pools")}
-        </Link>
-        <span className="mx-2 text-muted-foreground">/</span>
-        <span className="font-tabular text-xs">{pool.id}</span>
-      </p>
+      <DeskBackLink href="/pools" label={tNav("pools")} />
       <PageHeader
         eyebrow={t("detailEyebrow")}
         title={lookupMessage(tCatalog, `pools.${pool.id}`)}
@@ -81,6 +82,7 @@ export default async function PoolDetailPage({
           producers: formatInteger(producerCount, locale),
           contracts: formatInteger(pool.contractIds.length, locale),
         })}
+        photo="/media/grain-kernel-macro.png"
       />
 
       <FactStrip
@@ -120,62 +122,83 @@ export default async function PoolDetailPage({
         <div className="mb-4">
           <DoubleUseControl />
         </div>
-        <Table className="min-w-[52rem]">
-          <TableHeader>
-            <TableRow>
-              <StickyHead>{t("columns.contract")}</StickyHead>
-              <TableHead>{t("columns.producer")}</TableHead>
-              <TableHead className="text-right">{t("columns.expected")}</TableHead>
-              <TableHead className="text-right">{t("columns.allocated")}</TableHead>
-              <TableHead>{t("columns.status")}</TableHead>
-              <TableHead>{t("columns.proof")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {members.map((member) => (
-              <TableRow key={member.contract.id}>
-                <StickyCell>
-                  <Link
-                    href={`/contracts/${member.contract.id}`}
-                    className="font-tabular text-xs text-primary hover:underline"
-                  >
-                    {member.contract.id}
-                  </Link>
-                </StickyCell>
-                <TableCell className="font-medium">
-                  {member.producer.legalName}
-                </TableCell>
-                <TableCell className="text-right font-tabular">
-                  {tUnits("tonnes", {
+        <DeskSplit
+          compact={
+            <DeskLedger>
+              {members.map((member, index) => (
+                <DeskRow
+                  key={member.contract.id}
+                  href={`/contracts/${member.contract.id}`}
+                  index={deskIndex(index)}
+                  kicker={member.contract.id}
+                  title={member.producer.legalName}
+                  value={tUnits("tonnes", {
                     value: formatInteger(member.volumeTonnes, locale),
                   })}
-                </TableCell>
-                <TableCell className="text-right font-tabular">
-                  {tUnits("tonnes", {
-                    value: formatInteger(
-                      member.allocatedVolumeTonnes ?? member.volumeTonnes,
-                      locale,
-                    ),
-                  })}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={member.contract.status} />
-                </TableCell>
-                <TableCell>
-                  <StatusBadge
-                    value={
-                      poolContracts.status === "unavailable"
-                        ? "PROOF_UNAVAILABLE"
-                        : member.allocatedVolumeTonnes != null
-                          ? "ON_CHAIN"
-                          : "OFF_CHAIN"
-                    }
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                  hint={member.contract.status}
+                />
+              ))}
+            </DeskLedger>
+          }
+          wide={
+            <Table className="min-w-[52rem]">
+              <TableHeader>
+                <TableRow>
+                  <StickyHead>{t("columns.contract")}</StickyHead>
+                  <TableHead>{t("columns.producer")}</TableHead>
+                  <TableHead className="text-right">{t("columns.expected")}</TableHead>
+                  <TableHead className="text-right">{t("columns.allocated")}</TableHead>
+                  <TableHead>{t("columns.status")}</TableHead>
+                  <TableHead>{t("columns.proof")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map((member) => (
+                  <TableRow key={member.contract.id}>
+                    <StickyCell>
+                      <Link
+                        href={`/contracts/${member.contract.id}`}
+                        className="font-tabular text-xs text-primary hover:underline"
+                      >
+                        {member.contract.id}
+                      </Link>
+                    </StickyCell>
+                    <TableCell className="font-medium">
+                      {member.producer.legalName}
+                    </TableCell>
+                    <TableCell className="text-right font-tabular">
+                      {tUnits("tonnes", {
+                        value: formatInteger(member.volumeTonnes, locale),
+                      })}
+                    </TableCell>
+                    <TableCell className="text-right font-tabular">
+                      {tUnits("tonnes", {
+                        value: formatInteger(
+                          member.allocatedVolumeTonnes ?? member.volumeTonnes,
+                          locale,
+                        ),
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value={member.contract.status} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        value={
+                          poolContracts.status === "unavailable"
+                            ? "PROOF_UNAVAILABLE"
+                            : member.allocatedVolumeTonnes != null
+                              ? "ON_CHAIN"
+                              : "OFF_CHAIN"
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          }
+        />
       </PageSection>
 
       <PageSection

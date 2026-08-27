@@ -57,6 +57,9 @@ solana/scripts/phase2-evidence.json
 # vercel
 .vercel
 
+# local origination memory (dev only; production uses Postgres)
+.origination-dev.json
+
 # supabase CLI local cache
 supabase/.temp/
 

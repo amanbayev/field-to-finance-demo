@@ -6,6 +6,12 @@ import { DataList } from "@/components/shared/data-list";
 import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
+import {
+  DeskLedger,
+  DeskNote,
+  DeskRow,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatPercent } from "@/lib/format";
@@ -48,6 +54,7 @@ export default async function SupervisionPage() {
         eyebrow={t("levelPlatform")}
         title={t("supervisionTitle")}
         description={t("supervisionIntro")}
+        photo="/media/grain-kernel-macro.png"
       />
 
       <MetricStrip className="sm:grid-cols-2 lg:grid-cols-5">
@@ -65,33 +72,34 @@ export default async function SupervisionPage() {
       </MetricStrip>
 
       <PageSection title={t("issuedInstruments")}>
-        <ul className="space-y-2 text-sm">
-          {issued.map((item) => (
-            <li key={item.id}>
-              <Link href={`/instruments/${item.id}`} className="text-primary hover:underline">
-                {item.symbol}
-              </Link>
-              <span className="ml-2 text-xs text-muted-foreground">
-                {t("issuedDemonstratorInstrument")}
-              </span>
-            </li>
+        <DeskLedger>
+          {issued.map((item, index) => (
+            <DeskRow
+              key={item.id}
+              href={`/instruments/${item.id}`}
+              index={deskIndex(index)}
+              kicker={lookupMessage(t, ASSET_CLASS_KEYS[item.assetClass])}
+              title={item.symbol}
+              hint={t("issuedDemonstratorInstrument")}
+            />
           ))}
-        </ul>
+        </DeskLedger>
       </PageSection>
 
       <PageSection title={t("conceptsStructuring")}>
-        <ul className="space-y-2 text-sm">
-          {concepts.map((item) => (
-            <li key={item.id}>
-              <Link href={`/instruments/${item.id}`} className="text-primary hover:underline">
-                {item.instrumentType === "PROTOCOL_INVESTMENT" ? item.name : item.symbol}
-              </Link>
-              <span className="ml-2 text-xs text-muted-foreground">
-                {t("protocolInvestmentStatus")} · {t("protocolInvestmentFlags")}
-              </span>
-            </li>
+        <DeskLedger>
+          {concepts.map((item, index) => (
+            <DeskRow
+              key={item.id}
+              href={`/instruments/${item.id}`}
+              index={deskIndex(index)}
+              title={
+                item.instrumentType === "PROTOCOL_INVESTMENT" ? item.name : item.symbol
+              }
+              hint={`${t("protocolInvestmentStatus")} · ${t("protocolInvestmentFlags")}`}
+            />
           ))}
-        </ul>
+        </DeskLedger>
       </PageSection>
 
       <PageSection title={t("failedSettlements")}>
@@ -144,35 +152,29 @@ export default async function SupervisionPage() {
       </PageSection>
 
       <PageSection title={t("verification")} description={t("differentModels")}>
-        <ul className="grid gap-3">
-          {protocols.map((protocol) => (
-            <li key={protocol.id} className="border border-border bg-card px-4 py-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <Link
-                  href={`/protocols/${protocol.id}`}
-                  className="font-medium text-primary hover:underline"
-                >
-                  {protocol.name}
-                </Link>
+        <DeskLedger>
+          {protocols.map((protocol, index) => (
+            <DeskRow
+              key={protocol.id}
+              href={`/protocols/${protocol.id}`}
+              index={deskIndex(index)}
+              kicker={lookupMessage(t, ASSET_CLASS_KEYS[protocol.assetClass])}
+              title={protocol.name}
+              hint={`${t("verification")}: ${protocol.verificationModel}`}
+              value={
                 <MarketStatusChip
                   label={lookupMessage(t, protocolStatusKey(protocol.status))}
                   tone={protocol.status}
                 />
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {lookupMessage(t, ASSET_CLASS_KEYS[protocol.assetClass])}
-              </p>
-              <p className="mt-2 text-sm">
-                {t("verification")}: {protocol.verificationModel}
-              </p>
-            </li>
+              }
+            />
           ))}
-        </ul>
+        </DeskLedger>
       </PageSection>
 
-      <p className="mt-6 text-xs text-muted-foreground">
+      <DeskNote className="mt-8">
         {t("noSecondaryTrade")} · {t("idle")}
-      </p>
+      </DeskNote>
     </div>
   );
 }

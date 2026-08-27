@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { CinematicImage } from "@/components/surface/cinematic-image";
+import { LiveClock } from "@/components/surface/live-clock";
 import { LifecycleStrip } from "@/components/dashboard/lifecycle-strip";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageSection } from "@/components/shared/page-section";
@@ -27,6 +28,8 @@ export async function HarvestOverview({
           src="/media/hero-harvest-dusk.png"
           alt={t("surface.heroAlt")}
           kenBurns
+          kenBurnsOrigin="bottom"
+          objectPosition="center bottom"
           priority
           className="absolute inset-0"
         />
@@ -34,6 +37,9 @@ export async function HarvestOverview({
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/25 to-transparent" />
 
         <div className="relative flex min-h-[calc(100svh-6.75rem)] flex-col justify-center px-5 pb-16 pt-8 sm:px-10 lg:px-16">
+          <div className="reveal absolute top-8 right-5 sm:right-10 lg:right-16">
+            <LiveClock locale={locale} label={t("surface.clockLabel")} />
+          </div>
           <p className="reveal label-caps text-harvest">{t("surface.venue")}</p>
           <h1 className="reveal reveal-delay-1 mt-5 max-w-5xl font-heading text-[clamp(2.4rem,7vw,5.6rem)] leading-[0.95] text-bone">
             {t("surface.thesis")}

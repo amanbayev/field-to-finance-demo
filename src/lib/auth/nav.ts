@@ -114,7 +114,7 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
         noneOf: ADMIN_NONE,
       },
 
-      { href: "/fields", key: "myFields", anyOf: ["contracts.manage.own"], noneOf: ADMIN_NONE },
+      { href: "/fields", key: "myFields", anyOf: ["fields.manage.own", "contracts.manage.own"], noneOf: ADMIN_NONE },
       {
         href: "/contracts",
         key: "myContracts",
@@ -140,6 +140,7 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
         noneOf: ["contracts.read.all", "admin.access"],
       },
 
+      { href: "/scas/verification", key: "verification", anyOf: ["scas.verify"], noneOf: ADMIN_NONE },
       { href: "/scas", key: "attestation", anyOf: ["scas.attest"], noneOf: ADMIN_NONE },
       { href: "/scas/matching", key: "matching", anyOf: ["scas.match"], noneOf: ADMIN_NONE },
       {

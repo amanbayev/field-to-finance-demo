@@ -1,52 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { CinematicImage } from "@/components/surface/cinematic-image";
 import { cn } from "@/lib/utils";
-
-export function DeskStage({
-  kicker,
-  title,
-  lead,
-  figure,
-  photo = "/media/grain-kernel-macro.png",
-  photoAlt = "",
-  className,
-}: {
-  kicker?: string;
-  title: ReactNode;
-  lead?: ReactNode;
-  figure?: ReactNode;
-  photo?: string;
-  photoAlt?: string;
-  className?: string;
-}) {
-  return (
-    <section className={cn("desk-stage relative block w-full min-h-[220px] overflow-hidden lg:min-h-[280px]", className)}>
-      <CinematicImage
-        src={photo}
-        alt={photoAlt}
-        kenBurns
-        priority
-        sizes="(min-width: 1024px) 75vw, 100vw"
-        className="absolute inset-0"
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-background/20" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-background/10" />
-      <div className="relative flex min-h-[220px] flex-col justify-end px-5 py-8 sm:px-8 lg:min-h-[280px] lg:px-10">
-        {kicker ? <p className="reveal label-caps text-harvest">{kicker}</p> : null}
-        <h1 className="reveal reveal-delay-1 mt-3 max-w-3xl font-heading text-[clamp(1.75rem,4.2vw,3.15rem)] leading-[0.95] text-bone">
-          {title}
-        </h1>
-        {lead ? (
-          <p className="reveal reveal-delay-2 mt-4 max-w-xl text-sm leading-relaxed text-bone/80 sm:text-[0.95rem]">
-            {lead}
-          </p>
-        ) : null}
-        {figure ? <div className="reveal reveal-delay-3 mt-8">{figure}</div> : null}
-      </div>
-    </section>
-  );
-}
 
 export function DeskFigure({
   label,
@@ -93,6 +47,7 @@ export function DeskLedger({
 
 export function DeskRow({
   href,
+  onSelect,
   index,
   kicker,
   title,
@@ -101,6 +56,7 @@ export function DeskRow({
   active = false,
 }: {
   href?: string;
+  onSelect?: () => void;
   index?: string;
   kicker?: string;
   title: ReactNode;
@@ -125,6 +81,20 @@ export function DeskRow({
       {value ? <div className="font-tabular text-xl text-harvest">{value}</div> : null}
     </div>
   );
+
+  if (onSelect) {
+    return (
+      <li aria-current={active ? "true" : undefined}>
+        <button
+          type="button"
+          onClick={onSelect}
+          className="block w-full text-left hover:text-harvest"
+        >
+          {body}
+        </button>
+      </li>
+    );
+  }
 
   if (!href || active) {
     return <li aria-current={active ? "page" : undefined}>{body}</li>;

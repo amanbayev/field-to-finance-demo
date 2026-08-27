@@ -10,6 +10,12 @@ import { DataList } from "@/components/shared/data-list";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
+import {
+  DeskLedger,
+  DeskNote,
+  DeskRow,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import { ON_CHAIN_DEMO_CONTRACT_IDS, ON_CHAIN_DEMO_POOL_ID } from "@/adapters/blockchain";
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { actorCan } from "@/domain/identity";
@@ -130,23 +136,20 @@ export default async function ProtocolDetailPage({
 
       {protocol.id === "F2F" && protocol.modules.length > 0 ? (
         <PageSection title={t("f2fModules")}>
-          <ul className="grid gap-2 sm:grid-cols-3">
-            {protocol.modules.map((moduleId) => {
-              const href = f2fModuleHref(moduleId, actor);
-              const label = lookupMessage(t, MODULE_KEYS[moduleId] ?? moduleId);
-              return (
-                <li key={moduleId} className="border border-border bg-card px-3 py-2 text-sm">
-                  {href ? (
-                    <Link href={href} className="text-primary hover:underline">
-                      {label}
-                    </Link>
-                  ) : (
-                    label
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+        <DeskLedger>
+          {protocol.modules.map((moduleId, index) => {
+            const href = f2fModuleHref(moduleId, actor);
+            const label = lookupMessage(t, MODULE_KEYS[moduleId] ?? moduleId);
+            return (
+              <DeskRow
+                key={moduleId}
+                href={href ?? undefined}
+                index={deskIndex(index)}
+                title={label}
+              />
+            );
+          })}
+        </DeskLedger>
         </PageSection>
       ) : null}
 
@@ -210,62 +213,60 @@ export default async function ProtocolDetailPage({
       ) : null}
 
       <PageSection title={t("instrumentFamilies")}>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="border border-border bg-card px-4 py-3">
-            <p className="label-caps text-muted-foreground">{t("issuedInstruments")}</p>
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div>
+            <p className="label-caps text-harvest">{t("issuedInstruments")}</p>
             {assetInstruments.filter((item) => item.status === "ISSUED").length > 0 ? (
-              <ul className="mt-2 space-y-1 text-sm">
+              <DeskLedger className="mt-3">
                 {assetInstruments
                   .filter((item) => item.status === "ISSUED")
-                  .map((item) => (
-                    <li key={item.id}>
-                      <Link href={`/instruments/${item.id}`} className="text-primary hover:underline">
-                        {item.symbol}
-                      </Link>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {t("issuedDemonstratorInstrument")}
-                      </span>
-                    </li>
+                  .map((item, index) => (
+                    <DeskRow
+                      key={item.id}
+                      href={`/instruments/${item.id}`}
+                      index={deskIndex(index)}
+                      title={item.symbol}
+                      hint={t("issuedDemonstratorInstrument")}
+                    />
                   ))}
-              </ul>
+              </DeskLedger>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">{t("noIssuedInstruments")}</p>
+              <p className="mt-2 text-sm text-straw">{t("noIssuedInstruments")}</p>
             )}
           </div>
-          <div className="border border-dashed border-border bg-card px-4 py-3">
-            <p className="label-caps text-muted-foreground">{t("conceptsStructuring")}</p>
-            <p className="mt-2 text-sm">{t("protocolInvestmentNote")}</p>
+          <div>
+            <p className="label-caps text-harvest">{t("conceptsStructuring")}</p>
+            <DeskNote className="mt-3">{t("protocolInvestmentNote")}</DeskNote>
             {protocolInvestments.length > 0 ? (
-              <ul className="mt-2 space-y-1 text-sm">
-                {protocolInvestments.map((item) => (
-                  <li key={item.id}>
-                    <Link href={`/instruments/${item.id}`} className="text-primary hover:underline">
-                      {item.name}
-                    </Link>
-                    <span className="ml-2">
+              <DeskLedger className="mt-3">
+                {protocolInvestments.map((item, index) => (
+                  <DeskRow
+                    key={item.id}
+                    href={`/instruments/${item.id}`}
+                    index={deskIndex(index)}
+                    title={item.name}
+                    hint={t("protocolInvestmentFlags")}
+                    value={
                       <MarketStatusChip
                         label={t("protocolInvestmentStatus")}
                         tone="STRUCTURING"
                       />
-                    </span>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {t("protocolInvestmentFlags")}
-                    </p>
-                  </li>
+                    }
+                  />
                 ))}
-              </ul>
+              </DeskLedger>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">{t("protocolInvestmentStatus")}</p>
+              <p className="mt-2 text-sm text-straw">{t("protocolInvestmentStatus")}</p>
             )}
             {vehicle ? (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-3 text-xs text-straw">
                 {t("possibleModels")}:{" "}
                 {vehicle.possibleModels
                   .map((model) => lookupMessage(t, PROTOCOL_INVESTMENT_MODEL_KEYS[model]))
                   .join(" · ")}
               </p>
             ) : null}
-            <p className="mt-2 text-xs text-muted-foreground">{t("noFakeEconomics")}</p>
+            <p className="mt-2 text-xs text-straw">{t("noFakeEconomics")}</p>
           </div>
         </div>
       </PageSection>

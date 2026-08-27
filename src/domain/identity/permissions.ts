@@ -5,9 +5,17 @@ import {
 } from "./types";
 
 const ALL_PERMISSIONS: Permission[] = [...PERMISSIONS];
+const ADMIN_EXCLUDED_OPERATIONAL: Permission[] = [
+  "scas.verify",
+  "fields.manage.own",
+  "fields.read.own",
+  "fields.read.all",
+];
 
 const ROLE_PERMISSIONS: Record<PlatformRoleId, readonly Permission[]> = {
-  SYSTEM_ADMIN: ALL_PERMISSIONS,
+  SYSTEM_ADMIN: ALL_PERMISSIONS.filter(
+    (permission) => !ADMIN_EXCLUDED_OPERATIONAL.includes(permission),
+  ),
   REGULATOR: [
     "contracts.read.all",
     "pools.read",
@@ -17,6 +25,7 @@ const ROLE_PERMISSIONS: Record<PlatformRoleId, readonly Permission[]> = {
     "compliance.read",
     "regulator.read",
     "audit.read",
+    "fields.read.all",
   ],
   REGISTRAR_OPERATOR: [
     "contracts.read.all",
@@ -32,6 +41,8 @@ const ROLE_PERMISSIONS: Record<PlatformRoleId, readonly Permission[]> = {
     "scas.read",
     "scas.attest",
     "scas.match",
+    "scas.verify",
+    "fields.read.all",
     "pools.read",
     "issuance.read",
   ],
@@ -46,6 +57,8 @@ const ROLE_PERMISSIONS: Record<PlatformRoleId, readonly Permission[]> = {
   PRODUCER_ADMIN: [
     "contracts.read.own",
     "contracts.manage.own",
+    "fields.read.own",
+    "fields.manage.own",
     "pools.read",
   ],
   INVESTOR: [

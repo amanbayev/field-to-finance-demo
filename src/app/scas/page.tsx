@@ -4,11 +4,18 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { AttestationQueue } from "@/components/scas/attestation-queue";
 import { IssuanceGate } from "@/components/scas/issuance-gate";
 import { DataList } from "@/components/shared/data-list";
-import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
+import {
+  DeskFigure,
+  DeskLedger,
+  DeskNote,
+  DeskRow,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import {
   Table,
   TableBody,
@@ -21,6 +28,7 @@ import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { issuerScore } from "@/data/mock/pools";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatScore } from "@/lib/format";
+import { stageMediaForRole } from "@/lib/surface/role-media";
 import { getScasSnapshot } from "@/services/scas-service";
 import { requirePermission } from "@/lib/auth/guard";
 
@@ -34,9 +42,12 @@ export default async function ScasPage() {
   const t = await getTranslations("scas");
   const tWorkspace = await getTranslations("workspace");
   const tUnits = await getTranslations("units");
+  const tDesk = await getTranslations("desk");
+  const tSurface = await getTranslations("surface");
   const locale = (await getLocale()) as AppLocale;
   const snapshot = getScasSnapshot();
   const coverage = wheatPoolCoverageFromEngine();
+  const media = stageMediaForRole("SCAS_OPERATOR");
 
   return (
     <div>
@@ -44,29 +55,33 @@ export default async function ScasPage() {
         eyebrow={t("eyebrow")}
         title={tWorkspace("attestationTitle")}
         description={t("description")}
+        photo={media.src}
+        photoAlt={tDesk(media.altKey)}
+        photoPosition={media.position}
+        kenBurnsOrigin={media.kenBurnsOrigin}
+        asOfLabel={tSurface("clockLabel")}
+        figure={
+          <DeskFigure
+            label={t("metrics.pending")}
+            value={formatInteger(snapshot.pendingCount, locale)}
+            meta={[
+              {
+                label: t("metrics.attested"),
+                value: formatInteger(snapshot.attestedCount, locale),
+              },
+              {
+                label: t("metrics.lockedContracts"),
+                value: formatInteger(snapshot.lockedContracts.length, locale),
+              },
+              {
+                label: t("metrics.issuerScore"),
+                value: formatScore(issuerScore.value, issuerScore.maxValue),
+              },
+            ]}
+          />
+        }
       />
-      <p className="mb-3 text-xs tracking-wide text-muted-foreground">
-        {snapshot.operatorLabel}
-      </p>
-
-      <MetricStrip className="sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCell
-          label={t("metrics.lockedContracts")}
-          value={formatInteger(snapshot.lockedContracts.length, locale)}
-        />
-        <MetricCell
-          label={t("metrics.pending")}
-          value={formatInteger(snapshot.pendingCount, locale)}
-        />
-        <MetricCell
-          label={t("metrics.attested")}
-          value={formatInteger(snapshot.attestedCount, locale)}
-        />
-        <MetricCell
-          label={t("metrics.issuerScore")}
-          value={formatScore(issuerScore.value, issuerScore.maxValue)}
-        />
-      </MetricStrip>
+      <DeskNote className="mb-8">{snapshot.operatorLabel}</DeskNote>
 
       <PageSection title={t("boundaryTitle")} description={t("boundary")}>
         <DataList
@@ -82,53 +97,72 @@ export default async function ScasPage() {
         title={t("fieldBookTitle")}
         description={t("fieldBookIntro")}
       >
-        <Table className="min-w-[52rem]">
-          <TableHeader>
-            <TableRow>
-              <StickyHead>{t("columns.contract")}</StickyHead>
-              <TableHead>{t("columns.producer")}</TableHead>
-              <TableHead>{t("columns.contour")}</TableHead>
-              <TableHead>{t("columns.satellite")}</TableHead>
-              <TableHead>{t("columns.moisture")}</TableHead>
-              <TableHead>{t("columns.score")}</TableHead>
-              <TableHead>{t("columns.insurance")}</TableHead>
-              <TableHead>{t("columns.lock")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {snapshot.lockedContracts.map(({ contract, producer }) => (
-              <TableRow key={contract.id}>
-                <StickyCell>
-                  <Link
-                    href={`/contracts/${contract.id}`}
-                    className="font-tabular text-xs text-primary hover:underline"
-                  >
-                    {contract.id}
-                  </Link>
-                </StickyCell>
-                <TableCell>{producer.legalName}</TableCell>
-                <TableCell className="font-tabular text-xs">
-                  {contract.field.centroidLabel}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={contract.monitoring.satellite} />
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={contract.monitoring.soilMoisture} />
-                </TableCell>
-                <TableCell className="font-tabular">
-                  {formatScore(producer.score.value, producer.score.maxValue)}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={contract.insurance.status} />
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value="LOCKED" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DeskSplit
+          compact={
+            <DeskLedger>
+              {snapshot.lockedContracts.map(({ contract, producer }, index) => (
+                <DeskRow
+                  key={contract.id}
+                  href={`/contracts/${contract.id}`}
+                  index={deskIndex(index)}
+                  kicker={contract.id}
+                  title={producer.legalName}
+                  value={formatScore(producer.score.value, producer.score.maxValue)}
+                  hint={contract.field.centroidLabel}
+                />
+              ))}
+            </DeskLedger>
+          }
+          wide={
+            <Table className="min-w-[52rem]">
+              <TableHeader>
+                <TableRow>
+                  <StickyHead>{t("columns.contract")}</StickyHead>
+                  <TableHead>{t("columns.producer")}</TableHead>
+                  <TableHead>{t("columns.contour")}</TableHead>
+                  <TableHead>{t("columns.satellite")}</TableHead>
+                  <TableHead>{t("columns.moisture")}</TableHead>
+                  <TableHead>{t("columns.score")}</TableHead>
+                  <TableHead>{t("columns.insurance")}</TableHead>
+                  <TableHead>{t("columns.lock")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {snapshot.lockedContracts.map(({ contract, producer }) => (
+                  <TableRow key={contract.id}>
+                    <StickyCell>
+                      <Link
+                        href={`/contracts/${contract.id}`}
+                        className="font-tabular text-xs text-harvest hover:underline"
+                      >
+                        {contract.id}
+                      </Link>
+                    </StickyCell>
+                    <TableCell>{producer.legalName}</TableCell>
+                    <TableCell className="font-tabular text-xs">
+                      {contract.field.centroidLabel}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value={contract.monitoring.satellite} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value={contract.monitoring.soilMoisture} />
+                    </TableCell>
+                    <TableCell className="font-tabular">
+                      {formatScore(producer.score.value, producer.score.maxValue)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value={contract.insurance.status} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value="LOCKED" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          }
+        />
       </PageSection>
 
       <PageSection
@@ -149,7 +183,7 @@ export default async function ScasPage() {
               value: (
                 <Link
                   href="/pools/POOL-WHEAT-2027-01"
-                  className="font-tabular text-xs text-primary hover:underline"
+                  className="font-tabular text-xs text-harvest hover:underline"
                 >
                   POOL-WHEAT-2027-01
                 </Link>

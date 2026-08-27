@@ -13,8 +13,8 @@ import kk from "../../messages/kk.json";
 
 const catalogs: Record<AppLocale, typeof en> = {
   en,
-  ru: ru as typeof en,
-  kk: kk as typeof en,
+  ru: ru as unknown as typeof en,
+  kk: kk as unknown as typeof en,
 };
 
 export default getRequestConfig(async () => {

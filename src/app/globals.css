@@ -319,6 +319,18 @@
     animation: surface-kenburns 28s ease-out forwards;
   }
 
+  .motion-kenburns-left {
+    transform-origin: 18% 55%;
+  }
+
+  .motion-kenburns-right {
+    transform-origin: 82% 40%;
+  }
+
+  .motion-kenburns-bottom {
+    transform-origin: 50% 88%;
+  }
+
   .live-dot {
     animation: surface-live 2.4s ease-in-out infinite;
   }

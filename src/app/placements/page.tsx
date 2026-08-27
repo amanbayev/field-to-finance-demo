@@ -12,6 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DeskLedger,
+  DeskRow,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import { actorCan, type ActorContext } from "@/domain/identity";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
@@ -73,56 +79,80 @@ export default async function PlacementsPage() {
         eyebrow={t("placementsEyebrow")}
         title={title}
         description={ownOnly ? t("myPlacementsIntro") : t("placementsIntro")}
+        photo="/media/grain-kernel-macro.png"
       />
       {rows.length === 0 ? (
-        <EmptyState>{t("noPlacements")}</EmptyState>
+        <EmptyState
+          kicker={t("placementsEyebrow")}
+          title={t("noPlacements")}
+          body={t("placementsIntro")}
+        />
       ) : (
-        <Table className="min-w-[48rem]">
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("relatedPlacement")}</TableHead>
-              <TableHead>{t("relatedIssuance")}</TableHead>
-              <TableHead>{t("instrumentKind")}</TableHead>
-              <TableHead>{t("investorRef")}</TableHead>
-              <TableHead className="text-right">{t("quantity")}</TableHead>
-              <TableHead>{t("status")}</TableHead>
-              <TableHead>{t("atomicDvp")}</TableHead>
-              <TableHead>{t("network")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map(({ placement }) => (
-              <TableRow key={placement.id}>
-                <TableCell>
-                  <Link
-                    href={`/market/${placement.id}`}
-                    className="font-tabular text-xs text-primary hover:underline"
-                  >
-                    {placement.id}
-                  </Link>
-                </TableCell>
-                <TableCell>{placement.issuanceId}</TableCell>
-                <TableCell>
-                  <Link
-                    href={`/instruments/${placement.instrumentSymbol}`}
-                    className="text-primary hover:underline"
-                  >
-                    {placement.instrumentSymbol}
-                  </Link>
-                </TableCell>
-                <TableCell>{placement.investorReference}</TableCell>
-                <TableCell className="text-right font-tabular">
-                  {formatInteger(placement.quantity, locale)}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={placement.status} />
-                </TableCell>
-                <TableCell>{t("atomicDvp")}</TableCell>
-                <TableCell>{placement.network}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DeskSplit
+          compact={
+            <DeskLedger>
+              {rows.map(({ placement }, index) => (
+                <DeskRow
+                  key={placement.id}
+                  href={`/market/${placement.id}`}
+                  index={deskIndex(index)}
+                  kicker={placement.instrumentSymbol}
+                  title={placement.id}
+                  value={formatInteger(placement.quantity, locale)}
+                  hint={`${placement.investorReference} · ${placement.status}`}
+                />
+              ))}
+            </DeskLedger>
+          }
+          wide={
+            <Table className="min-w-[48rem]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("relatedPlacement")}</TableHead>
+                  <TableHead>{t("relatedIssuance")}</TableHead>
+                  <TableHead>{t("instrumentKind")}</TableHead>
+                  <TableHead>{t("investorRef")}</TableHead>
+                  <TableHead className="text-right">{t("quantity")}</TableHead>
+                  <TableHead>{t("status")}</TableHead>
+                  <TableHead>{t("atomicDvp")}</TableHead>
+                  <TableHead>{t("network")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map(({ placement }) => (
+                  <TableRow key={placement.id}>
+                    <TableCell>
+                      <Link
+                        href={`/market/${placement.id}`}
+                        className="font-tabular text-xs text-primary hover:underline"
+                      >
+                        {placement.id}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{placement.issuanceId}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/instruments/${placement.instrumentSymbol}`}
+                        className="text-primary hover:underline"
+                      >
+                        {placement.instrumentSymbol}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{placement.investorReference}</TableCell>
+                    <TableCell className="text-right font-tabular">
+                      {formatInteger(placement.quantity, locale)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value={placement.status} />
+                    </TableCell>
+                    <TableCell>{t("atomicDvp")}</TableCell>
+                    <TableCell>{placement.network}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          }
+        />
       )}
     </div>
   );

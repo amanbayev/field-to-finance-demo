@@ -97,11 +97,11 @@ export function IssuanceDesk({
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">{t("deskDemoNote")}</p>
-      <ul className="border border-border bg-card">
+      <ul className="divide-y divide-harvest/15 border-y border-harvest/20">
         {gates.map((gate) => (
           <li
             key={gate.key}
-            className="flex items-center justify-between gap-4 border-b border-border px-3 py-2 last:border-b-0"
+            className="flex items-center justify-between gap-4 px-0 py-3"
           >
             <span className="text-sm">
               {lookupMessage(t, `gates.${gate.key}`)}

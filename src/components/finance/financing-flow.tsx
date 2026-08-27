@@ -21,11 +21,11 @@ export function FinancingFlow({ module }: { module: FinancingPosition }) {
   return (
     <section
       className={cn(
-        "border border-border bg-card",
+        "border-y border-harvest/20",
         !primary && "border-dashed",
       )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-harvest/20 px-4 py-3">
         <div>
           <h2 className="text-sm font-medium tracking-wide">
             {lookupMessage(t, `modules.${module.module}.title`)}
@@ -67,7 +67,7 @@ export function FinancingFlow({ module }: { module: FinancingPosition }) {
               />
             </tbody>
           </table>
-          <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+          <p className="border-t border-harvest/20 px-4 py-2 text-xs text-straw">
             {tMoney("demoFxNote")}
           </p>
         </div>
@@ -77,7 +77,7 @@ export function FinancingFlow({ module }: { module: FinancingPosition }) {
         </div>
       )}
 
-      <ol className="flex flex-wrap gap-x-1 gap-y-2 border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+      <ol className="flex flex-wrap gap-x-1 gap-y-2 border-t border-harvest/20 px-4 py-2.5 text-xs text-straw">
         {stepKeys.map((step, index) => (
           <li key={step} className="flex items-center gap-1">
             {index > 0 ? <span aria-hidden>→</span> : null}
@@ -105,7 +105,7 @@ function CalcRow({
   rule?: boolean;
 }) {
   return (
-    <tr className={cn(rule && "border-t border-border")}>
+    <tr className={cn(rule && "border-t border-harvest/20")}>
       <th
         className={cn(
           "px-4 py-2.5 text-left font-normal",

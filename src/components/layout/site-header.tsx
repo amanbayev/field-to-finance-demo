@@ -4,7 +4,7 @@ import { MainNav, MobileNav } from "@/components/layout/main-nav";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { AccountMenu } from "@/components/identity/account-menu";
 import { PersonaSwitcher } from "@/components/identity/persona-switcher";
-import { WheatMark } from "@/components/surface/wheat-mark";
+import { BrandMark } from "@/components/layout/brand-mark";
 import { getOptionalActor } from "@/lib/auth/load-actor";
 import { navGroupsForActor } from "@/lib/auth/nav";
 import { PERSONA_GROUPS, principalCan, type PersonaGroup } from "@/domain/identity";
@@ -20,36 +20,6 @@ function personaGroupKey(value: string): PersonaGroup {
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "U";
-}
-
-function BrandMark({
-  fullName,
-  shortName,
-  compact = false,
-}: {
-  fullName: string;
-  shortName: string;
-  compact?: boolean;
-}) {
-  return (
-    <Link
-      href="/"
-      aria-label={fullName}
-      className="flex min-w-0 items-center gap-2 text-bone transition-colors duration-150 ease-out hover:text-harvest"
-    >
-      <WheatMark className="size-6 shrink-0 text-harvest" />
-      <span className="min-w-0">
-        <span className="block truncate font-wordmark text-sm tracking-tight">
-          {shortName}
-        </span>
-        {compact ? null : (
-          <span className="mt-0.5 hidden text-[10px] tracking-[0.18em] text-straw uppercase sm:block">
-            {fullName}
-          </span>
-        )}
-      </span>
-    </Link>
-  );
 }
 
 export async function SiteHeader() {
@@ -120,15 +90,15 @@ export async function SiteHeader() {
 
   if (actor) {
     return (
-      <header className="sticky top-0 z-50 h-12 border-b border-harvest/20 bg-ink/92 backdrop-blur-md">
-        <div className="flex h-12 items-center gap-3 px-3 sm:px-5">
+      <header className="sticky top-0 z-50 h-12 overflow-x-clip border-b border-harvest/20 bg-ink/92 backdrop-blur-md" suppressHydrationWarning>
+        <div className="flex h-12 min-w-0 items-center gap-2 px-2 sm:gap-3 sm:px-5">
           <MobileNav groups={groups} sessionSlot={personaSwitcherMobile} />
           <BrandMark
             compact
             fullName={t("surface.protocol")}
             shortName={t("surface.wordmark")}
           />
-          <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex min-w-0 items-center gap-1.5 overflow-x-clip sm:gap-3">
             <div className="hidden min-w-0 max-w-[16rem] lg:block">
               {personaSwitcher}
             </div>
@@ -158,6 +128,7 @@ export async function SiteHeader() {
         />
         <div className="min-w-0 flex-1 lg:flex-none">
           <BrandMark
+            compact
             fullName={t("surface.protocol")}
             shortName={t("surface.wordmark")}
           />

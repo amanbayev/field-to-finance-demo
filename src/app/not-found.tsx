@@ -12,7 +12,7 @@ export default async function NotFound() {
       </p>
       <h1 className="mt-2 font-heading text-3xl">{t("recordTitle")}</h1>
       <p className="mt-3 text-sm text-muted-foreground">{t("recordBody")}</p>
-      <Button className="mt-6" render={<Link href="/" />}>
+      <Button className="mt-6" nativeButton={false} render={<Link href="/" />}>
         {t("returnDashboard")}
       </Button>
     </div>

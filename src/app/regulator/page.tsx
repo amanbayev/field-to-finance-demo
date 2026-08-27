@@ -80,6 +80,7 @@ export default async function RegulatorPage() {
         eyebrow={t("eyebrow")}
         title={t("title")}
         description={t("description")}
+        photo="/media/grain-kernel-macro.png"
       />
 
       <PageSection title={t("overview")} className="mt-0">

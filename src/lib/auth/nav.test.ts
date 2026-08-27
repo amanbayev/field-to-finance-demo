@@ -114,6 +114,7 @@ describe("effective navigation", () => {
   it("SCAS nav uses dedicated monitoring and coverage", () => {
     expect(keysOf("DEMO-SCAS-001")).toEqual([
       "dashboard",
+      "verification",
       "attestation",
       "matching",
       "scasMonitoring",
@@ -121,6 +122,7 @@ describe("effective navigation", () => {
       "pools",
       "coverage",
     ]);
+    expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/verification");
     expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/monitoring");
     expect(hrefsOf("DEMO-SCAS-001")).toContain("/coverage");
     expect(hrefsOf("DEMO-SCAS-001")).not.toContain("/pools/POOL-WHEAT-2027-01");

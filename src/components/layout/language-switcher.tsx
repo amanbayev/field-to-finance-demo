@@ -18,7 +18,7 @@ export function LanguageSwitcher() {
       role="group"
       aria-label={t("localeGroup")}
       className={cn(
-        "flex rounded-full border border-border bg-card/70 p-0.5 text-[10px] tracking-[0.18em]",
+        "flex shrink-0 rounded-full border border-harvest/30 bg-background/70 p-0.5 text-[9px] tracking-[0.12em] sm:text-[10px] sm:tracking-[0.18em]",
         pending && "opacity-70",
       )}
     >
@@ -36,11 +36,12 @@ export function LanguageSwitcher() {
               });
             }}
             className={cn(
-              "rounded-full px-2.5 py-1 uppercase transition-[color,background-color,transform] duration-150 ease-out",
+              "rounded-full px-1.5 py-1 uppercase transition-[color,background-color,transform] duration-150 ease-out sm:px-2.5",
               active
                 ? "bg-harvest text-primary-foreground"
                 : "text-straw hover:text-bone",
             )}
+            suppressHydrationWarning
           >
             {localeLabels[code]}
           </button>

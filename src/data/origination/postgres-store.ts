@@ -1,0 +1,763 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { OriginationError } from "@/domain/origination/types";
+import type {
+  FieldCadastreVerificationRecord,
+  FieldDocumentRecord,
+  FieldSubmissionRecord,
+  FieldVerificationCaseRecord,
+  FieldVerificationEvidenceRecord,
+  FieldVerificationMessageRecord,
+  OriginationAuditEvent,
+  ProducerDeclaredData,
+  ProducerFieldRecord,
+  VerifiedFieldSnapshotRecord,
+} from "@/domain/origination/types";
+import type { OriginationBlob, OriginationStore } from "@/domain/origination/store";
+
+type Row = Record<string, unknown>;
+
+function fail(error: { message?: string } | null, fallback = "storage"): never {
+  throw new OriginationError("storage", error?.message ?? fallback);
+}
+
+function num(value: unknown): number | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function declaredFrom(row: Row): ProducerDeclaredData {
+  const snapshot = (row.declared_snapshot as ProducerDeclaredData | null) ?? null;
+  return {
+    name: snapshot?.name ?? String(row.name ?? ""),
+    season: snapshot?.season ?? Number(row.season ?? 0),
+    crop: snapshot?.crop ?? String(row.crop ?? ""),
+    cadastreNumber: snapshot?.cadastreNumber ?? String(row.cadastre_number ?? ""),
+    declaredAreaHa: snapshot?.declaredAreaHa ?? num(row.declared_area_ha),
+    region: snapshot?.region ?? (row.region as string | null) ?? null,
+    district: snapshot?.district ?? (row.district as string | null) ?? null,
+  };
+}
+
+function fieldFrom(row: Row): ProducerFieldRecord {
+  return {
+    id: String(row.id),
+    publicId: String(row.public_id),
+    organizationId: String(row.organization_id),
+    status: row.status as ProducerFieldRecord["status"],
+    declared: declaredFrom(row),
+    currentSubmissionId: (row.current_submission_id as string | null) ?? null,
+    verifiedSnapshotId: (row.verified_snapshot_id as string | null) ?? null,
+    createdByUserId: String(row.created_by_user_id),
+    createdByRole: String(row.created_by_role),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    archivedAt: (row.archived_at as string | null) ?? null,
+  };
+}
+
+function fieldToRow(record: ProducerFieldRecord): Row {
+  return {
+    id: record.id,
+    public_id: record.publicId,
+    organization_id: record.organizationId,
+    status: record.status,
+    name: record.declared.name,
+    season: record.declared.season,
+    crop: record.declared.crop,
+    cadastre_number: record.declared.cadastreNumber,
+    declared_area_ha: record.declared.declaredAreaHa,
+    region: record.declared.region,
+    district: record.declared.district,
+    declared_snapshot: record.declared,
+    current_submission_id: record.currentSubmissionId,
+    verified_snapshot_id: record.verifiedSnapshotId,
+    created_by_user_id: record.createdByUserId,
+    created_by_role: record.createdByRole,
+    created_at: record.createdAt,
+    updated_at: record.updatedAt,
+    archived_at: record.archivedAt,
+  };
+}
+
+function documentFrom(row: Row): FieldDocumentRecord {
+  return {
+    id: String(row.id),
+    fieldId: String(row.field_id),
+    submissionId: (row.submission_id as string | null) ?? null,
+    documentType: row.document_type as FieldDocumentRecord["documentType"],
+    bucket: String(row.bucket),
+    objectPath: String(row.object_path),
+    originalFilename: String(row.original_filename),
+    mimeType: String(row.mime_type),
+    sizeBytes: Number(row.size_bytes ?? 0),
+    sha256: String(row.sha256 ?? ""),
+    version: Number(row.version ?? 1),
+    status: row.status as FieldDocumentRecord["status"],
+    classification: row.classification as FieldDocumentRecord["classification"],
+    retentionStatus: row.retention_status as FieldDocumentRecord["retentionStatus"],
+    malwareScanStatus: row.malware_scan_status as FieldDocumentRecord["malwareScanStatus"],
+    uploadedByUserId: String(row.uploaded_by_user_id),
+    uploadedAt: String(row.uploaded_at),
+    replacesDocumentId: (row.replaces_document_id as string | null) ?? null,
+    current: Boolean(row.is_current),
+  };
+}
+
+function documentToRow(record: FieldDocumentRecord): Row {
+  return {
+    id: record.id,
+    field_id: record.fieldId,
+    submission_id: record.submissionId,
+    document_type: record.documentType,
+    bucket: record.bucket,
+    object_path: record.objectPath,
+    original_filename: record.originalFilename,
+    mime_type: record.mimeType,
+    size_bytes: record.sizeBytes,
+    sha256: record.sha256,
+    version: record.version,
+    status: record.status,
+    classification: record.classification,
+    retention_status: record.retentionStatus,
+    malware_scan_status: record.malwareScanStatus,
+    uploaded_by_user_id: record.uploadedByUserId,
+    uploaded_at: record.uploadedAt,
+    replaces_document_id: record.replacesDocumentId,
+    is_current: record.current,
+  };
+}
+
+export class PostgresOriginationStore implements OriginationStore {
+  constructor(private readonly client: SupabaseClient) {}
+
+  private async nextSeq(fn: string) {
+    const { data, error } = await this.client.rpc(fn);
+    if (error) {
+      fail(error);
+    }
+    return Number(data);
+  }
+
+  async nextFieldSequence() {
+    return this.nextSeq("origination_next_field_seq");
+  }
+
+  async nextCaseSequence() {
+    return this.nextSeq("origination_next_case_seq");
+  }
+
+  async nextSubmissionSequence() {
+    return this.nextSeq("origination_next_submission_seq");
+  }
+
+  async insertField(record: ProducerFieldRecord) {
+    const { data, error } = await this.client
+      .from("producer_fields")
+      .insert(fieldToRow(record))
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return fieldFrom(data as Row);
+  }
+
+  async updateField(record: ProducerFieldRecord) {
+    const { data, error } = await this.client
+      .from("producer_fields")
+      .update(fieldToRow(record))
+      .eq("id", record.id)
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return fieldFrom(data as Row);
+  }
+
+  async getFieldById(id: string) {
+    const { data, error } = await this.client.from("producer_fields").select("*").eq("id", id).maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? fieldFrom(data as Row) : null;
+  }
+
+  async getFieldByPublicId(publicId: string) {
+    const { data, error } = await this.client
+      .from("producer_fields")
+      .select("*")
+      .eq("public_id", publicId)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? fieldFrom(data as Row) : null;
+  }
+
+  async listFieldsByOrganization(organizationId: string) {
+    const { data, error } = await this.client
+      .from("producer_fields")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(fieldFrom);
+  }
+
+  async listAllFields() {
+    const { data, error } = await this.client
+      .from("producer_fields")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(fieldFrom);
+  }
+
+  async insertDocument(record: FieldDocumentRecord) {
+    const { data, error } = await this.client
+      .from("field_documents")
+      .insert(documentToRow(record))
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return documentFrom(data as Row);
+  }
+
+  async updateDocument(record: FieldDocumentRecord) {
+    const { data, error } = await this.client
+      .from("field_documents")
+      .update(documentToRow(record))
+      .eq("id", record.id)
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return documentFrom(data as Row);
+  }
+
+  async getDocument(id: string) {
+    const { data, error } = await this.client.from("field_documents").select("*").eq("id", id).maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? documentFrom(data as Row) : null;
+  }
+
+  async listDocuments(fieldId: string) {
+    const { data, error } = await this.client
+      .from("field_documents")
+      .select("*")
+      .eq("field_id", fieldId)
+      .order("uploaded_at", { ascending: true });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(documentFrom);
+  }
+
+  async deleteDocument(id: string) {
+    const { error } = await this.client.from("field_documents").delete().eq("id", id);
+    if (error) {
+      fail(error);
+    }
+  }
+
+  async insertSubmission(record: FieldSubmissionRecord) {
+    const { data, error } = await this.client
+      .from("field_submissions")
+      .insert({
+        id: record.id,
+        public_id: record.publicId,
+        field_id: record.fieldId,
+        organization_id: record.organizationId,
+        version: record.version,
+        declared_data: record.declared,
+        document_ids: record.documentIds,
+        submitted_by_user_id: record.submittedByUserId,
+        submitted_by_role: record.submittedByRole,
+        submitted_by_persona_id: record.submittedByPersonaId,
+        submitted_at: record.submittedAt,
+      })
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return submissionFrom(data as Row);
+  }
+
+  async getSubmission(id: string) {
+    const { data, error } = await this.client.from("field_submissions").select("*").eq("id", id).maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? submissionFrom(data as Row) : null;
+  }
+
+  async listSubmissions(fieldId: string) {
+    const { data, error } = await this.client
+      .from("field_submissions")
+      .select("*")
+      .eq("field_id", fieldId)
+      .order("version", { ascending: true });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(submissionFrom);
+  }
+
+  async insertCase(record: FieldVerificationCaseRecord) {
+    const { data, error } = await this.client
+      .from("field_verification_cases")
+      .insert(caseToRow(record))
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return caseFrom(data as Row);
+  }
+
+  async updateCase(record: FieldVerificationCaseRecord) {
+    const { data, error } = await this.client
+      .from("field_verification_cases")
+      .update(caseToRow(record))
+      .eq("id", record.id)
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return caseFrom(data as Row);
+  }
+
+  async getCaseById(id: string) {
+    const { data, error } = await this.client
+      .from("field_verification_cases")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? caseFrom(data as Row) : null;
+  }
+
+  async getCaseByPublicId(publicId: string) {
+    const { data, error } = await this.client
+      .from("field_verification_cases")
+      .select("*")
+      .eq("public_id", publicId)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? caseFrom(data as Row) : null;
+  }
+
+  async getCaseByFieldId(fieldId: string) {
+    const { data, error } = await this.client
+      .from("field_verification_cases")
+      .select("*")
+      .eq("field_id", fieldId)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? caseFrom(data as Row) : null;
+  }
+
+  async listCases() {
+    const { data, error } = await this.client
+      .from("field_verification_cases")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(caseFrom);
+  }
+
+  async upsertCadastre(record: FieldCadastreVerificationRecord) {
+    const { data, error } = await this.client
+      .from("field_cadastre_verifications")
+      .upsert(cadastreToRow(record))
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return cadastreFrom(data as Row);
+  }
+
+  async getCadastreByCase(caseId: string) {
+    const { data, error } = await this.client
+      .from("field_cadastre_verifications")
+      .select("*")
+      .eq("case_id", caseId)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? cadastreFrom(data as Row) : null;
+  }
+
+  async insertEvidence(record: FieldVerificationEvidenceRecord) {
+    const { data, error } = await this.client
+      .from("field_verification_evidence")
+      .insert(evidenceToRow(record))
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return evidenceFrom(data as Row);
+  }
+
+  async listEvidence(caseId: string) {
+    const { data, error } = await this.client
+      .from("field_verification_evidence")
+      .select("*")
+      .eq("case_id", caseId)
+      .order("uploaded_at", { ascending: true });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(evidenceFrom);
+  }
+
+  async insertMessage(record: FieldVerificationMessageRecord) {
+    const { data, error } = await this.client
+      .from("field_verification_messages")
+      .insert({
+        id: record.id,
+        case_id: record.caseId,
+        field_id: record.fieldId,
+        sender_user_id: record.senderUserId,
+        sender_role: record.senderRole,
+        sender_persona_id: record.senderPersonaId,
+        body: record.body,
+        message_type: record.messageType,
+        linked_document_id: record.linkedDocumentId,
+        created_at: record.createdAt,
+      })
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return messageFrom(data as Row);
+  }
+
+  async listMessages(caseId: string) {
+    const { data, error } = await this.client
+      .from("field_verification_messages")
+      .select("*")
+      .eq("case_id", caseId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(messageFrom);
+  }
+
+  async insertSnapshot(record: VerifiedFieldSnapshotRecord) {
+    const { data, error } = await this.client
+      .from("verified_field_snapshots")
+      .insert({
+        id: record.id,
+        field_id: record.fieldId,
+        case_id: record.caseId,
+        submission_id: record.submissionId,
+        payload: record.payload,
+        approved_by_user_id: record.approvedByUserId,
+        approved_by_role: record.approvedByRole,
+        approved_by_persona_id: record.approvedByPersonaId,
+        approved_at: record.approvedAt,
+      })
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return snapshotFrom(data as Row);
+  }
+
+  async getSnapshotByField(fieldId: string) {
+    const { data, error } = await this.client
+      .from("verified_field_snapshots")
+      .select("*")
+      .eq("field_id", fieldId)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? snapshotFrom(data as Row) : null;
+  }
+
+  async insertEvent(record: OriginationAuditEvent) {
+    const { data, error } = await this.client
+      .from("field_origination_events")
+      .insert({
+        id: record.id,
+        occurred_at: record.occurredAt,
+        actor_user_id: record.actorUserId,
+        effective_role: record.effectiveRole,
+        persona_id: record.personaId,
+        organization_id: record.organizationId,
+        event_type: record.eventType,
+        object_type: record.objectType,
+        object_id: record.objectId,
+        result: record.result,
+        metadata: record.metadata,
+      })
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return eventFrom(data as Row);
+  }
+
+  async listEvents(objectType: string, objectId: string) {
+    const { data, error } = await this.client
+      .from("field_origination_events")
+      .select("*")
+      .eq("object_type", objectType)
+      .eq("object_id", objectId)
+      .order("occurred_at", { ascending: true });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(eventFrom);
+  }
+
+  async listEventsByField(fieldId: string) {
+    const { data, error } = await this.client
+      .from("field_origination_events")
+      .select("*")
+      .or(`object_id.eq.${fieldId},metadata->>fieldId.eq.${fieldId}`)
+      .order("occurred_at", { ascending: true });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(eventFrom);
+  }
+
+  async putBlob(blob: OriginationBlob) {
+    const { error } = await this.client.storage.from(blob.bucket).upload(blob.objectPath, blob.bytes, {
+      contentType: blob.contentType,
+      upsert: true,
+    });
+    if (error) {
+      fail(error);
+    }
+  }
+
+  async getBlob(bucket: string, objectPath: string) {
+    const { data, error } = await this.client.storage.from(bucket).download(objectPath);
+    if (error || !data) {
+      return null;
+    }
+    return {
+      bucket,
+      objectPath,
+      bytes: new Uint8Array(await data.arrayBuffer()),
+      contentType: data.type || "application/octet-stream",
+    };
+  }
+
+  async removeBlob(bucket: string, objectPath: string) {
+    await this.client.storage.from(bucket).remove([objectPath]);
+  }
+
+  async hasPublicObjectUrl(bucket: string, _objectPath?: string) {
+    void _objectPath;
+    const { data } = await this.client.storage.getBucket(bucket);
+    return Boolean(data?.public);
+  }
+}
+
+function submissionFrom(row: Row): FieldSubmissionRecord {
+  return {
+    id: String(row.id),
+    publicId: String(row.public_id),
+    fieldId: String(row.field_id),
+    organizationId: String(row.organization_id),
+    version: Number(row.version ?? 1),
+    declared: row.declared_data as ProducerDeclaredData,
+    documentIds: (row.document_ids as string[]) ?? [],
+    submittedByUserId: String(row.submitted_by_user_id),
+    submittedByRole: String(row.submitted_by_role),
+    submittedByPersonaId: (row.submitted_by_persona_id as string | null) ?? null,
+    submittedAt: String(row.submitted_at),
+  };
+}
+
+function caseToRow(record: FieldVerificationCaseRecord): Row {
+  return {
+    id: record.id,
+    public_id: record.publicId,
+    field_id: record.fieldId,
+    organization_id: record.organizationId,
+    current_submission_id: record.currentSubmissionId,
+    status: record.status,
+    assigned_reviewer_user_id: record.assignedReviewerUserId,
+    assigned_reviewer_persona_id: record.assignedReviewerPersonaId,
+    created_at: record.createdAt,
+    updated_at: record.updatedAt,
+  };
+}
+
+function caseFrom(row: Row): FieldVerificationCaseRecord {
+  return {
+    id: String(row.id),
+    publicId: String(row.public_id),
+    fieldId: String(row.field_id),
+    organizationId: String(row.organization_id),
+    currentSubmissionId: String(row.current_submission_id),
+    status: row.status as FieldVerificationCaseRecord["status"],
+    assignedReviewerUserId: (row.assigned_reviewer_user_id as string | null) ?? null,
+    assignedReviewerPersonaId: (row.assigned_reviewer_persona_id as string | null) ?? null,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+function cadastreToRow(record: FieldCadastreVerificationRecord): Row {
+  return {
+    id: record.id,
+    case_id: record.caseId,
+    field_id: record.fieldId,
+    provider_id: record.providerId,
+    cadastre_number: record.cadastreNumber,
+    right_holder: record.rightHolder,
+    right_type: record.rightType,
+    registered_area_ha: record.registeredAreaHa,
+    region: record.region,
+    district: record.district,
+    validity_status: record.validityStatus,
+    source_reference: record.sourceReference,
+    notes: record.notes,
+    checked_by_user_id: record.checkedByUserId,
+    checked_by_role: record.checkedByRole,
+    checked_by_persona_id: record.checkedByPersonaId,
+    checked_at: record.checkedAt,
+  };
+}
+
+function cadastreFrom(row: Row): FieldCadastreVerificationRecord {
+  return {
+    id: String(row.id),
+    caseId: String(row.case_id),
+    fieldId: String(row.field_id),
+    providerId: String(row.provider_id),
+    cadastreNumber: String(row.cadastre_number),
+    rightHolder: String(row.right_holder),
+    rightType: String(row.right_type),
+    registeredAreaHa: num(row.registered_area_ha),
+    region: (row.region as string | null) ?? null,
+    district: (row.district as string | null) ?? null,
+    validityStatus: String(row.validity_status),
+    sourceReference: String(row.source_reference ?? ""),
+    notes: String(row.notes ?? ""),
+    checkedByUserId: String(row.checked_by_user_id),
+    checkedByRole: String(row.checked_by_role),
+    checkedByPersonaId: (row.checked_by_persona_id as string | null) ?? null,
+    checkedAt: String(row.checked_at),
+  };
+}
+
+function evidenceToRow(record: FieldVerificationEvidenceRecord): Row {
+  return {
+    id: record.id,
+    case_id: record.caseId,
+    field_id: record.fieldId,
+    kind: record.kind,
+    notes: record.notes,
+    imagery_date: record.imageryDate,
+    bucket: record.bucket,
+    object_path: record.objectPath,
+    original_filename: record.originalFilename,
+    mime_type: record.mimeType,
+    size_bytes: record.sizeBytes,
+    sha256: record.sha256,
+    uploaded_by_user_id: record.uploadedByUserId,
+    uploaded_at: record.uploadedAt,
+  };
+}
+
+function evidenceFrom(row: Row): FieldVerificationEvidenceRecord {
+  return {
+    id: String(row.id),
+    caseId: String(row.case_id),
+    fieldId: String(row.field_id),
+    kind: row.kind as FieldVerificationEvidenceRecord["kind"],
+    notes: String(row.notes ?? ""),
+    imageryDate: (row.imagery_date as string | null) ?? null,
+    bucket: (row.bucket as string | null) ?? null,
+    objectPath: (row.object_path as string | null) ?? null,
+    originalFilename: (row.original_filename as string | null) ?? null,
+    mimeType: (row.mime_type as string | null) ?? null,
+    sizeBytes: num(row.size_bytes),
+    sha256: (row.sha256 as string | null) ?? null,
+    uploadedByUserId: String(row.uploaded_by_user_id),
+    uploadedAt: String(row.uploaded_at),
+  };
+}
+
+function messageFrom(row: Row): FieldVerificationMessageRecord {
+  return {
+    id: String(row.id),
+    caseId: String(row.case_id),
+    fieldId: String(row.field_id),
+    senderUserId: String(row.sender_user_id),
+    senderRole: String(row.sender_role),
+    senderPersonaId: (row.sender_persona_id as string | null) ?? null,
+    body: String(row.body),
+    messageType: row.message_type as FieldVerificationMessageRecord["messageType"],
+    linkedDocumentId: (row.linked_document_id as string | null) ?? null,
+    createdAt: String(row.created_at),
+  };
+}
+
+function snapshotFrom(row: Row): VerifiedFieldSnapshotRecord {
+  return {
+    id: String(row.id),
+    fieldId: String(row.field_id),
+    caseId: String(row.case_id),
+    submissionId: String(row.submission_id),
+    payload: row.payload as VerifiedFieldSnapshotRecord["payload"],
+    approvedByUserId: String(row.approved_by_user_id),
+    approvedByRole: String(row.approved_by_role),
+    approvedByPersonaId: (row.approved_by_persona_id as string | null) ?? null,
+    approvedAt: String(row.approved_at),
+  };
+}
+
+function eventFrom(row: Row): OriginationAuditEvent {
+  return {
+    id: String(row.id),
+    occurredAt: String(row.occurred_at),
+    actorUserId: String(row.actor_user_id),
+    effectiveRole: String(row.effective_role),
+    personaId: (row.persona_id as string | null) ?? null,
+    organizationId: (row.organization_id as string | null) ?? null,
+    eventType: row.event_type as OriginationAuditEvent["eventType"],
+    objectType: String(row.object_type),
+    objectId: String(row.object_id),
+    result: String(row.result ?? "ok"),
+    metadata: (row.metadata as Record<string, unknown>) ?? {},
+  };
+}

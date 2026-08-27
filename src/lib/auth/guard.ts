@@ -74,7 +74,22 @@ export async function requireOwnProducerWorkspace(options?: {
   if (!isOwnProducerWorkspace(actor)) {
     forbidden();
   }
-  if (options?.manage && !actorCan(actor, "contracts.manage.own")) {
+  if (
+    options?.manage &&
+    !actorCan(actor, "fields.manage.own") &&
+    !actorCan(actor, "contracts.manage.own")
+  ) {
+    forbidden();
+  }
+  return actor;
+}
+
+export async function requireScasVerifier() {
+  const actor = await loadAuthorizedActor();
+  if (
+    actor.effective.organization?.type !== "SCAS" ||
+    !actorCan(actor, "scas.verify")
+  ) {
     forbidden();
   }
   return actor;

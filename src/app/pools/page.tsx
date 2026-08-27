@@ -12,6 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DeskLedger,
+  DeskRow,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
@@ -39,59 +45,81 @@ export default async function PoolsPage() {
         eyebrow={t("eyebrow")}
         title={t("title")}
         description={t("description")}
+        photo="/media/grain-kernel-macro.png"
       />
-      <Table className="min-w-[44rem]">
-        <TableHeader>
-          <TableRow>
-            <StickyHead>{t("columns.pool")}</StickyHead>
-            <TableHead>{t("columns.name")}</TableHead>
-            <TableHead className="text-right">{t("contracts")}</TableHead>
-            <TableHead className="text-right">{t("producers")}</TableHead>
-            <TableHead className="text-right">{t("grossVolume")}</TableHead>
-            <TableHead className="text-right">{t("eligibleCoverage")}</TableHead>
-            <TableHead>{t("columns.status")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {pools.map(({ pool, producerCount }) => (
-            <TableRow key={pool.id}>
-              <StickyCell>
-                <Link
-                  href={`/pools/${pool.id}`}
-                  className="font-tabular text-xs text-primary hover:underline"
-                >
-                  {pool.id}
-                </Link>
-              </StickyCell>
-              <TableCell className="font-medium">
-                {lookupMessage(tCatalog, `pools.${pool.id}`)}
-              </TableCell>
-              <TableCell className="text-right font-tabular">
-                {formatInteger(pool.contractIds.length, locale)}
-              </TableCell>
-              <TableCell className="text-right font-tabular">
-                {formatInteger(producerCount, locale)}
-              </TableCell>
-              <TableCell className="text-right font-tabular">
-                {tUnits("tonnes", {
-                  value: formatInteger(pool.coverage.grossVolumeTonnes, locale),
+      <DeskSplit
+        compact={
+          <DeskLedger>
+            {pools.map(({ pool, producerCount }, index) => (
+              <DeskRow
+                key={pool.id}
+                href={`/pools/${pool.id}`}
+                index={deskIndex(index)}
+                kicker={pool.id}
+                title={lookupMessage(tCatalog, `pools.${pool.id}`)}
+                value={tUnits("tonnes", {
+                  value: formatInteger(pool.coverage.eligibleCoverageTonnes, locale),
                 })}
-              </TableCell>
-              <TableCell className="text-right font-tabular">
-                {tUnits("tonnes", {
-                  value: formatInteger(
-                    pool.coverage.eligibleCoverageTonnes,
-                    locale,
-                  ),
-                })}
-              </TableCell>
-              <TableCell>
-                <StatusBadge value={pool.coverage.status} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                hint={`${formatInteger(pool.contractIds.length, locale)} · ${formatInteger(producerCount, locale)} · ${pool.coverage.status}`}
+              />
+            ))}
+          </DeskLedger>
+        }
+        wide={
+          <Table className="min-w-[44rem]">
+            <TableHeader>
+              <TableRow>
+                <StickyHead>{t("columns.pool")}</StickyHead>
+                <TableHead>{t("columns.name")}</TableHead>
+                <TableHead className="text-right">{t("contracts")}</TableHead>
+                <TableHead className="text-right">{t("producers")}</TableHead>
+                <TableHead className="text-right">{t("grossVolume")}</TableHead>
+                <TableHead className="text-right">{t("eligibleCoverage")}</TableHead>
+                <TableHead>{t("columns.status")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pools.map(({ pool, producerCount }) => (
+                <TableRow key={pool.id}>
+                  <StickyCell>
+                    <Link
+                      href={`/pools/${pool.id}`}
+                      className="font-tabular text-xs text-primary hover:underline"
+                    >
+                      {pool.id}
+                    </Link>
+                  </StickyCell>
+                  <TableCell className="font-medium">
+                    {lookupMessage(tCatalog, `pools.${pool.id}`)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {formatInteger(pool.contractIds.length, locale)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {formatInteger(producerCount, locale)}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {tUnits("tonnes", {
+                      value: formatInteger(pool.coverage.grossVolumeTonnes, locale),
+                    })}
+                  </TableCell>
+                  <TableCell className="text-right font-tabular">
+                    {tUnits("tonnes", {
+                      value: formatInteger(
+                        pool.coverage.eligibleCoverageTonnes,
+                        locale,
+                      ),
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge value={pool.coverage.status} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        }
+      />
     </div>
   );
 }

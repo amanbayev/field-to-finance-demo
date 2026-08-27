@@ -24,7 +24,7 @@ export function AuditTrail({ events }: { events: AuditEvent[] }) {
 
   if (events.length === 0) {
     return (
-      <p className="border border-dashed border-border bg-card px-4 py-6 text-sm text-muted-foreground">
+      <p className="border-y border-dashed border-harvest/25 py-6 text-sm text-straw">
         {t("empty")}
       </p>
     );

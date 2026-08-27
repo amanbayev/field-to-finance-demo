@@ -8,6 +8,12 @@ import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
 import {
+  DeskLedger,
+  DeskRow,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
+import {
   Table,
   TableBody,
   TableCell,
@@ -104,39 +110,60 @@ export async function CoverageConsole({
       </PageSection>
 
       <PageSection title={t("contributingDacs")}>
-        <Table className="min-w-[40rem]">
-          <TableHeader>
-            <TableRow>
-              <StickyHead>{tPools("columns.contract")}</StickyHead>
-              <TableHead>{tPools("columns.producer")}</TableHead>
-              <TableHead className="text-right">{tPools("columns.volume")}</TableHead>
-              <TableHead>{tPools("columns.eligibility")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(poolSnapshot?.detail.members ?? []).map((member) => (
-              <TableRow key={member.contract.id}>
-                <StickyCell>
-                  <Link
-                    href={`/contracts/${member.contract.id}`}
-                    className="font-tabular text-xs text-primary hover:underline"
-                  >
-                    {member.contract.id}
-                  </Link>
-                </StickyCell>
-                <TableCell>{member.producer.legalName}</TableCell>
-                <TableCell className="text-right font-tabular">
-                  {tUnits("tonnes", {
+        <DeskSplit
+          compact={
+            <DeskLedger>
+              {(poolSnapshot?.detail.members ?? []).map((member, index) => (
+                <DeskRow
+                  key={member.contract.id}
+                  href={`/contracts/${member.contract.id}`}
+                  index={deskIndex(index)}
+                  kicker={member.contract.id}
+                  title={member.producer.legalName}
+                  value={tUnits("tonnes", {
                     value: formatInteger(member.volumeTonnes, locale),
                   })}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={member.eligibility} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                  hint={member.eligibility}
+                />
+              ))}
+            </DeskLedger>
+          }
+          wide={
+            <Table className="min-w-[40rem]">
+              <TableHeader>
+                <TableRow>
+                  <StickyHead>{tPools("columns.contract")}</StickyHead>
+                  <TableHead>{tPools("columns.producer")}</TableHead>
+                  <TableHead className="text-right">{tPools("columns.volume")}</TableHead>
+                  <TableHead>{tPools("columns.eligibility")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(poolSnapshot?.detail.members ?? []).map((member) => (
+                  <TableRow key={member.contract.id}>
+                    <StickyCell>
+                      <Link
+                        href={`/contracts/${member.contract.id}`}
+                        className="font-tabular text-xs text-primary hover:underline"
+                      >
+                        {member.contract.id}
+                      </Link>
+                    </StickyCell>
+                    <TableCell>{member.producer.legalName}</TableCell>
+                    <TableCell className="text-right font-tabular">
+                      {tUnits("tonnes", {
+                        value: formatInteger(member.volumeTonnes, locale),
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value={member.eligibility} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          }
+        />
       </PageSection>
 
       <PageSection title={t("snapshotStatus")}>

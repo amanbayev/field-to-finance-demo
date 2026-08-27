@@ -4,8 +4,15 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
+import {
+  DeskLedger,
+  DeskNote,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import {
   Table,
   TableBody,
@@ -83,12 +90,13 @@ export function AttestationQueue({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">{t("queueDemoNote")}</p>
+    <div>
+      <DeskNote className="mb-8">{t("queueDemoNote")}</DeskNote>
       <QueueTable
         title={t("pendingQueue")}
+        emptyTitle={t("noPendingTitle")}
+        emptyBody={t("noPending")}
         items={pending}
-        empty={t("noPending")}
         locale={locale}
         rejectingId={rejectingId}
         rejectNote={rejectNote}
@@ -104,20 +112,24 @@ export function AttestationQueue({
         onAttest={attest}
         onReject={reject}
       />
-      <QueueTable
-        title={t("closedQueue")}
-        items={closed}
-        empty={t("noClosed")}
-        locale={locale}
-      />
+      <div className="mt-12">
+        <QueueTable
+          title={t("closedQueue")}
+          emptyTitle={t("noClosedTitle")}
+          emptyBody={t("noClosed")}
+          items={closed}
+          locale={locale}
+        />
+      </div>
     </div>
   );
 }
 
 function QueueTable({
   title,
+  emptyTitle,
+  emptyBody,
   items,
-  empty,
   locale,
   rejectingId,
   rejectNote,
@@ -128,8 +140,9 @@ function QueueTable({
   onReject,
 }: {
   title: string;
+  emptyTitle: string;
+  emptyBody: string;
   items: ScasAttestation[];
-  empty: string;
   locale: AppLocale;
   rejectingId?: string | null;
   rejectNote?: string;
@@ -143,80 +156,60 @@ function QueueTable({
 
   if (items.length === 0) {
     return (
-      <div>
-        <p className="mb-2 text-xs tracking-wide text-muted-foreground">{title}</p>
-        <p className="border border-dashed border-border bg-card px-4 py-5 text-sm text-muted-foreground">
-          {empty}
-        </p>
-      </div>
+      <EmptyState kicker={title} title={emptyTitle} body={emptyBody} />
     );
   }
 
   return (
     <div>
-      <p className="mb-2 text-xs tracking-wide text-muted-foreground">{title}</p>
-      <Table className="min-w-[48rem]">
-        <TableHeader>
-          <TableRow>
-            <StickyHead>{t("columns.id")}</StickyHead>
-            <TableHead>{t("columns.kind")}</TableHead>
-            <TableHead>{t("columns.subject")}</TableHead>
-            <TableHead>{t("columns.evidence")}</TableHead>
-            <TableHead>{t("columns.status")}</TableHead>
-            <TableHead>{t("columns.time")}</TableHead>
-            {onAttest ? <TableHead>{t("columns.action")}</TableHead> : null}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((item) => {
-            const href = subjectHref(item);
-            return (
-              <TableRow key={item.id}>
-                <StickyCell className="font-tabular text-xs">{item.id}</StickyCell>
-                <TableCell>{lookupMessage(t, `kinds.${item.kind}`)}</TableCell>
-                <TableCell>
-                  {href ? (
-                    <Link
-                      href={href}
-                      className="font-tabular text-xs text-primary hover:underline"
-                    >
-                      {item.subjectId}
-                    </Link>
-                  ) : (
-                    <span className="font-tabular text-xs">{item.subjectId}</span>
-                  )}
-                </TableCell>
-                <TableCell className="max-w-[16rem] text-xs text-muted-foreground">
-                  {lookupMessage(t, `evidence.${item.evidenceKey}`)}
-                  {item.operatorNote ? (
-                    <span className="mt-1 block text-foreground">
-                      {t("operatorNote")}: {item.operatorNote}
+      <p className="mb-4 label-caps text-harvest">{title}</p>
+      <DeskSplit
+        compact={
+          <DeskLedger>
+            {items.map((item, index) => {
+              const href = subjectHref(item);
+              return (
+                <li key={item.id} className="py-4">
+                  <p className="flex items-baseline gap-3">
+                    <span className="font-tabular text-[10px] tracking-widest text-straw">
+                      {deskIndex(index)}
                     </span>
+                    <span className="label-caps text-straw">
+                      {lookupMessage(t, `kinds.${item.kind}`)}
+                    </span>
+                  </p>
+                  <p className="mt-1 font-tabular text-base text-bone">{item.id}</p>
+                  <p className="mt-1 text-sm text-straw">
+                    {href ? (
+                      <Link href={href} className="font-tabular text-harvest hover:underline">
+                        {item.subjectId}
+                      </Link>
+                    ) : (
+                      <span className="font-tabular">{item.subjectId}</span>
+                    )}
+                    <span className="mx-2 text-harvest/40">·</span>
+                    {lookupMessage(t, `evidence.${item.evidenceKey}`)}
+                  </p>
+                  {item.operatorNote ? (
+                    <p className="mt-1 text-sm text-bone">
+                      {t("operatorNote")}: {item.operatorNote}
+                    </p>
                   ) : null}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={item.status} />
-                </TableCell>
-                <TableCell className="font-tabular text-xs text-muted-foreground">
-                  {item.attestedAt
-                    ? formatLedgerTimestamp(item.attestedAt, locale)
-                    : "—"}
-                </TableCell>
-                {onAttest && onReject && onStartReject ? (
-                  <TableCell>
-                    {item.status === "PENDING_ATTESTATION" ? (
-                      rejectingId === item.id ? (
-                        <div className="flex min-w-[12rem] flex-col gap-2">
+                  {onAttest &&
+                  onReject &&
+                  onStartReject &&
+                  item.status === "PENDING_ATTESTATION" ? (
+                    <div className="mt-3">
+                      {rejectingId === item.id ? (
+                        <div className="flex flex-col gap-2">
                           <textarea
                             value={rejectNote}
-                            onChange={(event) =>
-                              onRejectNote?.(event.target.value)
-                            }
+                            onChange={(event) => onRejectNote?.(event.target.value)}
                             rows={2}
-                            className="w-full border border-border bg-background px-2 py-1 text-xs"
+                            className="desk-control h-auto min-h-16 w-full px-3 py-2"
                             placeholder={t("rejectPlaceholder")}
                           />
-                          <div className="flex gap-1">
+                          <div className="flex gap-2">
                             <Button
                               size="xs"
                               variant="destructive"
@@ -224,17 +217,13 @@ function QueueTable({
                             >
                               {t("reject")}
                             </Button>
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              onClick={onCancelReject}
-                            >
+                            <Button size="xs" variant="ghost" onClick={onCancelReject}>
                               {t("cancel")}
                             </Button>
                           </div>
                         </div>
                       ) : (
-                        <div className="flex gap-1">
+                        <div className="flex gap-2">
                           <Button size="xs" onClick={() => onAttest(item.id)}>
                             {t("attest")}
                           </Button>
@@ -246,15 +235,123 @@ function QueueTable({
                             {t("reject")}
                           </Button>
                         </div>
-                      )
-                    ) : null}
-                  </TableCell>
-                ) : null}
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-2 font-tabular text-sm text-harvest">
+                      {item.attestedAt
+                        ? formatLedgerTimestamp(item.attestedAt, locale)
+                        : "—"}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </DeskLedger>
+        }
+        wide={
+          <Table className="min-w-[48rem]">
+            <TableHeader>
+              <TableRow>
+                <StickyHead>{t("columns.id")}</StickyHead>
+                <TableHead>{t("columns.kind")}</TableHead>
+                <TableHead>{t("columns.subject")}</TableHead>
+                <TableHead>{t("columns.evidence")}</TableHead>
+                <TableHead>{t("columns.status")}</TableHead>
+                <TableHead>{t("columns.time")}</TableHead>
+                {onAttest ? <TableHead>{t("columns.action")}</TableHead> : null}
               </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => {
+                const href = subjectHref(item);
+                return (
+                  <TableRow key={item.id}>
+                    <StickyCell className="font-tabular text-xs">{item.id}</StickyCell>
+                    <TableCell>{lookupMessage(t, `kinds.${item.kind}`)}</TableCell>
+                    <TableCell>
+                      {href ? (
+                        <Link
+                          href={href}
+                          className="font-tabular text-xs text-harvest hover:underline"
+                        >
+                          {item.subjectId}
+                        </Link>
+                      ) : (
+                        <span className="font-tabular text-xs">{item.subjectId}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] text-xs text-straw">
+                      {lookupMessage(t, `evidence.${item.evidenceKey}`)}
+                      {item.operatorNote ? (
+                        <span className="mt-1 block text-bone">
+                          {t("operatorNote")}: {item.operatorNote}
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value={item.status} />
+                    </TableCell>
+                    <TableCell className="font-tabular text-xs text-straw">
+                      {item.attestedAt
+                        ? formatLedgerTimestamp(item.attestedAt, locale)
+                        : "—"}
+                    </TableCell>
+                    {onAttest && onReject && onStartReject ? (
+                      <TableCell>
+                        {item.status === "PENDING_ATTESTATION" ? (
+                          rejectingId === item.id ? (
+                            <div className="flex min-w-[12rem] flex-col gap-2">
+                              <textarea
+                                value={rejectNote}
+                                onChange={(event) =>
+                                  onRejectNote?.(event.target.value)
+                                }
+                                rows={2}
+                                className="desk-control h-auto min-h-16 w-full px-3 py-2"
+                                placeholder={t("rejectPlaceholder")}
+                              />
+                              <div className="flex gap-1">
+                                <Button
+                                  size="xs"
+                                  variant="destructive"
+                                  onClick={() => onReject(item.id)}
+                                >
+                                  {t("reject")}
+                                </Button>
+                                <Button
+                                  size="xs"
+                                  variant="ghost"
+                                  onClick={onCancelReject}
+                                >
+                                  {t("cancel")}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button size="xs" onClick={() => onAttest(item.id)}>
+                                {t("attest")}
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => onStartReject(item.id)}
+                              >
+                                {t("reject")}
+                              </Button>
+                            </div>
+                          )
+                        ) : null}
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        }
+      />
     </div>
   );
 }

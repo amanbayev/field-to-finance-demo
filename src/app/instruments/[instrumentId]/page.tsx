@@ -13,6 +13,13 @@ import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
 import { PageHeader } from "@/components/shared/page-header";
 import {
+  DeskLedger,
+  DeskNote,
+  DeskRow,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
+import {
   Table,
   TableBody,
   TableCell,
@@ -148,9 +155,9 @@ export default async function InstrumentDetailPage({
         )}
       </div>
       {protocolInvestment ? (
-        <p className="mb-4 rounded-sm border border-border bg-card px-3 py-2 text-sm">
+        <DeskNote className="mb-4">
           {t("protocolInvestmentNote")} {t("protocolInvestmentFlags")}
-        </p>
+        </DeskNote>
       ) : null}
 
       <InstrumentSectionNav
@@ -411,7 +418,22 @@ export default async function InstrumentDetailPage({
 
       {section === "ownership" ? (
         holdings.length > 0 ? (
-          <Table className="min-w-[40rem]">
+          <DeskSplit
+            compact={
+              <DeskLedger>
+                {holdings.map((holding, index) => (
+                  <DeskRow
+                    key={holding.id}
+                    index={deskIndex(index)}
+                    title={holding.holderName}
+                    value={formatInteger(holding.buckets.owned, locale)}
+                    hint={`${t("available")} ${formatInteger(holding.available, locale)}`}
+                  />
+                ))}
+              </DeskLedger>
+            }
+            wide={
+              <Table className="min-w-[40rem]">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("holder")}</TableHead>
@@ -445,6 +467,8 @@ export default async function InstrumentDetailPage({
               ))}
             </TableBody>
           </Table>
+            }
+          />
         ) : (
           <EmptyState>{t("noFakeEconomics")}</EmptyState>
         )
@@ -458,20 +482,21 @@ export default async function InstrumentDetailPage({
             <p className="mb-3 text-xs text-muted-foreground">
               {t("platformWorkflow")} · {t("formalApproval")}: {t("formalApprovalNote")}
             </p>
-            <ol className="grid gap-2 sm:grid-cols-2">
-              {admission.map((item) => (
-                <li
+            <DeskLedger>
+              {admission.map((item, index) => (
+                <DeskRow
                   key={item.stage}
-                  className="flex items-center justify-between gap-3 border border-border bg-card px-3 py-2 text-sm"
-                >
-                  <span>{lookupMessage(t, `stage${item.stage}`)}</span>
-                  <MarketStatusChip
-                    label={item.complete ? t("stageComplete") : t("stageOpen")}
-                    tone={item.complete ? "ACTIVE" : "FUTURE"}
-                  />
-                </li>
+                  index={deskIndex(index)}
+                  title={lookupMessage(t, `stage${item.stage}`)}
+                  value={
+                    <MarketStatusChip
+                      label={item.complete ? t("stageComplete") : t("stageOpen")}
+                      tone={item.complete ? "ACTIVE" : "FUTURE"}
+                    />
+                  }
+                />
               ))}
-            </ol>
+            </DeskLedger>
           </PageSection>
           {snapshot ? (
             <TokenMintProofPanel

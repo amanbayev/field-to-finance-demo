@@ -1,7 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { intlLocales, type AppLocale } from "@/i18n/config";
+
+function subscribe(onStoreChange: () => void) {
+  const id = window.setInterval(onStoreChange, 1000);
+  return () => window.clearInterval(id);
+}
+
+function nowMs() {
+  return Date.now();
+}
+
+function serverNow() {
+  return 0;
+}
 
 export function LiveClock({
   locale,
@@ -10,13 +23,8 @@ export function LiveClock({
   locale: AppLocale;
   label: string;
 }) {
-  const [now, setNow] = useState<Date | null>(null);
-
-  useEffect(() => {
-    setNow(new Date());
-    const id = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
+  const timestamp = useSyncExternalStore(subscribe, nowMs, serverNow);
+  const now = timestamp ? new Date(timestamp) : null;
 
   const time = now
     ? new Intl.DateTimeFormat(intlLocales[locale], {
@@ -28,10 +36,12 @@ export function LiveClock({
     : "——:——:——";
 
   return (
-    <p className="flex items-center gap-2 font-tabular text-[11px] tracking-wide text-straw">
-      <span className="live-dot size-1.5 rounded-full bg-pulse" aria-hidden />
-      <span className="sr-only">{label}</span>
-      <time dateTime={now?.toISOString()}>{time}</time>
+    <p className="flex items-center gap-2.5 text-[11px] tracking-wide text-straw">
+      <span className="live-dot size-1.5 shrink-0 rounded-full bg-pulse" aria-hidden />
+      <span className="label-caps">{label}</span>
+      <time dateTime={now?.toISOString()} className="font-tabular text-bone">
+        {time}
+      </time>
     </p>
   );
 }

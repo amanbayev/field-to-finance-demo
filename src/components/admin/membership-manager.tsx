@@ -24,7 +24,7 @@ export async function MembershipManager({
   return (
     <ul className="space-y-6">
       {users.map((user) => (
-        <li key={user.user_id} className="border border-border bg-card p-4">
+        <li key={user.user_id} className="border-y border-harvest/20 py-5">
           <p className="font-medium">{user.display_name}</p>
           <p className="break-all font-mono text-[10px] text-muted-foreground">
             {user.user_id}

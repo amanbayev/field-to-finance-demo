@@ -45,7 +45,7 @@ export default async function AdminOrganizationsPage({
       ) : null}
       <form
         action={createOrganizationAction}
-        className="mb-6 grid gap-3 rounded-sm border border-border bg-card p-4 sm:grid-cols-2"
+        className="mb-6 grid gap-3 border-y border-harvest/20 py-6 sm:grid-cols-2"
       >
         <p className="label-caps sm:col-span-2">{t("createOrganization")}</p>
         <div>

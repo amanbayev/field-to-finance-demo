@@ -10,8 +10,9 @@ export function getSupabasePublishableKey(): string | undefined {
 }
 
 export function getSupabaseServiceRoleKey(): string | undefined {
-  const value = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  return value || undefined;
+  const legacy = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const secret = process.env.SUPABASE_SECRET_KEY?.trim();
+  return legacy || secret || undefined;
 }
 
 export function isAuthConfigured(): boolean {

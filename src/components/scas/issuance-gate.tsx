@@ -32,8 +32,8 @@ export function IssuanceGate() {
           <TooltipContent className="max-w-xs">{t("burnTooltip")}</TooltipContent>
         </Tooltip>
       </div>
-      <p className="text-xs text-muted-foreground">
-        <Link href="/tokens" className="text-primary hover:underline">
+      <p className="text-sm text-straw">
+        <Link href="/tokens" className="text-harvest hover:underline">
           {t("openRegistrar")}
         </Link>
       </p>

@@ -43,9 +43,10 @@ export default async function MarketPage() {
         eyebrow={t("eyebrow")}
         title={t("title")}
         description={t("description")}
+        photo="/media/grain-kernel-macro.png"
       />
-      <p className="mb-5 text-xs text-muted-foreground">{t("demonstrator")}</p>
-      <p className="mb-5 rounded-sm border border-border bg-card p-3 text-sm text-muted-foreground">
+      <p className="mb-5 text-xs text-straw">{t("demonstrator")}</p>
+      <p className="mb-5 max-w-2xl text-sm leading-relaxed text-straw">
         {t("secondaryClosed")}
       </p>
 

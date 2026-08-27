@@ -8,7 +8,7 @@ const GROUP_ORDER = ["system", "control", "agro", "market"] as const;
 
 export function PersonaSwitcher({
   currentPersonaId,
-  isImpersonating,
+  isImpersonating: _isImpersonating,
   personas,
   compact = false,
   selectId = "personaId",
@@ -25,6 +25,7 @@ export function PersonaSwitcher({
   selectId?: string;
 }) {
   const t = useTranslations("identity");
+  void _isImpersonating;
   const source = personas?.length ? personas : demoPersonas();
   const grouped = GROUP_ORDER.map((group) => ({
     group,
@@ -42,19 +43,12 @@ export function PersonaSwitcher({
       key={currentPersonaId ?? "none"}
     >
       <div className={compact ? "flex min-w-0 items-center gap-2" : "min-w-0"}>
-        {isImpersonating ? (
+        {compact ? (
           <span className="shrink-0 text-[10px] font-medium tracking-[0.16em] text-primary uppercase">
             {t("demoModeBanner")}
           </span>
         ) : (
-          <label
-            className={
-              compact
-                ? "sr-only"
-                : "label-caps text-muted-foreground"
-            }
-            htmlFor={selectId}
-          >
+          <label className="label-caps text-muted-foreground" htmlFor={selectId}>
             {t("demoMode")}
           </label>
         )}
@@ -63,6 +57,7 @@ export function PersonaSwitcher({
           name="personaId"
           defaultValue={currentPersonaId ?? ""}
           className="desk-control h-7 w-full min-w-0 max-w-[18rem] truncate px-2"
+          suppressHydrationWarning
           onChange={(event) => {
             if (event.currentTarget.value) {
               event.currentTarget.form?.requestSubmit();

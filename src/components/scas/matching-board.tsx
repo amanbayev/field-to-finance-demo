@@ -6,6 +6,14 @@ import { useLocale, useTranslations } from "next-intl";
 import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
+import {
+  DeskLedger,
+  DeskNote,
+  DeskRow,
+  DeskSplit,
+  DeskToolbar,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -256,12 +264,10 @@ export function MatchingBoard({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">{t("demoNote")}</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs tracking-wide text-muted-foreground">
-          {t("actAs")}
-        </span>
+    <div>
+      <DeskNote className="mb-6">{t("demoNote")}</DeskNote>
+      <DeskToolbar>
+        <span className="label-caps text-straw">{t("actAs")}</span>
         <Button
           size="xs"
           variant={actorRole === "issuer" ? "default" : "outline"}
@@ -276,155 +282,202 @@ export function MatchingBoard({
         >
           {t("actProducer")}
         </Button>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm text-straw">
           {t("actingAs", { name: scasPartyName(actor.id) })}
         </span>
-      </div>
+      </DeskToolbar>
 
-      <Table className="min-w-[56rem]">
-        <TableHeader>
-          <TableRow>
-            <StickyHead>{t("columns.id")}</StickyHead>
-            <TableHead>{t("columns.side")}</TableHead>
-            <TableHead>{t("columns.owner")}</TableHead>
-            <TableHead>{t("columns.crop")}</TableHead>
-            <TableHead>{t("columns.volume")}</TableHead>
-            <TableHead>{t("columns.delivery")}</TableHead>
-            <TableHead>{t("columns.price")}</TableHead>
-            <TableHead>{t("columns.status")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {listings.map((listing) => (
-            <TableRow
-              key={listing.id}
-              data-state={listing.id === selectedListingId ? "selected" : undefined}
-              className="cursor-pointer"
-              onClick={() => selectListing(listing.id)}
-            >
-              <StickyCell className="font-tabular text-xs">{listing.id}</StickyCell>
-              <TableCell>{lookupMessage(t, `sides.${listing.side}`)}</TableCell>
-              <TableCell>{scasPartyName(listing.ownerId)}</TableCell>
-              <TableCell>
-                {listing.crop}, {listing.quality}
-              </TableCell>
-              <TableCell className="font-tabular">
-                {tUnits("tonnes", {
+      <DeskSplit
+        compact={
+          <DeskLedger className="mb-10">
+            {listings.map((listing, index) => (
+              <DeskRow
+                key={listing.id}
+                onSelect={() => selectListing(listing.id)}
+                active={listing.id === selectedListingId}
+                index={deskIndex(index)}
+                kicker={lookupMessage(t, `sides.${listing.side}`)}
+                title={listing.id}
+                value={tUnits("tonnes", {
                   value: formatInteger(listing.volumeTonnes, locale),
                 })}
-              </TableCell>
-              <TableCell>{listing.deliveryPeriod}</TableCell>
-              <TableCell className="font-tabular text-xs">
-                {t("perTonne", {
-                  value: formatMoney(
-                    money(listing.indicativePriceKztPerTonne, "KZT"),
-                    locale,
-                  ),
-                })}
-              </TableCell>
-              <TableCell>
-                <StatusBadge value={listing.status} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                hint={`${scasPartyName(listing.ownerId)} · ${listing.crop}, ${listing.quality}`}
+              />
+            ))}
+          </DeskLedger>
+        }
+        wide={
+          <Table className="mb-10 min-w-[56rem]">
+            <TableHeader>
+              <TableRow>
+                <StickyHead>{t("columns.id")}</StickyHead>
+                <TableHead>{t("columns.side")}</TableHead>
+                <TableHead>{t("columns.owner")}</TableHead>
+                <TableHead>{t("columns.crop")}</TableHead>
+                <TableHead>{t("columns.volume")}</TableHead>
+                <TableHead>{t("columns.delivery")}</TableHead>
+                <TableHead>{t("columns.price")}</TableHead>
+                <TableHead>{t("columns.status")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {listings.map((listing) => (
+                <TableRow
+                  key={listing.id}
+                  data-state={listing.id === selectedListingId ? "selected" : undefined}
+                  className="cursor-pointer"
+                  onClick={() => selectListing(listing.id)}
+                >
+                  <StickyCell className="font-tabular text-xs">{listing.id}</StickyCell>
+                  <TableCell>{lookupMessage(t, `sides.${listing.side}`)}</TableCell>
+                  <TableCell>{scasPartyName(listing.ownerId)}</TableCell>
+                  <TableCell>
+                    {listing.crop}, {listing.quality}
+                  </TableCell>
+                  <TableCell className="font-tabular">
+                    {tUnits("tonnes", {
+                      value: formatInteger(listing.volumeTonnes, locale),
+                    })}
+                  </TableCell>
+                  <TableCell>{listing.deliveryPeriod}</TableCell>
+                  <TableCell className="font-tabular text-xs">
+                    {t("perTonne", {
+                      value: formatMoney(
+                        money(listing.indicativePriceKztPerTonne, "KZT"),
+                        locale,
+                      ),
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge value={listing.status} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        }
+      />
 
       {selectedListing ? (
         <PageSection
           title={t("detailTitle", { id: selectedListing.id })}
           description={lookupMessage(t, `terms.${selectedListing.termsKey}`)}
         >
-          <div className="mb-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-            <p>
-              {t("related")}:{" "}
-              {selectedListing.relatedContractId ? (
-                <Link
-                  href={`/contracts/${selectedListing.relatedContractId}`}
-                  className="font-tabular text-primary hover:underline"
-                >
-                  {selectedListing.relatedContractId}
-                </Link>
-              ) : (
-                t("noRelated")
-              )}
-            </p>
-            <p>
-              {t("indicative")}:{" "}
-              {t("perTonne", {
-                value: formatMoney(
-                  money(selectedListing.indicativePriceKztPerTonne, "KZT"),
-                  locale,
-                ),
-              })}
-            </p>
-          </div>
+          <p className="mb-6 max-w-2xl text-sm text-straw">
+            {t("related")}:{" "}
+            {selectedListing.relatedContractId ? (
+              <Link
+                href={`/contracts/${selectedListing.relatedContractId}`}
+                className="font-tabular text-harvest hover:underline"
+              >
+                {selectedListing.relatedContractId}
+              </Link>
+            ) : (
+              t("noRelated")
+            )}
+            <span className="mx-3 text-harvest/40">·</span>
+            {t("indicative")}:{" "}
+            {t("perTonne", {
+              value: formatMoney(
+                money(selectedListing.indicativePriceKztPerTonne, "KZT"),
+                locale,
+              ),
+            })}
+          </p>
 
           {listingBids.length === 0 ? (
-            <EmptyState>{t("noBids")}</EmptyState>
+            <EmptyState
+              kicker={t("placeBid")}
+              title={t("noBidsTitle")}
+              body={t("noBids")}
+            />
           ) : (
-            <Table className="min-w-[40rem]">
-              <TableHeader>
-                <TableRow>
-                  <StickyHead>{t("columns.bid")}</StickyHead>
-                  <TableHead>{t("columns.bidder")}</TableHead>
-                  <TableHead>{t("columns.volume")}</TableHead>
-                  <TableHead>{t("columns.price")}</TableHead>
-                  <TableHead>{t("columns.status")}</TableHead>
-                  <TableHead>{t("columns.dac")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {listingBids.map((bid) => (
-                  <TableRow
-                    key={bid.id}
-                    data-state={bid.id === selectedBid?.id ? "selected" : undefined}
-                    className="cursor-pointer"
-                    onClick={() => setSelectedBidId(bid.id)}
-                  >
-                    <StickyCell className="font-tabular text-xs">{bid.id}</StickyCell>
-                    <TableCell>{scasPartyName(bid.bidderId)}</TableCell>
-                    <TableCell className="font-tabular">
-                      {tUnits("tonnes", {
+            <DeskSplit
+              compact={
+                <DeskLedger>
+                  {listingBids.map((bid, index) => (
+                    <DeskRow
+                      key={bid.id}
+                      onSelect={() => setSelectedBidId(bid.id)}
+                      active={bid.id === selectedBid?.id}
+                      index={deskIndex(index)}
+                      kicker={scasPartyName(bid.bidderId)}
+                      title={bid.id}
+                      value={t("perTonne", {
+                        value: formatMoney(money(bid.priceKztPerTonne, "KZT"), locale),
+                      })}
+                      hint={tUnits("tonnes", {
                         value: formatInteger(bid.volumeTonnes, locale),
                       })}
-                    </TableCell>
-                    <TableCell className="font-tabular text-xs">
-                      {t("perTonne", {
-                        value: formatMoney(
-                          money(bid.priceKztPerTonne, "KZT"),
-                          locale,
-                        ),
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge value={bid.status} />
-                    </TableCell>
-                    <TableCell className="font-tabular text-xs">
-                      {bid.resultingContractId ?? "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    />
+                  ))}
+                </DeskLedger>
+              }
+              wide={
+                <Table className="min-w-[40rem]">
+                  <TableHeader>
+                    <TableRow>
+                      <StickyHead>{t("columns.bid")}</StickyHead>
+                      <TableHead>{t("columns.bidder")}</TableHead>
+                      <TableHead>{t("columns.volume")}</TableHead>
+                      <TableHead>{t("columns.price")}</TableHead>
+                      <TableHead>{t("columns.status")}</TableHead>
+                      <TableHead>{t("columns.dac")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {listingBids.map((bid) => (
+                      <TableRow
+                        key={bid.id}
+                        data-state={bid.id === selectedBid?.id ? "selected" : undefined}
+                        className="cursor-pointer"
+                        onClick={() => setSelectedBidId(bid.id)}
+                      >
+                        <StickyCell className="font-tabular text-xs">{bid.id}</StickyCell>
+                        <TableCell>{scasPartyName(bid.bidderId)}</TableCell>
+                        <TableCell className="font-tabular">
+                          {tUnits("tonnes", {
+                            value: formatInteger(bid.volumeTonnes, locale),
+                          })}
+                        </TableCell>
+                        <TableCell className="font-tabular text-xs">
+                          {t("perTonne", {
+                            value: formatMoney(
+                              money(bid.priceKztPerTonne, "KZT"),
+                              locale,
+                            ),
+                          })}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge value={bid.status} />
+                        </TableCell>
+                        <TableCell className="font-tabular text-xs">
+                          {bid.resultingContractId ?? "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              }
+            />
           )}
 
           {selectedBid ? (
-            <div className="mt-4 space-y-3">
-              <p className="text-xs tracking-wide text-muted-foreground">
+            <div className="mt-8">
+              <p className="label-caps text-harvest">
                 {t("threadTitle", { id: selectedBid.id })}
               </p>
-              <ul className="space-y-2 border border-border bg-card px-3 py-3">
+              <ul className="mt-3 divide-y divide-harvest/15 border-y border-harvest/20">
                 {selectedBid.messages.length === 0 ? (
-                  <li className="text-sm text-muted-foreground">{t("noMessages")}</li>
+                  <li className="py-4 text-sm text-straw">{t("noMessages")}</li>
                 ) : (
                   selectedBid.messages.map((message) => (
-                    <li key={message.id} className="text-sm">
-                      <span className="text-xs text-muted-foreground">
+                    <li key={message.id} className="py-4 text-sm">
+                      <span className="font-tabular text-[11px] text-straw">
                         {formatLedgerTimestamp(message.at, locale)} ·{" "}
                         {scasPartyName(message.authorId)}
                       </span>
-                      <p className="mt-0.5">
+                      <p className="mt-1 text-bone">
                         {message.body ??
                           (message.bodyKey
                             ? lookupMessage(t, `thread.${message.bodyKey}`)
@@ -439,11 +492,11 @@ export function MatchingBoard({
                   value={comment}
                   onChange={(event) => setComment(event.target.value)}
                   rows={2}
-                  className="w-full border border-border bg-background px-2 py-1 text-xs"
+                  className="desk-control mt-4 h-auto min-h-16 w-full px-3 py-2"
                   placeholder={t("commentPlaceholder")}
                 />
               ) : null}
-              <div className="flex flex-wrap gap-1">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {canComment(selectedListing, actor, selectedBid) ? (
                   <Button
                     size="xs"
@@ -483,27 +536,25 @@ export function MatchingBoard({
           ) : null}
 
           {canPlaceBid(selectedListing, actor, bids) ? (
-            <div className="mt-4 space-y-2 border border-dashed border-border bg-card px-3 py-3">
-              <p className="text-xs tracking-wide text-muted-foreground">
-                {t("placeBid")}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <label className="text-xs text-muted-foreground">
+            <div className="mt-8 border-y border-harvest/20 py-6">
+              <p className="label-caps text-harvest">{t("placeBid")}</p>
+              <div className="mt-4 flex flex-wrap gap-4">
+                <label className="text-xs text-straw">
                   {t("columns.volume")}
                   <input
                     value={volumeInput}
                     onChange={(event) => setVolumeInput(event.target.value)}
                     inputMode="numeric"
-                    className="ml-2 w-24 border border-border bg-background px-2 py-1 font-tabular text-xs"
+                    className="desk-control ml-2 w-28"
                   />
                 </label>
-                <label className="text-xs text-muted-foreground">
+                <label className="text-xs text-straw">
                   {t("columns.price")}
                   <input
                     value={priceInput}
                     onChange={(event) => setPriceInput(event.target.value)}
                     inputMode="numeric"
-                    className="ml-2 w-28 border border-border bg-background px-2 py-1 font-tabular text-xs"
+                    className="desk-control ml-2 w-32"
                   />
                 </label>
               </div>
@@ -511,40 +562,41 @@ export function MatchingBoard({
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
                 rows={2}
-                className="w-full border border-border bg-background px-2 py-1 text-xs"
+                className="desk-control mt-4 h-auto min-h-16 w-full px-3 py-2"
                 placeholder={t("commentPlaceholder")}
               />
-              <Button size="xs" onClick={placeBid}>
+              <Button size="xs" className="mt-4" onClick={placeBid}>
                 {t("submitBid")}
               </Button>
             </div>
           ) : selectedListing.ownerId === actor.id ? (
-            <p className="mt-3 text-xs text-muted-foreground">{t("ownListing")}</p>
+            <DeskNote className="mt-6">{t("ownListing")}</DeskNote>
           ) : null}
         </PageSection>
       ) : null}
 
       <PageSection title={t("formedTitle")} description={t("formedIntro")}>
         {formed.length === 0 ? (
-          <EmptyState>{t("noFormed")}</EmptyState>
+          <EmptyState
+            kicker={t("formedTitle")}
+            title={t("noFormedTitle")}
+            body={t("noFormed")}
+          />
         ) : (
-          <ul className="space-y-2">
-            {formed.map((bid) => (
-              <li
+          <DeskLedger>
+            {formed.map((bid, index) => (
+              <DeskRow
                 key={bid.id}
-                className="border border-border bg-card px-3 py-2 text-sm"
-              >
-                <span className="font-tabular text-xs">
-                  {bid.resultingContractId}
-                </span>
-                <span className="mx-2 text-muted-foreground">·</span>
-                {t("formedLine", {
+                index={deskIndex(index)}
+                kicker={bid.listingId}
+                title={bid.resultingContractId ?? "—"}
+                hint={t("formedLine", {
                   listing: bid.listingId,
                   bidder: scasPartyName(bid.bidderId),
                 })}
-              </li>
+              />
             ))}
-          </ul>
+          </DeskLedger>
         )}
       </PageSection>
     </div>

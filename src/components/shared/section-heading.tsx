@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
-import { DeskStage } from "@/components/surface/desk-stage";
+import { DeskStage } from "@/components/surface/desk-stage-hero";
 
 export function SectionHeading({
   eyebrow,
@@ -8,6 +7,10 @@ export function SectionHeading({
   description,
   photo,
   photoAlt,
+  photoPosition,
+  kenBurnsOrigin,
+  asOfLabel,
+  variant,
   figure,
   className,
 }: {
@@ -16,6 +19,10 @@ export function SectionHeading({
   description?: ReactNode;
   photo?: string;
   photoAlt?: string;
+  photoPosition?: string;
+  kenBurnsOrigin?: "center" | "left" | "right" | "bottom";
+  asOfLabel?: string;
+  variant?: "page" | "overview";
   figure?: ReactNode;
   className?: string;
 }) {
@@ -26,6 +33,10 @@ export function SectionHeading({
       lead={description}
       photo={photo}
       photoAlt={photoAlt}
+      photoPosition={photoPosition}
+      kenBurnsOrigin={kenBurnsOrigin}
+      asOfLabel={asOfLabel}
+      variant={variant}
       figure={figure}
       className={className}
     />

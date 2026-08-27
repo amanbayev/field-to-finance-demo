@@ -3,7 +3,14 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { PageHeader } from "@/components/shared/page-header";
-import { DeskFigure, DeskToolbar } from "@/components/surface/desk-stage";
+import {
+  DeskFigure,
+  DeskLedger,
+  DeskRow,
+  DeskSplit,
+  DeskToolbar,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import {
   Table,
   TableBody,
@@ -203,52 +210,74 @@ export default async function RegistryPage({
             body={t("registryIntro")}
           />
         ) : (
-          <Table className="min-w-[52rem]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("instrument")}</TableHead>
-                <TableHead>{t("holder")}</TableHead>
-                <TableHead className="text-right">{t("owned")}</TableHead>
-                <TableHead className="text-right">{t("available")}</TableHead>
-                <TableHead className="text-right">{t("reserved")}</TableHead>
-                <TableHead className="text-right">{t("pledged")}</TableHead>
-                <TableHead className="text-right">{t("blocked")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((holding) => {
-                const instrument = getMarketInstrument(holding.instrumentId);
-                return (
-                  <TableRow key={holding.id}>
-                    <TableCell>
-                      <Link
-                        href={`/instruments/${holding.instrumentId}`}
-                        className="text-harvest hover:underline"
-                      >
-                        {instrument?.symbol ?? holding.instrumentId}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{holding.holderName}</TableCell>
-                    <TableCell className="text-right font-tabular">
-                      {formatInteger(holding.buckets.owned, locale)}
-                    </TableCell>
-                    <TableCell className="text-right font-tabular">
-                      {formatInteger(holding.available, locale)}
-                    </TableCell>
-                    <TableCell className="text-right font-tabular">
-                      {formatInteger(holding.buckets.reservedForOrders, locale)}
-                    </TableCell>
-                    <TableCell className="text-right font-tabular">
-                      {formatInteger(holding.buckets.pledged, locale)}
-                    </TableCell>
-                    <TableCell className="text-right font-tabular">
-                      {formatInteger(holding.buckets.blocked, locale)}
-                    </TableCell>
+          <DeskSplit
+            compact={
+              <DeskLedger>
+                {rows.map((holding, index) => {
+                  const instrument = getMarketInstrument(holding.instrumentId);
+                  return (
+                    <DeskRow
+                      key={holding.id}
+                      href={`/instruments/${holding.instrumentId}`}
+                      index={deskIndex(index)}
+                      kicker={instrument?.symbol ?? holding.instrumentId}
+                      title={holding.holderName}
+                      value={formatInteger(holding.buckets.owned, locale)}
+                      hint={`${t("available")} ${formatInteger(holding.available, locale)}`}
+                    />
+                  );
+                })}
+              </DeskLedger>
+            }
+            wide={
+              <Table className="min-w-[52rem]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("instrument")}</TableHead>
+                    <TableHead>{t("holder")}</TableHead>
+                    <TableHead className="text-right">{t("owned")}</TableHead>
+                    <TableHead className="text-right">{t("available")}</TableHead>
+                    <TableHead className="text-right">{t("reserved")}</TableHead>
+                    <TableHead className="text-right">{t("pledged")}</TableHead>
+                    <TableHead className="text-right">{t("blocked")}</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((holding) => {
+                    const instrument = getMarketInstrument(holding.instrumentId);
+                    return (
+                      <TableRow key={holding.id}>
+                        <TableCell>
+                          <Link
+                            href={`/instruments/${holding.instrumentId}`}
+                            className="text-harvest hover:underline"
+                          >
+                            {instrument?.symbol ?? holding.instrumentId}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{holding.holderName}</TableCell>
+                        <TableCell className="text-right font-tabular">
+                          {formatInteger(holding.buckets.owned, locale)}
+                        </TableCell>
+                        <TableCell className="text-right font-tabular">
+                          {formatInteger(holding.available, locale)}
+                        </TableCell>
+                        <TableCell className="text-right font-tabular">
+                          {formatInteger(holding.buckets.reservedForOrders, locale)}
+                        </TableCell>
+                        <TableCell className="text-right font-tabular">
+                          {formatInteger(holding.buckets.pledged, locale)}
+                        </TableCell>
+                        <TableCell className="text-right font-tabular">
+                          {formatInteger(holding.buckets.blocked, locale)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            }
+          />
         )}
       </PageSection>
 

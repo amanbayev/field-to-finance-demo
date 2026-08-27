@@ -9,7 +9,7 @@ export function LifecycleStrip({ className }: { className?: string }) {
   return (
     <ol
       className={cn(
-        "flex flex-wrap items-center gap-x-2 gap-y-3 border border-border bg-card px-4 py-4 text-sm",
+        "flex flex-wrap items-center gap-x-2 gap-y-3 border-y border-harvest/20 py-4 text-sm",
         className,
       )}
     >

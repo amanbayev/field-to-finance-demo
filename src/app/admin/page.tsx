@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/shared/page-header";
-import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
+import { DeskFigure, DeskLedger, DeskRow, deskIndex } from "@/components/surface/desk-stage";
 import { requirePermission } from "@/lib/auth/guard";
 import { loadAdminOverview } from "@/services/admin-service";
 
@@ -19,21 +18,30 @@ export default async function AdminPage() {
 
   return (
     <div>
-      <PageHeader eyebrow={t("eyebrow")} title={tNav("system")} description={t("intro")} />
-      <MetricStrip className="sm:grid-cols-4">
-        <MetricCell label={t("users")} value={String(overview?.users ?? 0)} />
-        <MetricCell label={t("organizations")} value={String(overview?.organizations ?? 0)} />
-        <MetricCell label={t("memberships")} value={String(overview?.memberships ?? 0)} />
-        <MetricCell label={t("pendingRequests")} value={String(overview?.pendingRequests ?? 0)} />
-      </MetricStrip>
-      <ul className="mt-6 space-y-2 text-sm">
-        <li><Link href="/admin/users" className="hover:underline">{t("users")}</Link></li>
-        <li><Link href="/admin/organizations" className="hover:underline">{t("organizations")}</Link></li>
-        <li><Link href="/admin/access" className="hover:underline">{t("access")}</Link></li>
-        <li><Link href="/admin/requests" className="hover:underline">{t("roleRequests")}</Link></li>
-        <li><Link href="/admin/demo-personas" className="hover:underline">{t("demoPersonas")}</Link></li>
-        <li><Link href="/audit" className="hover:underline">{t("audit")}</Link></li>
-      </ul>
+      <PageHeader
+        eyebrow={t("eyebrow")}
+        title={tNav("system")}
+        description={t("intro")}
+        photo="/media/grain-kernel-macro.png"
+        figure={
+          <DeskFigure
+            label={t("pendingRequests")}
+            value={String(overview?.pendingRequests ?? 0)}
+            meta={[
+              { label: t("users"), value: String(overview?.users ?? "—") },
+              { label: t("organizations"), value: String(overview?.organizations ?? "—") },
+            ]}
+          />
+        }
+      />
+      <DeskLedger>
+        <DeskRow href="/admin/users" index={deskIndex(0)} title={t("users")} />
+        <DeskRow href="/admin/organizations" index={deskIndex(1)} title={t("organizations")} />
+        <DeskRow href="/admin/access" index={deskIndex(2)} title={t("access")} />
+        <DeskRow href="/admin/requests" index={deskIndex(3)} title={t("roleRequests")} />
+        <DeskRow href="/admin/demo-personas" index={deskIndex(4)} title={t("demoPersonas")} />
+        <DeskRow href="/audit" index={deskIndex(5)} title={t("audit")} />
+      </DeskLedger>
     </div>
   );
 }

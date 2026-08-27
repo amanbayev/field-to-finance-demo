@@ -6,6 +6,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
+  DeskLedger,
+  DeskRow,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
+import {
   Table,
   TableBody,
   TableCell,
@@ -51,8 +57,24 @@ export default async function ParticipantsPage() {
         eyebrow={t("participantsTitle")}
         title={t("participantsTitle")}
         description={t("participantsIntro")}
+        photo="/media/grain-kernel-macro.png"
       />
-      <Table className="min-w-[44rem]">
+      <DeskSplit
+        compact={
+          <DeskLedger>
+            {DEMO_ORGANIZATIONS.map((org, index) => (
+              <DeskRow
+                key={org.id}
+                index={deskIndex(index)}
+                kicker={org.type}
+                title={org.name}
+                hint={org.status}
+              />
+            ))}
+          </DeskLedger>
+        }
+        wide={
+          <Table className="min-w-[44rem]">
         <TableHeader>
           <TableRow>
             <TableHead>{t("organization")}</TableHead>
@@ -72,9 +94,35 @@ export default async function ParticipantsPage() {
           ))}
         </TableBody>
       </Table>
+        }
+      />
 
       <PageSection title={tCore("eligibilityMatrix")}>
-        <Table className="min-w-[44rem]">
+        <DeskSplit
+          compact={
+            <DeskLedger>
+              {matrix.map((row, index) => {
+                const instrument = getMarketInstrument(row.instrumentId);
+                const label =
+                  row.instrumentId === "WATER-FUTURE"
+                    ? tCore("futureWaterInstrument")
+                    : (instrument?.symbol ?? row.instrumentId);
+                const href = instrument ? `/instruments/${instrument.id}` : undefined;
+                return (
+                  <DeskRow
+                    key={`${row.participantReference}-${row.instrumentId}`}
+                    href={href}
+                    index={deskIndex(index)}
+                    kicker={row.participantName}
+                    title={label}
+                    hint={row.state}
+                  />
+                );
+              })}
+            </DeskLedger>
+          }
+          wide={
+            <Table className="min-w-[44rem]">
           <TableHeader>
             <TableRow>
               <TableHead>{t("holder")}</TableHead>
@@ -129,29 +177,49 @@ export default async function ParticipantsPage() {
             })}
           </TableBody>
         </Table>
+          }
+        />
       </PageSection>
 
-      <h2 className="mt-8 mb-3 text-sm font-medium">{t("participantsComplianceTitle")}</h2>
-      <Table className="min-w-[36rem]">
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("holder")}</TableHead>
-            <TableHead>{t("orgType")}</TableHead>
-            <TableHead>{t("status")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {compliance.map(({ participant, record }) => (
-            <TableRow key={participant.id}>
-              <TableCell>{participant.name}</TableCell>
-              <TableCell>{participant.type}</TableCell>
-              <TableCell>
-                <StatusBadge value={record.sanctions} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <PageSection title={t("participantsComplianceTitle")}>
+        <DeskSplit
+          compact={
+            <DeskLedger>
+              {compliance.map(({ participant, record }, index) => (
+                <DeskRow
+                  key={participant.id}
+                  index={deskIndex(index)}
+                  kicker={participant.type}
+                  title={participant.name}
+                  hint={record.sanctions}
+                />
+              ))}
+            </DeskLedger>
+          }
+          wide={
+            <Table className="min-w-[36rem]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("holder")}</TableHead>
+                  <TableHead>{t("orgType")}</TableHead>
+                  <TableHead>{t("status")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {compliance.map(({ participant, record }) => (
+                  <TableRow key={participant.id}>
+                    <TableCell>{participant.name}</TableCell>
+                    <TableCell>{participant.type}</TableCell>
+                    <TableCell>
+                      <StatusBadge value={record.sanctions} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          }
+        />
+      </PageSection>
     </div>
   );
 }

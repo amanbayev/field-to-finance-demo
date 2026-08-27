@@ -45,7 +45,7 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
         ))}
       </ol>
 
-      <div className="overflow-x-auto border border-border bg-card">
+      <div className="overflow-x-auto border-y border-harvest/20">
         <table className="w-full min-w-[28rem] text-sm">
           <tbody>
             <ScheduleRow
@@ -98,7 +98,7 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
               })}
               muted
             />
-            <tr className="border-t border-border">
+            <tr className="border-t border-harvest/20">
               <th className="px-4 py-3 text-left text-sm font-medium">
                 {t("status")}
               </th>
@@ -108,7 +108,7 @@ export function CoveragePanel({ coverage }: { coverage: ContractCoverage }) {
             </tr>
           </tbody>
         </table>
-        <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+        <p className="border-t border-harvest/20 px-4 py-2 text-xs text-straw">
           {t("simulatedNote")}
         </p>
       </div>
@@ -132,7 +132,7 @@ function ScheduleRow({
   rule?: boolean;
 }) {
   return (
-    <tr className={cn(rule && "border-t border-border")}>
+    <tr className={cn(rule && "border-t border-harvest/20")}>
       <th
         className={cn(
           "px-4 py-2 text-left font-normal",
