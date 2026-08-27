@@ -63,8 +63,18 @@
     "noneOnBook": "Nothing is on this ledger yet.",
     "filterRibbon": "Narrow the book",
     "backToFields": "All fields",
+    "backToMonitoring": "All monitoring",
+    "backToDocuments": "All documents",
     "plots": "Plots",
-    "otherPlots": "Other plots"
+    "otherPlots": "Other plots",
+    "noMonitoringTitle": "No monitoring on this desk",
+    "noMonitoringBody": "When a field is enrolled, satellite, soil and insurance sit here. No live feed is connected.",
+    "noDocumentsTitle": "No verification on this desk",
+    "noDocumentsBody": "Land rights, KYB and crop confirmation appear here from existing records. Upload is not part of this phase.",
+    "onWatch": "On watch",
+    "clearPlots": "Clear",
+    "verifiedPlots": "Verified",
+    "openChecks": "Open checks"
   },
   "nav": {
     "dashboard": "Overview",

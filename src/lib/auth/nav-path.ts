@@ -8,6 +8,8 @@ export const PREFIX_ACTIVE_HREFS = new Set([
   "/registry",
   "/clearing",
   "/fields",
+  "/monitoring",
+  "/documents",
 ]);
 
 export function navHrefIsActive(pathname: string, href: string): boolean {

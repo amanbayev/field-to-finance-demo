@@ -1,10 +1,14 @@
-import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { FieldMapPlaceholder } from "@/components/contracts/field-map-placeholder";
 import { DataList } from "@/components/shared/data-list";
 import { PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { DeskLedger, DeskRow, deskIndex } from "@/components/surface/desk-stage";
+import {
+  DeskBackLink,
+  DeskLedger,
+  DeskRow,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
@@ -17,9 +21,11 @@ export function fieldHref(contractId: string): string {
 export async function FieldPlotsLedger({
   items,
   activeId,
+  hrefFor = fieldHref,
 }: {
   items: ContractListItem[];
   activeId?: string;
+  hrefFor?: (contractId: string) => string;
 }) {
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
@@ -32,7 +38,7 @@ export async function FieldPlotsLedger({
         return (
           <DeskRow
             key={item.contract.id}
-            href={fieldHref(item.contract.id)}
+            href={hrefFor(item.contract.id)}
             active={active}
             index={deskIndex(index)}
             kicker={lookupMessage(tCatalog, `regions.${item.contract.field.region}`)}
@@ -110,9 +116,11 @@ export async function FieldDetailRecord({ item }: { item: ContractListItem }) {
 export async function FieldSiblings({
   items,
   activeId,
+  hrefFor,
 }: {
   items: ContractListItem[];
   activeId: string;
+  hrefFor?: (contractId: string) => string;
 }) {
   const tDesk = await getTranslations("desk");
   if (items.length < 2) {
@@ -121,20 +129,11 @@ export async function FieldSiblings({
 
   return (
     <PageSection title={tDesk("plots")}>
-      <FieldPlotsLedger items={items} activeId={activeId} />
+      <FieldPlotsLedger items={items} activeId={activeId} hrefFor={hrefFor} />
     </PageSection>
   );
 }
 
 export function FieldsBackLink({ label }: { label: string }) {
-  return (
-    <p className="mb-8">
-      <Link
-        href="/fields"
-        className="text-sm text-straw transition-colors duration-150 ease-out hover:text-harvest"
-      >
-        {label}
-      </Link>
-    </p>
-  );
+  return <DeskBackLink href="/fields" label={label} />;
 }

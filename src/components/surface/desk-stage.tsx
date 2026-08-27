@@ -154,6 +154,25 @@ export function DeskSplit({
   );
 }
 
+export function DeskBackLink({
+  href,
+  label,
+}: {
+  href: string;
+  label: string;
+}) {
+  return (
+    <p className="mb-8">
+      <Link
+        href={href}
+        className="text-sm text-straw transition-colors duration-150 ease-out hover:text-harvest"
+      >
+        {label}
+      </Link>
+    </p>
+  );
+}
+
 export function DeskNote({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <p className={cn("max-w-2xl text-sm leading-relaxed text-straw", className)}>{children}</p>
