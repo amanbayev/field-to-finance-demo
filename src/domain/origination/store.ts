@@ -30,6 +30,10 @@ export interface OriginationStore {
   nextCaseSequence(): Promise<number>;
   nextSubmissionSequence(): Promise<number>;
   insertField(record: ProducerFieldRecord): Promise<ProducerFieldRecord>;
+  createFieldIdempotent(
+    record: ProducerFieldRecord,
+    event: OriginationAuditEvent,
+  ): Promise<ProducerFieldRecord>;
   updateField(record: ProducerFieldRecord): Promise<ProducerFieldRecord>;
   getFieldById(id: string): Promise<ProducerFieldRecord | null>;
   getFieldByPublicId(publicId: string): Promise<ProducerFieldRecord | null>;

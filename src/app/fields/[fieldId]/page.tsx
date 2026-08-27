@@ -195,7 +195,7 @@ export default async function FieldDetailPage({
           <PageSection title={tOrig("declaredHeading")}>
             {canEdit ? (
               <form action={updateFieldAction} className="grid gap-4">
-                <input type="hidden" name="fieldId" value={field.id} />
+                <input type="hidden" name="fieldId" value={field.publicId} />
                 <input type="hidden" name="name" value={field.declared.name} />
                 <input type="hidden" name="season" value={String(field.declared.season)} />
                 <input type="hidden" name="crop" value={field.declared.crop} />
@@ -269,7 +269,7 @@ export default async function FieldDetailPage({
 
       {tab === "documents" ? (
         <DocumentPanel
-          fieldId={field.id}
+          fieldId={field.publicId}
           fieldPublicId={field.publicId}
           documents={documents}
           canEdit={canEdit}
@@ -282,13 +282,13 @@ export default async function FieldDetailPage({
           <PageSection title={tOrig("reviewTitle")}>
             {field.status === "DRAFT" ? (
               <form action={submitFieldAction}>
-                <input type="hidden" name="fieldId" value={field.id} />
+                <input type="hidden" name="fieldId" value={field.publicId} />
                 <FormSubmitButton pendingLabel={tOrig("submitScas")}>{tOrig("submitScas")}</FormSubmitButton>
               </form>
             ) : null}
             {field.status === "CHANGES_REQUESTED" ? (
               <form action={resubmitFieldAction}>
-                <input type="hidden" name="fieldId" value={field.id} />
+                <input type="hidden" name="fieldId" value={field.publicId} />
                 <FormSubmitButton pendingLabel={tOrig("resubmit")}>{tOrig("resubmit")}</FormSubmitButton>
               </form>
             ) : null}
@@ -312,7 +312,7 @@ export default async function FieldDetailPage({
               </ul>
               <MessageForm
                 action={sendFieldMessageAction}
-                caseId={verificationCase.id}
+                caseId={verificationCase.publicId}
                 fieldId={field.publicId}
               />
             </PageSection>

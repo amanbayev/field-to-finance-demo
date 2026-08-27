@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildPrincipal,
   resolveActorContext,
@@ -17,6 +18,7 @@ import {
   OriginationService,
   UPLOAD_INTENT_TTL_MS,
   defaultCadastreProvider,
+  isUuid,
   type ProducerDeclaredData,
 } from "@/domain/origination";
 import { MemoryOriginationStore } from "@/domain/origination/memory-store";
@@ -129,6 +131,15 @@ function pdf(name = "cadastre.pdf") {
 
 async function draft(service: OriginationService, actor = producer()) {
   return service.createDraft(actor, sample);
+}
+
+function expectNoUuidLookupForPublicId(
+  spy: { mock: { calls: unknown[][] } },
+  publicId: string,
+) {
+  expect(spy.mock.calls.flat()).not.toContain(publicId);
+  expect(publicId).not.toMatch(/^[0-9a-f-]{36}$/i);
+  expect(isUuid(publicId)).toBe(false);
 }
 
 describe("origination O1", () => {
@@ -859,5 +870,163 @@ describe("origination O1.2.1 state guards", () => {
     if (same.status === "fulfilled") {
       expect(same.value.uploadIntentId).toBe(first.uploadIntentId);
     }
+  });
+});
+
+describe("origination public-id resolution", () => {
+  it("loads a field by public id without querying the uuid column", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const actor = producer();
+    const field = await draft(service, actor);
+    const byId = vi.spyOn(store, "getFieldById");
+    const byPublicId = vi.spyOn(store, "getFieldByPublicId");
+    const bundle = await service.getFieldBundle(actor, field.publicId);
+    expect(bundle.field.id).toBe(field.id);
+    expect(byId).not.toHaveBeenCalled();
+    expect(byPublicId).toHaveBeenCalledWith(field.publicId);
+  });
+
+  it("still loads a field by uuid without querying public_id", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const actor = producer();
+    const field = await draft(service, actor);
+    const byId = vi.spyOn(store, "getFieldById");
+    const byPublicId = vi.spyOn(store, "getFieldByPublicId");
+    const bundle = await service.getFieldBundle(actor, field.id);
+    expect(bundle.field.publicId).toBe(field.publicId);
+    expect(byId).toHaveBeenCalledWith(field.id);
+    expect(byPublicId).not.toHaveBeenCalled();
+  });
+
+  it("updates, prepares documents, and submits using the public field id", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const actor = producer();
+    const field = await draft(service, actor);
+    const byId = vi.spyOn(store, "getFieldById");
+    const updated = await service.updateDraft(actor, field.publicId, {
+      ...sample,
+      name: "North plot 12B",
+    });
+    expect(updated.declared.name).toBe("North plot 12B");
+    expectNoUuidLookupForPublicId(byId, field.publicId);
+    const prepared = await service.prepareDirectUpload(actor, {
+      fieldId: field.publicId,
+      documentType: "CADASTRE_EXTRACT",
+      filename: "cadastre.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 8,
+    });
+    expect(prepared.documentId).toBeTruthy();
+    expectNoUuidLookupForPublicId(byId, field.publicId);
+    await service.uploadDocument(actor, {
+      fieldId: field.publicId,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf(),
+    });
+    const submitted = await service.submitToScas(actor, field.publicId);
+    expect(submitted.field.status).toBe("SUBMITTED");
+    expect(submitted.verificationCase.publicId).toMatch(/^VCASE-2027-\d{4}$/);
+    expectNoUuidLookupForPublicId(byId, field.publicId);
+  });
+
+  it("resubmits using the public field id after changes are requested", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const farm = producer();
+    const reviewer = scas();
+    const field = await draft(service, farm);
+    await service.uploadDocument(farm, {
+      fieldId: field.publicId,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf(),
+    });
+    const submitted = await service.submitToScas(farm, field.publicId);
+    await service.requestChanges(reviewer, submitted.verificationCase.publicId, "Confirm the registered area.");
+    const byId = vi.spyOn(store, "getFieldById");
+    const resubmitted = await service.resubmit(farm, field.publicId);
+    expect(resubmitted.field.status).toBe("RESUBMITTED");
+    expectNoUuidLookupForPublicId(byId, field.publicId);
+  });
+
+  it("opens a SCAS case from the queue public id without querying the uuid column", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const farm = producer();
+    const reviewer = scas();
+    const field = await draft(service, farm);
+    await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf(),
+    });
+    await service.submitToScas(farm, field.publicId);
+    const queue = await service.listVerificationQueue(reviewer, "new");
+    expect(queue).toHaveLength(1);
+    expect(queue[0]!.publicId).toMatch(/^VCASE-2027-\d{4}$/);
+    const byCaseId = vi.spyOn(store, "getCaseById");
+    const bundle = await service.getCaseBundle(reviewer, queue[0]!.publicId);
+    expect(bundle.verificationCase.id).toBe(queue[0]!.id);
+    expectNoUuidLookupForPublicId(byCaseId, queue[0]!.publicId);
+    const assigned = await service.assignReviewer(reviewer, queue[0]!.publicId, reviewer.principal.userId);
+    expect(assigned.assignedReviewerUserId).toBe(reviewer.principal.userId);
+    expectNoUuidLookupForPublicId(byCaseId, queue[0]!.publicId);
+    await service.sendMessage(reviewer, {
+      caseId: queue[0]!.publicId,
+      body: "Review started.",
+    });
+    expectNoUuidLookupForPublicId(byCaseId, queue[0]!.publicId);
+  });
+
+  it("still opens a SCAS case by uuid without querying public_id", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const farm = producer();
+    const reviewer = scas();
+    const field = await draft(service, farm);
+    await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf(),
+    });
+    const submitted = await service.submitToScas(farm, field.id);
+    const byCaseId = vi.spyOn(store, "getCaseById");
+    const byPublicId = vi.spyOn(store, "getCaseByPublicId");
+    const bundle = await service.getCaseBundle(reviewer, submitted.verificationCase.id);
+    expect(bundle.verificationCase.publicId).toBe(submitted.verificationCase.publicId);
+    expect(byCaseId).toHaveBeenCalledWith(submitted.verificationCase.id);
+    expect(byPublicId).not.toHaveBeenCalled();
+  });
+});
+
+describe("origination create idempotency", () => {
+  it("returns the same field for the same organization and create request id", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const actor = producer();
+    const requestId = randomUUID();
+    const [first, second] = await Promise.all([
+      service.createDraft(actor, sample, requestId),
+      service.createDraft(actor, sample, requestId),
+    ]);
+    expect(first.id).toBe(second.id);
+    expect(first.publicId).toBe(second.publicId);
+    expect(first.clientCreateRequestId).toBe(requestId);
+    const events = await store.listEventsByField(first.id);
+    expect(events.filter((event) => event.eventType === "field_created")).toHaveLength(1);
+    const listed = await service.listProducerFields(actor, "all");
+    expect(listed.filter((field) => field.clientCreateRequestId === requestId)).toHaveLength(1);
+  });
+
+  it("creates a new field when the create request id changes", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const actor = producer();
+    const first = await service.createDraft(actor, sample, randomUUID());
+    const second = await service.createDraft(actor, { ...sample, name: "North plot 13" }, randomUUID());
+    expect(first.id).not.toBe(second.id);
+    expect(first.publicId).not.toBe(second.publicId);
   });
 });

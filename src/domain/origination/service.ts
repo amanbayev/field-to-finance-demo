@@ -16,6 +16,7 @@ import {
   fieldDocumentObjectPath,
   scasEvidenceObjectPath,
 } from "./files";
+import { resolveByUuidOrPublicId, isUuid } from "./refs";
 import {
   allowsApproval,
   allowsChangeRequest,
@@ -56,6 +57,11 @@ function pad(value: number) {
 
 function sha256Hex(bytes: Uint8Array) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+function requestIdForCreate(value?: string) {
+  const trimmed = value?.trim() ?? "";
+  return isUuid(trimmed) ? trimmed.toLowerCase() : randomUUID();
 }
 
 function requireDeclared(input: ProducerDeclaredData): ProducerDeclaredData {
@@ -99,32 +105,34 @@ export class OriginationService {
     private readonly clock: () => string = nowIso,
   ) {}
 
-  async createDraft(actor: ActorContext, input: ProducerDeclaredData) {
+  async createDraft(actor: ActorContext, input: ProducerDeclaredData, createRequestId?: string) {
     if (!isProducerOperator(actor) || !actor.effective.organization) {
       throw new OriginationError("forbidden");
     }
     const declared = requireDeclared(input);
     const stamp = actorStamp(actor);
     const at = this.clock();
-    const id = randomUUID();
-    const seq = await this.store.nextFieldSequence();
+    const requestId = requestIdForCreate(createRequestId);
     const field: ProducerFieldRecord = {
-      id,
-      publicId: `FIELD-${declared.season}-${pad(seq)}`,
+      id: randomUUID(),
+      publicId: `FIELD-${declared.season}-0000`,
       organizationId: actor.effective.organization.id,
       status: "DRAFT",
       declared,
       currentSubmissionId: null,
       verifiedSnapshotId: null,
+      clientCreateRequestId: requestId,
       createdByUserId: stamp.userId,
       createdByRole: stamp.role,
       createdAt: at,
       updatedAt: at,
       archivedAt: null,
     };
-    await this.store.insertField(field);
-    await this.audit(actor, "field_created", "field", field.id, { publicId: field.publicId });
-    return field;
+    const event = this.makeEvent(actor, "field_created", "field", field.id, {
+      publicId: field.publicId,
+      createRequestId: requestId,
+    });
+    return this.store.createFieldIdempotent(field, event);
   }
 
   async updateDraft(actor: ActorContext, fieldId: string, input: ProducerDeclaredData) {
@@ -1231,16 +1239,18 @@ export class OriginationService {
   }
 
   private async resolveField(fieldRef: string) {
-    return (
-      (await this.store.getFieldById(fieldRef)) ??
-      (await this.store.getFieldByPublicId(fieldRef))
+    return resolveByUuidOrPublicId(
+      fieldRef,
+      (id) => this.store.getFieldById(id),
+      (publicId) => this.store.getFieldByPublicId(publicId),
     );
   }
 
   private async resolveCase(caseRef: string) {
-    return (
-      (await this.store.getCaseById(caseRef)) ??
-      (await this.store.getCaseByPublicId(caseRef))
+    return resolveByUuidOrPublicId(
+      caseRef,
+      (id) => this.store.getCaseById(id),
+      (publicId) => this.store.getCaseByPublicId(publicId),
     );
   }
 

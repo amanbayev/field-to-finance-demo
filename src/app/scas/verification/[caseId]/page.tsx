@@ -122,14 +122,14 @@ export default async function ScasVerificationCasePage({
                 <div className="mt-2 flex flex-wrap gap-2">
                   <StatusBadge value={document.status} />
                   <form action={acceptDocumentAction}>
-                    <input type="hidden" name="caseId" value={verificationCase.id} />
+                    <input type="hidden" name="caseId" value={verificationCase.publicId} />
                     <input type="hidden" name="documentId" value={document.id} />
                     <FormSubmitButton size="xs" variant="ghost" pendingLabel={t("accept")}>
                       {t("accept")}
                     </FormSubmitButton>
                   </form>
                   <form action={requestReplacementAction} className="grid gap-2">
-                    <input type="hidden" name="caseId" value={verificationCase.id} />
+                    <input type="hidden" name="caseId" value={verificationCase.publicId} />
                     <input type="hidden" name="documentId" value={document.id} />
                     <input
                       name="comment"
@@ -159,7 +159,7 @@ export default async function ScasVerificationCasePage({
               defaultValue={verificationCase.assignedReviewerUserId ?? actor.principal.userId}
               className="desk-control h-8 w-full font-tabular"
             />
-            <input type="hidden" name="caseId" value={verificationCase.id} />
+            <input type="hidden" name="caseId" value={verificationCase.publicId} />
             <FormSubmitButton size="xs" pendingLabel={t("assign")}>
               {t("assign")}
             </FormSubmitButton>
@@ -168,7 +168,7 @@ export default async function ScasVerificationCasePage({
           <p className="label-caps text-harvest">{t("cadastreForm")}</p>
           <p className="mt-2 text-xs text-straw">{t("providerManual")}</p>
           <form action={recordCadastreAction} className="mt-4 grid gap-3">
-            <input type="hidden" name="caseId" value={verificationCase.id} />
+            <input type="hidden" name="caseId" value={verificationCase.publicId} />
             <input
               name="cadastreNumber"
               defaultValue={cadastre?.cadastreNumber ?? field.declared.cadastreNumber}
@@ -229,7 +229,7 @@ export default async function ScasVerificationCasePage({
 
           <p className="mt-10 label-caps text-harvest">{t("evidence")}</p>
           <form action={addEvidenceAction} className="mt-4 grid gap-3">
-            <input type="hidden" name="caseId" value={verificationCase.id} />
+            <input type="hidden" name="caseId" value={verificationCase.publicId} />
             <select name="kind" className="desk-control h-8 w-full">
               <option value="CADASTRAL">{t("CADASTRAL")}</option>
               <option value="SATELLITE_IMAGERY">{t("SATELLITE_IMAGERY")}</option>
@@ -254,26 +254,26 @@ export default async function ScasVerificationCasePage({
             ))}
           </ul>
           <div className="mt-4">
-            <MessageForm action={sendCaseMessageAction} caseId={verificationCase.id} />
+            <MessageForm action={sendCaseMessageAction} caseId={verificationCase.publicId} />
           </div>
 
           <div className="mt-10 grid gap-6">
             <form action={requestChangesAction} className="grid gap-2">
-              <input type="hidden" name="caseId" value={verificationCase.id} />
+              <input type="hidden" name="caseId" value={verificationCase.publicId} />
               <textarea name="explanation" required placeholder={t("explanation")} className="desk-control min-h-[4rem] w-full py-2" />
               <FormSubmitButton variant="outline" pendingLabel={t("requestChanges")}>
                 {t("requestChanges")}
               </FormSubmitButton>
             </form>
             <form action={rejectFieldAction} className="grid gap-2">
-              <input type="hidden" name="caseId" value={verificationCase.id} />
+              <input type="hidden" name="caseId" value={verificationCase.publicId} />
               <textarea name="reason" required placeholder={t("reason")} className="desk-control min-h-[4rem] w-full py-2" />
               <FormSubmitButton variant="destructive" pendingLabel={t("reject")}>
                 {t("reject")}
               </FormSubmitButton>
             </form>
             <form action={approveFieldAction}>
-              <input type="hidden" name="caseId" value={verificationCase.id} />
+              <input type="hidden" name="caseId" value={verificationCase.publicId} />
               <FormSubmitButton pendingLabel={t("approve")}>{t("approve")}</FormSubmitButton>
             </form>
           </div>

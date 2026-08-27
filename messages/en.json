@@ -1792,6 +1792,7 @@
     "continue": "Continue",
     "back": "Back",
     "saveDraft": "Save draft",
+    "savingDraft": "Saving draft",
     "submitScas": "Submit to SCAS",
     "resubmit": "Resubmit to SCAS",
     "reviewTitle": "Review submission",

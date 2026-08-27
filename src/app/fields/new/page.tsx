@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/shared/page-header";
@@ -5,6 +6,8 @@ import { DeskBackLink } from "@/components/surface/desk-stage";
 import { FieldWizard } from "@/components/origination/field-wizard";
 import { ActionError } from "@/components/origination/document-panel";
 import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   await requireOwnProducerWorkspace({ manage: true });
@@ -32,7 +35,7 @@ export default async function NewFieldPage({
       />
       <DeskBackLink href="/fields" label={tDesk("backToFields")} />
       <ActionError show={Boolean(params.error)} />
-      <FieldWizard />
+      <FieldWizard createRequestId={randomUUID()} />
     </div>
   );
 }

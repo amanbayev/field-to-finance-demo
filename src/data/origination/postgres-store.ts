@@ -71,6 +71,7 @@ function fieldFrom(row: Row): ProducerFieldRecord {
     declared: declaredFrom(row),
     currentSubmissionId: (row.current_submission_id as string | null) ?? null,
     verifiedSnapshotId: (row.verified_snapshot_id as string | null) ?? null,
+    clientCreateRequestId: (row.client_create_request_id as string | null) ?? null,
     createdByUserId: String(row.created_by_user_id),
     createdByRole: String(row.created_by_role),
     createdAt: String(row.created_at),
@@ -95,6 +96,7 @@ function fieldToRow(record: ProducerFieldRecord): Row {
     declared_snapshot: record.declared,
     current_submission_id: record.currentSubmissionId,
     verified_snapshot_id: record.verifiedSnapshotId,
+    client_create_request_id: record.clientCreateRequestId,
     created_by_user_id: record.createdByUserId,
     created_by_role: record.createdByRole,
     created_at: record.createdAt,
@@ -184,6 +186,23 @@ export class PostgresOriginationStore implements OriginationStore {
       fail(error);
     }
     return fieldFrom(data as Row);
+  }
+
+  async createFieldIdempotent(record: ProducerFieldRecord, event: OriginationAuditEvent) {
+    const { data, error } = await this.client.rpc("origination_create_field", {
+      payload: {
+        field: fieldToRow(record),
+        event: eventToRow(event),
+      },
+    });
+    if (error) {
+      fail(error);
+    }
+    const row = (data as { field?: Row } | null)?.field;
+    if (!row) {
+      fail({ message: "origination create returned no field" });
+    }
+    return fieldFrom(row);
   }
 
   async updateField(record: ProducerFieldRecord) {

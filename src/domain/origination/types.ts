@@ -165,6 +165,7 @@ export interface ProducerFieldRecord {
   declared: ProducerDeclaredData;
   currentSubmissionId: string | null;
   verifiedSnapshotId: string | null;
+  clientCreateRequestId: string | null;
   createdByUserId: string;
   createdByRole: string;
   createdAt: string;

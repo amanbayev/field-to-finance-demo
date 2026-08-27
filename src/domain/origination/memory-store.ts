@@ -88,7 +88,12 @@ export class MemoryOriginationStore implements OriginationStore {
     this.fieldSeq = parsed.fieldSeq ?? 0;
     this.caseSeq = parsed.caseSeq ?? 0;
     this.submissionSeq = parsed.submissionSeq ?? 0;
-    this.fields = new Map((parsed.fields ?? []).map((record) => [record.id, record]));
+    this.fields = new Map(
+      (parsed.fields ?? []).map((record) => [
+        record.id,
+        { ...record, clientCreateRequestId: record.clientCreateRequestId ?? null },
+      ]),
+    );
     this.documents = new Map((parsed.documents ?? []).map((record) => [record.id, record]));
     this.submissions = new Map((parsed.submissions ?? []).map((record) => [record.id, record]));
     this.cases = new Map((parsed.cases ?? []).map((record) => [record.id, record]));
@@ -177,6 +182,35 @@ export class MemoryOriginationStore implements OriginationStore {
     return this.write(() => {
       this.fields.set(record.id, clone(record));
       return clone(record);
+    });
+  }
+
+  async createFieldIdempotent(record: ProducerFieldRecord, event: OriginationAuditEvent) {
+    return this.write(() => {
+      if (record.clientCreateRequestId) {
+        for (const existing of this.fields.values()) {
+          if (
+            existing.organizationId === record.organizationId &&
+            existing.clientCreateRequestId === record.clientCreateRequestId
+          ) {
+            return clone(existing);
+          }
+        }
+      }
+      this.fieldSeq += 1;
+      const created: ProducerFieldRecord = {
+        ...record,
+        publicId: `FIELD-${record.declared.season}-${String(this.fieldSeq).padStart(4, "0")}`,
+      };
+      this.fields.set(created.id, clone(created));
+      this.events.push(
+        clone({
+          ...event,
+          objectId: created.id,
+          metadata: { ...event.metadata, publicId: created.publicId },
+        }),
+      );
+      return clone(created);
     });
   }
 

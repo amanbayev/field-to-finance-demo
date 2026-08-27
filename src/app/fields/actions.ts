@@ -29,7 +29,11 @@ function fail(error: unknown): never {
 export async function createFieldAction(formData: FormData) {
   const actor = await requireOwnProducerWorkspace({ manage: true });
   try {
-    const field = await originationService().createDraft(actor, declaredFrom(formData));
+    const field = await originationService().createDraft(
+      actor,
+      declaredFrom(formData),
+      String(formData.get("createRequestId") ?? ""),
+    );
     revalidatePath("/fields");
     redirect(`/fields/${field.publicId}?tab=documents`);
   } catch (error) {

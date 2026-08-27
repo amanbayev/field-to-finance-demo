@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { useTranslations } from "next-intl";
 import { createFieldAction } from "@/app/fields/actions";
 import { FormSubmitButton } from "@/components/identity/form-submit-button";
@@ -18,13 +19,27 @@ const REGIONS = [
   "Turkistan",
 ] as const;
 
-export function FieldWizard() {
+function LandStepActions({ onBack }: { onBack: () => void }) {
+  const t = useTranslations("origination");
+  const { pending } = useFormStatus();
+  return (
+    <div className="flex flex-wrap gap-3 pt-2">
+      <Button type="button" variant="ghost" onClick={onBack} disabled={pending}>
+        {t("back")}
+      </Button>
+      <FormSubmitButton pendingLabel={t("savingDraft")}>{t("saveDraft")}</FormSubmitButton>
+    </div>
+  );
+}
+
+export function FieldWizard({ createRequestId }: { createRequestId: string }) {
   const t = useTranslations("origination");
   const tCatalog = useTranslations("catalog");
   const [step, setStep] = useState<1 | 2>(1);
 
   return (
     <form action={createFieldAction} className="mx-auto max-w-2xl">
+      <input type="hidden" name="createRequestId" value={createRequestId} />
       <ol className="mb-8 flex gap-8 border-b border-harvest/20 pb-3">
         <li className={step === 1 ? "text-harvest" : "text-straw"}>
           <span className="label-caps">01</span> {t("stepIdentity")}
@@ -89,12 +104,7 @@ export function FieldWizard() {
           <span className="label-caps">{t("district")}</span>
           <input name="district" className="desk-control h-10 w-full" />
         </label>
-        <div className="flex flex-wrap gap-3 pt-2">
-          <Button type="button" variant="ghost" onClick={() => setStep(1)}>
-            {t("back")}
-          </Button>
-          <FormSubmitButton pendingLabel={t("saveDraft")}>{t("saveDraft")}</FormSubmitButton>
-        </div>
+        <LandStepActions onBack={() => setStep(1)} />
       </fieldset>
     </form>
   );
