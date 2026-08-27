@@ -404,7 +404,7 @@ Do not put private keys, seed phrases, wallet JSON, or secret API credentials in
 
 ### Phase 4.5 — authentication (this branch)
 
-The app uses **Supabase Auth + Postgres** for persistent users, organisations, memberships and RLS. There is **no dedicated Field to Finance Supabase project in this repository yet**. Do not reuse unrelated projects (`personal-os` or similarly named accounts).
+The app uses **Supabase Auth + Postgres** on the dedicated **field-to-finance** project (`qnzoghmqnqwfpkzgpede`). Do not reuse unrelated projects (`personal-os` or similarly named accounts).
 
 Required Preview/local values (publishable only in `NEXT_PUBLIC_*`):
 
@@ -414,7 +414,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_SITE_URL=
 ```
 
-Optional server-only: `SUPABASE_SERVICE_ROLE_KEY` (never `NEXT_PUBLIC_*`).
+Origination on Vercel Preview and Production **requires** a server-only credential (never `NEXT_PUBLIC_*`):
+
+```
+SUPABASE_SECRET_KEY=
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` is accepted as a legacy alias of the same secret. Without it, origination fails closed. The in-memory store is used only for unit tests and local `next dev`.
 
 Apply `supabase/migrations/20260822120000_identity.sql` then `supabase/seed.sql`. After the presenter signs up, bootstrap once:
 

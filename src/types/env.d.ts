@@ -12,5 +12,7 @@ declare namespace NodeJS {
     SUPABASE_SERVICE_ROLE_KEY?: string;
     SUPABASE_SECRET_KEY?: string;
     ORIGINATION_STORE?: string;
+    VERCEL?: string;
+    VERCEL_ENV?: "production" | "preview" | "development" | string;
   }
 }

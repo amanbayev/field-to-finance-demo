@@ -1870,6 +1870,7 @@
     "history": "Version history",
     "current": "Current",
     "auditEmpty": "No origination events yet.",
-    "error": "This action could not be completed."
+    "error": "This action could not be completed.",
+    "storageUnavailable": "Origination is not connected. A server-only SUPABASE_SECRET_KEY is required."
   }
 }

@@ -12,7 +12,9 @@ import { originationService } from "@/services/origination-service";
 import {
   PRODUCER_FIELD_FILTERS,
   producerNextActionMessageKey,
+  OriginationError,
   type ProducerFieldFilter,
+  type ProducerFieldRecord,
 } from "@/domain/origination";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { buttonVariants } from "@/components/ui/button";
@@ -40,7 +42,18 @@ export default async function FieldsPage({
   const filter = PRODUCER_FIELD_FILTERS.includes(params.filter as ProducerFieldFilter)
     ? (params.filter as ProducerFieldFilter)
     : "all";
-  const fields = await originationService().listProducerFields(actor, filter);
+  let fields: ProducerFieldRecord[] = [];
+  let storageDown = false;
+  try {
+    fields = await originationService().listProducerFields(actor, filter);
+  } catch (error) {
+    if (error instanceof OriginationError && error.code === "storage") {
+      fields = [];
+      storageDown = true;
+    } else {
+      throw error;
+    }
+  }
   const hectares = fields.reduce((sum, field) => sum + (field.declared.declaredAreaHa ?? 0), 0);
 
   return (
@@ -98,12 +111,14 @@ export default async function FieldsPage({
       {fields.length === 0 ? (
         <EmptyState
           kicker={t("fieldsEyebrow")}
-          title={tDesk("noFieldsTitle")}
-          body={tDesk("noFieldsBody")}
+          title={storageDown ? tOrig("storageUnavailable") : tDesk("noFieldsTitle")}
+          body={storageDown ? tOrig("storageUnavailable") : tDesk("noFieldsBody")}
           action={
-            <Link href="/fields/new" className={cn(buttonVariants())}>
-              {tOrig("addField")}
-            </Link>
+            storageDown ? undefined : (
+              <Link href="/fields/new" className={cn(buttonVariants())}>
+                {tOrig("addField")}
+              </Link>
+            )
           }
         />
       ) : (

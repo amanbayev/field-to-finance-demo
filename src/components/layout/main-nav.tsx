@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -115,14 +115,11 @@ export function MobileNav({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
-        render={
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-8 shrink-0 border-harvest/30 lg:hidden"
-            aria-label={t("open")}
-          />
-        }
+        className={cn(
+          buttonVariants({ variant: "outline", size: "icon" }),
+          "size-8 shrink-0 border-harvest/30 lg:hidden",
+        )}
+        aria-label={t("open")}
       >
         <Menu className="size-4" />
       </SheetTrigger>

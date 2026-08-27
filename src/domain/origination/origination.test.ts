@@ -251,6 +251,7 @@ describe("origination O1", () => {
         "field_created",
         "document_uploaded",
         "field_submitted",
+        "verification_started",
         "changes_requested",
         "document_replaced",
         "field_resubmitted",

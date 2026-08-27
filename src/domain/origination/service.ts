@@ -956,7 +956,7 @@ export class OriginationService {
     ) {
       throw new OriginationError("invalid_state");
     }
-    return this.markUnderReview(verificationCase);
+    return this.markUnderReview(actor, verificationCase);
   }
 
   private async requireWritableCaseByField(actor: ActorContext, fieldId: string) {
@@ -967,18 +967,23 @@ export class OriginationService {
     return this.requireWritableCase(actor, verificationCase.id);
   }
 
-  private async markUnderReview(verificationCase: FieldVerificationCaseRecord) {
+  private async markUnderReview(actor: ActorContext, verificationCase: FieldVerificationCaseRecord) {
     if (verificationCase.status === "NEW" || verificationCase.status === "RESUBMITTED") {
       const field = await this.store.getFieldById(verificationCase.fieldId);
       const at = this.clock();
       if (field && field.status !== "CHANGES_REQUESTED") {
         await this.store.updateField({ ...field, status: "UNDER_REVIEW", updatedAt: at });
       }
-      return this.store.updateCase({
+      const updated = await this.store.updateCase({
         ...verificationCase,
         status: "UNDER_REVIEW",
         updatedAt: at,
       });
+      await this.audit(actor, "verification_started", "case", updated.id, {
+        fieldId: verificationCase.fieldId,
+        from: verificationCase.status,
+      });
+      return updated;
     }
     return verificationCase;
   }

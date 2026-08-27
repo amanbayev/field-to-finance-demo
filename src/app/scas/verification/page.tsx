@@ -9,7 +9,7 @@ import type { AppLocale } from "@/i18n/config";
 import { formatNumber, formatTimestamp } from "@/lib/format";
 import { requireScasVerifier } from "@/lib/auth/guard";
 import { originationService } from "@/services/origination-service";
-import { SCAS_CASE_FILTERS, type ScasCaseFilter } from "@/domain/origination";
+import { OriginationError, SCAS_CASE_FILTERS, type FieldVerificationCaseRecord, type ScasCaseFilter } from "@/domain/origination";
 import { organizationById } from "@/data/identity/demo-catalog";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { stageMediaForRole } from "@/lib/surface/role-media";
@@ -33,7 +33,16 @@ export default async function ScasVerificationQueuePage({
   const filter = SCAS_CASE_FILTERS.includes(params.filter as ScasCaseFilter)
     ? (params.filter as ScasCaseFilter)
     : "all";
-  const cases = await originationService().listVerificationQueue(actor, filter);
+  let cases: FieldVerificationCaseRecord[] = [];
+  try {
+    cases = await originationService().listVerificationQueue(actor, filter);
+  } catch (error) {
+    if (error instanceof OriginationError && error.code === "storage") {
+      cases = [];
+    } else {
+      throw error;
+    }
+  }
   const media = stageMediaForRole("SCAS_OPERATOR");
 
   const rows = await Promise.all(

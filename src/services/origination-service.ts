@@ -4,6 +4,10 @@ import { MemoryOriginationStore } from "@/domain/origination/memory-store";
 import { OriginationService } from "@/domain/origination/service";
 import { createServiceRoleClient } from "@/lib/auth/supabase/admin";
 import { PostgresOriginationStore } from "@/data/origination/postgres-store";
+import {
+  ORIGINATION_STORAGE_MESSAGE,
+  resolveOriginationBackend,
+} from "@/lib/origination/backend";
 
 const globalForOrigination = globalThis as unknown as {
   originationService?: OriginationService;
@@ -18,15 +22,22 @@ function memoryStore() {
 }
 
 export function createOriginationStore(): OriginationStore {
-  if (process.env.ORIGINATION_STORE === "memory") {
-    return memoryStore();
+  const backend = resolveOriginationBackend({
+    nodeEnv: process.env.NODE_ENV,
+    vercel: process.env.VERCEL,
+    vercelEnv: process.env.VERCEL_ENV,
+    originationStore: process.env.ORIGINATION_STORE,
+    hasServiceRole: Boolean(createServiceRoleClient()),
+  });
+  if (backend === "fail") {
+    throw new OriginationError("storage", ORIGINATION_STORAGE_MESSAGE);
   }
-  const client = createServiceRoleClient();
-  if (client) {
+  if (backend === "postgres") {
+    const client = createServiceRoleClient();
+    if (!client) {
+      throw new OriginationError("storage", ORIGINATION_STORAGE_MESSAGE);
+    }
     return new PostgresOriginationStore(client);
-  }
-  if (process.env.NODE_ENV === "production") {
-    throw new OriginationError("storage", "Origination requires a server-only Supabase service role.");
   }
   return memoryStore();
 }
@@ -41,5 +52,13 @@ export function originationService() {
 }
 
 export function originationUsesObjectStorage() {
-  return Boolean(createServiceRoleClient()) && process.env.ORIGINATION_STORE !== "memory";
+  return (
+    resolveOriginationBackend({
+      nodeEnv: process.env.NODE_ENV,
+      vercel: process.env.VERCEL,
+      vercelEnv: process.env.VERCEL_ENV,
+      originationStore: process.env.ORIGINATION_STORE,
+      hasServiceRole: Boolean(createServiceRoleClient()),
+    }) === "postgres"
+  );
 }
