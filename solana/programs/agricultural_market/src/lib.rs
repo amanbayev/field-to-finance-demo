@@ -1,3 +1,4 @@
+pub mod canonical;
 pub mod constants;
 pub mod error;
 pub mod instructions;
@@ -5,6 +6,7 @@ pub mod state;
 
 use anchor_lang::prelude::*;
 
+pub use canonical::*;
 pub use constants::*;
 pub use instructions::*;
 pub use state::*;
@@ -52,16 +54,20 @@ pub mod agricultural_market {
     pub fn settle_secondary_dvp(
         ctx: Context<SettleSecondaryDvp>,
         trade_id: String,
+        market_id: String,
         quantity: u64,
         unit_price: u64,
         notional: u64,
+        canonical_trade_hash: [u8; 32],
     ) -> Result<()> {
         crate::instructions::settle_secondary_dvp::handle_settle_secondary_dvp(
             ctx,
             trade_id,
+            market_id,
             quantity,
             unit_price,
             notional,
+            canonical_trade_hash,
         )
     }
 }

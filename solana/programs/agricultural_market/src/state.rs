@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{MAX_ISSUANCE_ID, MAX_PLACEMENT_ID, MAX_TRADE_ID};
+use crate::constants::{MAX_ISSUANCE_ID, MAX_MARKET_ID, MAX_PLACEMENT_ID, MAX_TRADE_ID};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
 pub enum PlacementStatus {
@@ -64,6 +64,8 @@ pub enum SecondarySettlementStatus {
 pub struct SecondarySettlementReceipt {
     #[max_len(MAX_TRADE_ID)]
     pub trade_id: String,
+    #[max_len(MAX_MARKET_ID)]
+    pub market_id: String,
     pub market_config: Pubkey,
     pub seller: Pubkey,
     pub buyer: Pubkey,
@@ -72,7 +74,9 @@ pub struct SecondarySettlementReceipt {
     pub quantity: u64,
     pub unit_price: u64,
     pub notional: u64,
+    pub canonical_trade_hash: [u8; 32],
     pub settled_at: i64,
+    pub settled_slot: u64,
     pub status: SecondarySettlementStatus,
     pub bump: u8,
 }

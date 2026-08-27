@@ -145,9 +145,13 @@ export {
 } from "./secondary-dvp";
 export type { SecondaryDvpAudit } from "./secondary-dvp";
 export {
+  CANONICAL_TRADE_HASH_DOMAIN,
   LOCKED_SEED_TRADE,
   assertSettlementMatchesLockedTrade,
+  canonicalSecondaryTradeHash,
+  canonicalSecondaryTradeHashHex,
 } from "./secondary-settlement-binding";
+export type { CanonicalSecondaryTradeInput } from "./secondary-settlement-binding";
 export {
   SECONDARY_SETTLEMENT_ENABLED,
   SecondarySettlementProvider,

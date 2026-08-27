@@ -4,15 +4,18 @@ use anchor_spl::token_2022::{
 };
 use anchor_spl::token_interface::{Mint, TokenAccount};
 
-use crate::constants::{MARKET_CONFIG_SEED, MAX_TRADE_ID, SECONDARY_SETTLEMENT_SEED};
+use crate::canonical::canonical_trade_hash;
+use crate::constants::{MARKET_CONFIG_SEED, MAX_MARKET_ID, MAX_TRADE_ID, SECONDARY_SETTLEMENT_SEED};
 use crate::error::MarketError;
 use crate::state::{MarketConfig, SecondarySettlementReceipt, SecondarySettlementStatus};
 
 #[derive(Accounts)]
 #[instruction(trade_id: String)]
 pub struct SettleSecondaryDvp<'info> {
-    /// Seller of the instrument. Must sign; pays rent for the one-time receipt PDA.
+    /// Ceremony fee payer. Does not receive instrument or settlement tokens.
     #[account(mut)]
+    pub payer: Signer<'info>,
+    /// Seller of the instrument. Must sign; authorizes the instrument transfer.
     pub seller: Signer<'info>,
     /// Buyer of the instrument. Must sign; authorizes the settlement-asset transfer.
     pub buyer: Signer<'info>,
@@ -25,7 +28,7 @@ pub struct SettleSecondaryDvp<'info> {
     pub market_config: Box<Account<'info, MarketConfig>>,
     #[account(
         init,
-        payer = seller,
+        payer = payer,
         space = 8 + SecondarySettlementReceipt::INIT_SPACE,
         seeds = [SECONDARY_SETTLEMENT_SEED, trade_id.as_bytes()],
         bump
@@ -68,14 +71,21 @@ pub struct SettleSecondaryDvp<'info> {
 pub fn handle_settle_secondary_dvp(
     ctx: Context<SettleSecondaryDvp>,
     trade_id: String,
+    market_id: String,
     quantity: u64,
     unit_price: u64,
     notional: u64,
+    expected_canonical_trade_hash: [u8; 32],
 ) -> Result<()> {
     require!(!trade_id.is_empty(), MarketError::TradeIdEmpty);
     require!(
         trade_id.as_bytes().len() <= MAX_TRADE_ID,
         MarketError::TradeIdTooLong
+    );
+    require!(!market_id.is_empty(), MarketError::MarketIdEmpty);
+    require!(
+        market_id.as_bytes().len() <= MAX_MARKET_ID,
+        MarketError::MarketIdTooLong
     );
     require!(quantity > 0, MarketError::QuantityZero);
     require!(unit_price > 0, MarketError::UnitPriceZero);
@@ -104,6 +114,23 @@ pub fn handle_settle_secondary_dvp(
     require!(
         !ctx.accounts.seller_settlement_ata.is_frozen(),
         MarketError::TokenAccountFrozen
+    );
+
+    let computed_hash = canonical_trade_hash(
+        &trade_id,
+        &market_id,
+        &ctx.accounts.market_config.key(),
+        &ctx.accounts.seller.key(),
+        &ctx.accounts.buyer.key(),
+        &ctx.accounts.instrument_mint.key(),
+        &ctx.accounts.settlement_mint.key(),
+        quantity,
+        unit_price,
+        notional,
+    );
+    require!(
+        computed_hash == expected_canonical_trade_hash,
+        MarketError::CanonicalTradeHashMismatch
     );
 
     let instrument_base = ui_to_base(quantity, ctx.accounts.instrument_mint.decimals)?;
@@ -148,8 +175,10 @@ pub fn handle_settle_secondary_dvp(
         ctx.accounts.settlement_mint.decimals,
     )?;
 
+    let clock = Clock::get()?;
     let settlement = &mut ctx.accounts.settlement;
     settlement.trade_id = trade_id;
+    settlement.market_id = market_id;
     settlement.market_config = ctx.accounts.market_config.key();
     settlement.seller = ctx.accounts.seller.key();
     settlement.buyer = ctx.accounts.buyer.key();
@@ -158,7 +187,9 @@ pub fn handle_settle_secondary_dvp(
     settlement.quantity = quantity;
     settlement.unit_price = unit_price;
     settlement.notional = notional;
-    settlement.settled_at = Clock::get()?.unix_timestamp;
+    settlement.canonical_trade_hash = computed_hash;
+    settlement.settled_at = clock.unix_timestamp;
+    settlement.settled_slot = clock.slot;
     settlement.status = SecondarySettlementStatus::Settled;
     settlement.bump = ctx.bumps.settlement;
     Ok(())

@@ -3,6 +3,9 @@
  * from the matched trade record. Operator input cannot change parties or terms.
  */
 
+import { createHash } from "node:crypto";
+import { PublicKey } from "@solana/web3.js";
+
 export interface LockedSecondaryTrade {
   tradeId: string;
   marketId: string;
@@ -76,3 +79,59 @@ export const LOCKED_SEED_TRADE: LockedSecondaryTrade = {
   unitPrice: 105_000,
   notional: 210_000,
 };
+
+/** Domain separator. Must match `CANONICAL_TRADE_HASH_DOMAIN` in the programme. */
+export const CANONICAL_TRADE_HASH_DOMAIN = "F2F_SECONDARY_DVP_V1";
+
+export interface CanonicalSecondaryTradeInput {
+  tradeId: string;
+  marketId: string;
+  marketConfig: string;
+  sellerWallet: string;
+  buyerWallet: string;
+  instrumentMint: string;
+  settlementMint: string;
+  quantity: number;
+  unitPrice: number;
+  notional: number;
+}
+
+function u32Le(value: number): Buffer {
+  const buf = Buffer.alloc(4);
+  buf.writeUInt32LE(value);
+  return buf;
+}
+
+function u64Le(value: number): Buffer {
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64LE(BigInt(value));
+  return buf;
+}
+
+export function canonicalSecondaryTradeHash(
+  input: CanonicalSecondaryTradeInput,
+): Buffer {
+  const tradeId = Buffer.from(input.tradeId, "utf8");
+  const marketId = Buffer.from(input.marketId, "utf8");
+  return createHash("sha256")
+    .update(Buffer.from(CANONICAL_TRADE_HASH_DOMAIN, "utf8"))
+    .update(u32Le(tradeId.length))
+    .update(tradeId)
+    .update(u32Le(marketId.length))
+    .update(marketId)
+    .update(new PublicKey(input.marketConfig).toBytes())
+    .update(new PublicKey(input.sellerWallet).toBytes())
+    .update(new PublicKey(input.buyerWallet).toBytes())
+    .update(new PublicKey(input.instrumentMint).toBytes())
+    .update(new PublicKey(input.settlementMint).toBytes())
+    .update(u64Le(input.quantity))
+    .update(u64Le(input.unitPrice))
+    .update(u64Le(input.notional))
+    .digest();
+}
+
+export function canonicalSecondaryTradeHashHex(
+  input: CanonicalSecondaryTradeInput,
+): string {
+  return canonicalSecondaryTradeHash(input).toString("hex");
+}

@@ -117,6 +117,7 @@ dependencies = [
  "solana-clock",
  "solana-keypair",
  "solana-message",
+ "solana-sha256-hasher",
  "solana-signer",
  "solana-transaction",
 ]

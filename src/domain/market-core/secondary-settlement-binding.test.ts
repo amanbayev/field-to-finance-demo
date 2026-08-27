@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { recordedPlacementProof } from "@/adapters/blockchain/solana/recorded-placement";
+import {
+  GRAIN_DESK_DEMO_KZT_ATA,
+  GRAIN_DESK_SOLANA_WALLET,
+  GRAIN_DESK_WHEAT_ATA,
+} from "@/data/market-core/settlement-identities";
 import {
   LOCKED_SEED_TRADE,
   assertSettlementMatchesLockedTrade,
+  canonicalSecondaryTradeHashHex,
 } from "./secondary-settlement-binding";
 import { SecondarySettlementProvider } from "./secondary-settlement-provider";
 import { DevnetSettlementNotEnabledError } from "./settlement-provider";
@@ -70,5 +77,38 @@ describe("secondary settlement binding", () => {
     expect(provider.enabled).toBe(false);
     expect(provider.canExecute()).toBe(false);
     expect(() => provider.settle(valid)).toThrow(DevnetSettlementNotEnabledError);
+  });
+
+  it("derives a canonical trade hash from locked DB terms and mapped wallets/mints", () => {
+    const proof = recordedPlacementProof();
+    const hash = canonicalSecondaryTradeHashHex({
+      tradeId: LOCKED_SEED_TRADE.tradeId,
+      marketId: LOCKED_SEED_TRADE.marketId,
+      marketConfig: proof.marketConfigPda!,
+      sellerWallet: proof.investorWallet!,
+      buyerWallet: GRAIN_DESK_SOLANA_WALLET,
+      instrumentMint: proof.instrumentMint!,
+      settlementMint: proof.demoKzt!.mint,
+      quantity: LOCKED_SEED_TRADE.quantity,
+      unitPrice: LOCKED_SEED_TRADE.unitPrice,
+      notional: LOCKED_SEED_TRADE.notional,
+    });
+    expect(hash).toHaveLength(64);
+    expect(
+      canonicalSecondaryTradeHashHex({
+        tradeId: LOCKED_SEED_TRADE.tradeId,
+        marketId: LOCKED_SEED_TRADE.marketId,
+        marketConfig: proof.marketConfigPda!,
+        sellerWallet: proof.investorWallet!,
+        buyerWallet: GRAIN_DESK_SOLANA_WALLET,
+        instrumentMint: proof.instrumentMint!,
+        settlementMint: proof.demoKzt!.mint,
+        quantity: 3,
+        unitPrice: LOCKED_SEED_TRADE.unitPrice,
+        notional: 315_000,
+      }),
+    ).not.toBe(hash);
+    expect(GRAIN_DESK_WHEAT_ATA).toBeTruthy();
+    expect(GRAIN_DESK_DEMO_KZT_ATA).toBeTruthy();
   });
 });

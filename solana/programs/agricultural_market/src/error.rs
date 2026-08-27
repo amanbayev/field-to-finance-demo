@@ -52,4 +52,10 @@ pub enum MarketError {
     InsufficientSellerInstrument,
     #[msg("buyer settlement balance is insufficient")]
     InsufficientBuyerSettlement,
+    #[msg("market_id must be non-empty")]
+    MarketIdEmpty,
+    #[msg("market_id exceeds the 32-byte limit")]
+    MarketIdTooLong,
+    #[msg("canonical trade hash does not match the signed settlement terms")]
+    CanonicalTradeHashMismatch,
 }
