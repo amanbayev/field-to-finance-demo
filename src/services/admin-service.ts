@@ -1,4 +1,8 @@
 import { createServerSupabaseClient } from "@/lib/auth/supabase/server";
+import {
+  catalogPersonasForSwitcher,
+  isDesignPreviewEnabled,
+} from "@/lib/auth/design-preview";
 
 export async function loadAdminOverview() {
   const supabase = await createServerSupabaseClient();
@@ -107,7 +111,7 @@ export async function loadRoleRequests() {
 export async function loadDemoPersonasAdmin() {
   const supabase = await createServerSupabaseClient();
   if (!supabase) {
-    return [];
+    return isDesignPreviewEnabled() ? catalogPersonasForSwitcher() : [];
   }
   const { data } = await supabase
     .from("demo_personas")
@@ -116,11 +120,15 @@ export async function loadDemoPersonasAdmin() {
     )
     .order("id");
   const { data: orgs } = await supabase.from("organizations").select("id, name");
-  return (data ?? []).map((persona) => ({
+  const rows = (data ?? []).map((persona) => ({
     ...persona,
     organizationName:
       orgs?.find((org) => org.id === persona.organization_id)?.name ?? "—",
   }));
+  if (rows.length > 0) {
+    return rows;
+  }
+  return isDesignPreviewEnabled() ? catalogPersonasForSwitcher() : [];
 }
 
 export async function loadAuditEvents() {

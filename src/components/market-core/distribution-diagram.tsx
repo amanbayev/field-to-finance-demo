@@ -1,5 +1,3 @@
-import { Panel, PanelBody, PanelHeader } from "@/components/shared/panel";
-
 export function DistributionDiagram({
   title,
   coreLabel,
@@ -16,41 +14,38 @@ export function DistributionDiagram({
   notes: readonly string[];
 }) {
   return (
-    <Panel>
-      <PanelHeader title={title} />
-      <PanelBody className="space-y-4 font-mono text-[11px] leading-relaxed sm:text-xs">
-        <div className="grid gap-2 sm:grid-cols-3">
-          {channels.map((channel) => (
-            <div key={channel} className="border border-border bg-background px-3 py-2 text-center">
-              {channel}
-            </div>
-          ))}
-        </div>
-        <p className="text-center text-muted-foreground">▼</p>
-        <div className="border border-primary/40 bg-muted/30 px-3 py-3">
-          <p className="mb-2 text-center text-[10px] tracking-[0.16em] text-primary uppercase">
-            {coreLabel}
-          </p>
-          <ul className="grid gap-1 sm:grid-cols-2">
-            {coreLayers.map((layer) => (
-              <li key={layer}>· {layer}</li>
-            ))}
-          </ul>
-        </div>
-        <p className="text-center text-muted-foreground">▼</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {settlementLayers.map((layer) => (
-            <div key={layer} className="border border-dashed border-border px-3 py-2">
-              {layer}
-            </div>
-          ))}
-        </div>
-        <ul className="space-y-1 text-muted-foreground">
-          {notes.map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-        </ul>
-      </PanelBody>
-    </Panel>
+    <div>
+      <p className="label-caps text-harvest">{title}</p>
+      <p className="mt-4 label-caps text-straw">{coreLabel}</p>
+      <ul className="mt-3 divide-y divide-harvest/15 border-y border-harvest/20">
+        {channels.map((channel, index) => (
+          <li key={channel} className="flex items-baseline gap-3 py-3">
+            <span className="font-tabular text-[10px] tracking-widest text-harvest">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <span className="text-sm text-bone">{channel}</span>
+          </li>
+        ))}
+      </ul>
+      <ul className="mt-6 grid gap-2 sm:grid-cols-2">
+        {coreLayers.map((layer) => (
+          <li key={layer} className="text-sm text-straw">
+            {layer}
+          </li>
+        ))}
+      </ul>
+      <ul className="mt-6 divide-y divide-harvest/15 border-y border-harvest/20">
+        {settlementLayers.map((layer) => (
+          <li key={layer} className="py-3 text-sm text-bone">
+            {layer}
+          </li>
+        ))}
+      </ul>
+      <ul className="mt-6 space-y-2 text-sm text-straw">
+        {notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </div>
   );
 }

@@ -2,7 +2,12 @@
 
 import { forbidden, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/auth/supabase/server";
+import {
+  DESIGN_PERSONA_COOKIE,
+  isDesignPreviewEnabled,
+} from "@/lib/auth/design-preview";
 import { isAuthConfigured } from "@/lib/auth/env";
 import { safeReturnTo } from "@/lib/auth/return-to";
 import { getOptionalActor } from "@/lib/auth/load-actor";
@@ -125,26 +130,46 @@ export async function onboardingAction(formData: FormData) {
 export async function assumePersonaAction(formData: FormData) {
   const personaId = String(formData.get("personaId") ?? "");
   const supabase = await createServerSupabaseClient();
-  if (!supabase || !personaId) {
-    redirect("/");
+  if (supabase && personaId) {
+    const { data } = await supabase.auth.getClaims();
+    if (data?.claims) {
+      const { error } = await supabase.rpc("assume_demo_persona", {
+        p_persona_id: personaId,
+      });
+      if (error) {
+        redirect(`/?personaError=${encodeURIComponent(error.message)}`);
+      }
+      revalidatePath("/", "layout");
+      redirect("/");
+    }
   }
-  const { error } = await supabase.rpc("assume_demo_persona", {
-    p_persona_id: personaId,
-  });
-  if (error) {
-    redirect(`/?personaError=${encodeURIComponent(error.message)}`);
+  if (isDesignPreviewEnabled() && personaId) {
+    const cookieStore = await cookies();
+    cookieStore.set(DESIGN_PERSONA_COOKIE, personaId, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+    });
+    revalidatePath("/", "layout");
   }
-  revalidatePath("/", "layout");
   redirect("/");
 }
 
 export async function exitPersonaAction() {
   const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    redirect("/");
+  if (supabase) {
+    const { data } = await supabase.auth.getClaims();
+    if (data?.claims) {
+      await supabase.rpc("exit_demo_persona");
+      revalidatePath("/", "layout");
+      redirect("/");
+    }
   }
-  await supabase.rpc("exit_demo_persona");
-  revalidatePath("/", "layout");
+  if (isDesignPreviewEnabled()) {
+    const cookieStore = await cookies();
+    cookieStore.delete(DESIGN_PERSONA_COOKIE);
+    revalidatePath("/", "layout");
+  }
   redirect("/");
 }
 

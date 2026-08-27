@@ -11,7 +11,7 @@ export function MetricStrip({
   return (
     <div
       className={cn(
-        "grid gap-px overflow-hidden border border-border bg-border sm:grid-cols-3",
+        "flex flex-wrap gap-x-10 gap-y-6 border-y border-harvest/20 py-6",
         className,
       )}
     >
@@ -34,17 +34,17 @@ export function MetricCell({
   className?: string;
 }) {
   return (
-    <div className={cn("bg-card px-4 py-3", className)}>
+    <div className={cn("min-w-[7rem]", className)}>
       <p className="label-caps">{label}</p>
       <div
         className={cn(
-          "mt-1.5 font-tabular tracking-tight text-foreground",
-          emphasis === "primary" ? "text-2xl font-medium" : "text-base font-medium",
+          "mt-1 font-tabular tracking-tight",
+          emphasis === "primary" ? "text-3xl text-harvest" : "text-xl text-bone",
         )}
       >
         {value}
       </div>
-      {hint ? <div className="mt-1 text-xs text-muted-foreground">{hint}</div> : null}
+      {hint ? <div className="mt-1 text-xs text-straw">{hint}</div> : null}
     </div>
   );
 }

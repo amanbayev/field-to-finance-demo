@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
-import { FieldMapPlaceholder } from "@/components/contracts/field-map-placeholder";
-import { DataList } from "@/components/shared/data-list";
+import { getLocale, getTranslations } from "next-intl/server";
+import { EmptyState } from "@/components/shared/page-section";
 import { PageHeader } from "@/components/shared/page-header";
-import { PageSection } from "@/components/shared/page-section";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { lookupMessage } from "@/i18n/t-dynamic";
+import { DeskFigure } from "@/components/surface/desk-stage";
+import { FieldPlotsLedger } from "@/components/fields/field-record";
+import type { AppLocale } from "@/i18n/config";
+import { formatInteger } from "@/lib/format";
 import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
 import { listContractsForActor } from "@/services/access-service";
 
@@ -18,9 +18,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function FieldsPage() {
   const actor = await requireOwnProducerWorkspace({ manage: true });
   const t = await getTranslations("workspace");
-  const tContracts = await getTranslations("contracts");
-  const tCatalog = await getTranslations("catalog");
+  const tDesk = await getTranslations("desk");
+  const tUnits = await getTranslations("units");
+  const locale = (await getLocale()) as AppLocale;
   const items = listContractsForActor(actor);
+  const hectares = items.reduce((sum, item) => sum + item.contract.field.areaHectares, 0);
 
   return (
     <div>
@@ -28,60 +30,33 @@ export default async function FieldsPage() {
         eyebrow={t("fieldsEyebrow")}
         title={t("fieldsTitle")}
         description={t("fieldsIntro")}
+        photo="/media/hero-harvest-dusk.png"
+        figure={
+          items.length ? (
+            <DeskFigure
+              label={tDesk("plots")}
+              value={formatInteger(items.length, locale)}
+              meta={[
+                {
+                  label: t("area"),
+                  value: tUnits("hectaresShort", {
+                    value: formatInteger(hectares, locale),
+                  }),
+                },
+              ]}
+            />
+          ) : undefined
+        }
       />
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("monitoringEmpty")}</p>
-      ) : null}
-      {items.map(({ contract, producer }) => (
-        <PageSection key={contract.id} title={contract.field.cadastralRef}>
-          <DataList
-            items={[
-              { label: tContracts("fields.legalName"), value: producer.legalName },
-              {
-                label: t("cadastral"),
-                value: contract.field.cadastralRef,
-              },
-              {
-                label: tContracts("fields.region"),
-                value: lookupMessage(tCatalog, `regions.${contract.field.region}`),
-              },
-              {
-                label: t("area"),
-                value: String(contract.field.areaHectares),
-              },
-              {
-                label: tContracts("fields.crop"),
-                value: lookupMessage(
-                  tCatalog,
-                  `crops.${contract.production.crop}`,
-                ),
-              },
-              { label: t("season"), value: String(contract.production.season) },
-              {
-                label: t("landRights"),
-                value: <StatusBadge value={contract.verification.landRights} />,
-              },
-              {
-                label: t("fieldVerification"),
-                value: <StatusBadge value={contract.verification.field} />,
-              },
-              {
-                label: t("cropConfirmation"),
-                value: <StatusBadge value={contract.verification.crop} />,
-              },
-            ]}
-          />
-          <div className="mt-4">
-            <p className="mb-2 text-xs text-muted-foreground">{t("noGis")}</p>
-            <FieldMapPlaceholder
-              region={contract.field.region}
-              cadastralRef={contract.field.cadastralRef}
-              centroidLabel={contract.field.centroidLabel}
-              areaHectares={contract.field.areaHectares}
-            />
-          </div>
-        </PageSection>
-      ))}
+        <EmptyState
+          kicker={t("fieldsEyebrow")}
+          title={tDesk("noFieldsTitle")}
+          body={tDesk("noFieldsBody")}
+        />
+      ) : (
+        <FieldPlotsLedger items={items} />
+      )}
     </div>
   );
 }

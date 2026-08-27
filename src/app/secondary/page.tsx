@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { MarketClearingSplit } from "@/components/market-core/market-clearing-split";
 import { EmptyState } from "@/components/shared/page-section";
 import { PageHeader } from "@/components/shared/page-header";
+import { DeskFigure, DeskNote } from "@/components/surface/desk-stage";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { requirePermission } from "@/lib/auth/guard";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,6 +17,7 @@ export default async function SecondaryMarketPage() {
   await requirePermission("market.read");
   const t = await getTranslations("workspace");
   const tCore = await getTranslations("marketCore");
+  const tDesk = await getTranslations("desk");
 
   return (
     <div>
@@ -21,22 +25,25 @@ export default async function SecondaryMarketPage() {
         eyebrow={t("secondaryEyebrow")}
         title={t("secondaryTitle")}
         description={tCore("marketClosed")}
+        photo="/media/empty-silo-light.png"
+        figure={
+          <DeskFigure
+            label={tCore("sectionMarket")}
+            value={tCore("closedSecondary")}
+          />
+        }
       />
-      <MarketClearingSplit
-        distinction={tCore("clearingDistinct")}
-        marketTitle={tCore("marketFlow")}
-        clearingTitle={tCore("clearingFlow")}
-        marketSteps={[tCore("order"), tCore("matching"), tCore("trade")]}
-        clearingSteps={[
-          tCore("trade"),
-          tCore("eligibilityRecheck"),
-          tCore("dvp"),
-          tCore("finalSettlement"),
-        ]}
+      <DeskNote className="mb-8">{tCore("clearingDistinct")}</DeskNote>
+      <EmptyState
+        kicker={t("secondaryEyebrow")}
+        title={tDesk("secondaryClosed")}
+        body={tDesk("secondaryClosedBody")}
+        action={
+          <Link href="/instruments" className={cn(buttonVariants())}>
+            {tDesk("openInstruments")}
+          </Link>
+        }
       />
-      <EmptyState>{t("secondaryBody")}</EmptyState>
-      <p className="mt-3 text-sm text-muted-foreground">{t("noTradingHistory")}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{tCore("noOrders")}</p>
     </div>
   );
 }

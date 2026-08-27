@@ -4,6 +4,7 @@ import { MarketClearingSplit } from "@/components/market-core/market-clearing-sp
 import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataList } from "@/components/shared/data-list";
+import { DeskFigure } from "@/components/surface/desk-stage";
 import { requireRegistrarOrRegulator } from "@/lib/auth/guard";
 import { marketCoreSnapshot } from "@/services/market-core-service";
 
@@ -15,6 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ClearingPage() {
   await requireRegistrarOrRegulator();
   const t = await getTranslations("marketCore");
+  const tDesk = await getTranslations("desk");
   const snapshot = marketCoreSnapshot();
   const primary = snapshot.settlements.find(
     (item) => item.evidenceLabel === "PRIMARY_PLACEMENT_EVIDENCE",
@@ -26,6 +28,13 @@ export default async function ClearingPage() {
         eyebrow={t("levelPlatform")}
         title={t("clearingTitle")}
         description={t("clearingIntro")}
+        photo="/media/grain-kernel-macro.png"
+        figure={
+          <DeskFigure
+            label={t("sectionMarket")}
+            value={t("closedSecondary")}
+          />
+        }
       />
       <MarketClearingSplit
         distinction={t("clearingDistinct")}
@@ -53,11 +62,19 @@ export default async function ClearingPage() {
             ]}
           />
         ) : (
-          <EmptyState>{t("noSecondaryTrade")}</EmptyState>
+          <EmptyState
+            kicker={t("primaryEvidence")}
+            title={tDesk("noneOnBook")}
+            body={t("noSecondaryTrade")}
+          />
         )}
       </PageSection>
       <PageSection title={t("sectionMarket")}>
-        <EmptyState>{t("noOrders")}</EmptyState>
+        <EmptyState
+          kicker={t("sectionMarket")}
+          title={tDesk("secondaryClosed")}
+          body={t("noOrders")}
+        />
       </PageSection>
     </div>
   );

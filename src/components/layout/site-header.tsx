@@ -4,7 +4,7 @@ import { MainNav, MobileNav } from "@/components/layout/main-nav";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { AccountMenu } from "@/components/identity/account-menu";
 import { PersonaSwitcher } from "@/components/identity/persona-switcher";
-import { legalOperatorName, productName } from "@/lib/navigation";
+import { WheatMark } from "@/components/surface/wheat-mark";
 import { getOptionalActor } from "@/lib/auth/load-actor";
 import { navGroupsForActor } from "@/lib/auth/nav";
 import { PERSONA_GROUPS, principalCan, type PersonaGroup } from "@/domain/identity";
@@ -25,30 +25,36 @@ function initials(name: string): string {
 function BrandMark({
   fullName,
   shortName,
+  compact = false,
 }: {
   fullName: string;
   shortName: string;
+  compact?: boolean;
 }) {
   return (
     <Link
       href="/"
       aria-label={fullName}
-      className="block text-sm font-medium leading-none text-foreground sm:text-base"
+      className="flex min-w-0 items-center gap-2 text-bone transition-colors duration-150 ease-out hover:text-harvest"
     >
-      <span className="whitespace-nowrap lg:hidden">{shortName}</span>
-      <span className="hidden whitespace-nowrap lg:inline">{fullName}</span>
+      <WheatMark className="size-6 shrink-0 text-harvest" />
+      <span className="min-w-0">
+        <span className="block truncate font-wordmark text-sm tracking-tight">
+          {shortName}
+        </span>
+        {compact ? null : (
+          <span className="mt-0.5 hidden text-[10px] tracking-[0.18em] text-straw uppercase sm:block">
+            {fullName}
+          </span>
+        )}
+      </span>
     </Link>
   );
 }
 
 export async function SiteHeader() {
   const t = await getTranslations();
-  let actor = null;
-  try {
-    actor = await getOptionalActor();
-  } catch {
-    actor = null;
-  }
+  const actor = await getOptionalActor().catch(() => null);
   const groups = navGroupsForActor(actor);
   const canSwitchPersonas = Boolean(
     actor && principalCan(actor, "admin.demo_personas"),
@@ -69,6 +75,7 @@ export async function SiteHeader() {
   const principalRoleId = actor?.principal.roleIds[0];
   const account = actor ? (
     <AccountMenu
+      compact
       initials={initials(actor.principal.displayName)}
       principalName={actor.principal.displayName}
       principalEmail={actor.principal.email}
@@ -92,7 +99,7 @@ export async function SiteHeader() {
       activeOrganizationId={actor.principal.organization?.id}
     />
   ) : null;
-  const personaSwitcherDesktop = canSwitchPersonas ? (
+  const personaSwitcher = canSwitchPersonas ? (
     <PersonaSwitcher
       compact
       selectId="personaIdDesktop"
@@ -111,87 +118,65 @@ export async function SiteHeader() {
     />
   ) : null;
 
-  return (
-    <header className="border-b border-border bg-card">
-      <div className="flex items-center justify-between gap-3 bg-primary px-4 py-1 text-primary-foreground sm:px-6">
-        <p className="min-w-0 truncate text-[10px] font-medium tracking-[0.16em] uppercase">
-          {t("header.badge")}
-        </p>
-        <p className="hidden text-[10px] tracking-wide sm:block">
-          {t("header.phase")}
-        </p>
-      </div>
-
-      {actor ? (
-        <>
-          <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:gap-3 sm:px-6">
-            <MobileNav groups={groups} />
-            <div className="min-w-0 flex-1 lg:flex-none">
-              <BrandMark fullName={productName} shortName={t("brand.shortName")} />
-              <p className="mt-0.5 hidden text-[10px] leading-snug text-muted-foreground sm:block">
-                {t("brand.operatedBy", { operator: legalOperatorName })}
-              </p>
-            </div>
-            <div className="hidden min-w-0 flex-1 lg:block">
-              {personaSwitcherDesktop}
-            </div>
-            <div className="ml-auto flex shrink-0 items-center gap-3">
-              <div className="hidden lg:block">
-                <LanguageSwitcher />
-              </div>
-              {account}
-            </div>
-          </div>
-          {personaSwitcherMobile ? (
-            <div className="border-t border-border px-4 py-2 lg:hidden sm:px-6">
-              {personaSwitcherMobile}
-            </div>
-          ) : null}
-          <div className="hidden border-t border-border bg-muted/30 lg:block">
-            <div className="mx-auto max-w-7xl px-4 py-1 sm:px-6">
-              <MainNav groups={groups} />
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 lg:gap-4">
-          <MobileNav
-            groups={groups}
-            sessionSlot={
-              <div className="flex flex-col gap-2">
-                <Button variant="ghost" size="sm" render={<Link href="/login" />}>
-                  {t("identity.login")}
-                </Button>
-                <Button size="sm" render={<Link href="/register" />}>
-                  {t("identity.register")}
-                </Button>
-              </div>
-            }
+  if (actor) {
+    return (
+      <header className="sticky top-0 z-50 h-12 border-b border-harvest/20 bg-ink/92 backdrop-blur-md">
+        <div className="flex h-12 items-center gap-3 px-3 sm:px-5">
+          <MobileNav groups={groups} sessionSlot={personaSwitcherMobile} />
+          <BrandMark
+            compact
+            fullName={t("surface.protocol")}
+            shortName={t("surface.wordmark")}
           />
-          <div className="min-w-0 flex-1 lg:flex-none">
-            <BrandMark fullName={productName} shortName={t("brand.shortName")} />
-            <p className="mt-1 hidden max-w-xs text-[10px] leading-snug tracking-wide text-muted-foreground uppercase sm:block">
-              {t("brand.operatedBy", { operator: legalOperatorName })}
-              {" · "}
-              {t("brand.subtitle")}
-            </p>
-          </div>
-          <div className="hidden min-w-0 flex-1 lg:block">
-            <MainNav groups={groups} />
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="hidden min-w-0 max-w-[16rem] lg:block">
+              {personaSwitcher}
+            </div>
             <LanguageSwitcher />
-            <div className="hidden items-center gap-3 lg:flex">
-              <Button variant="ghost" size="sm" render={<Link href="/login" />}>
+            {account}
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-harvest/20 bg-background/80 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-[1440px] items-center gap-2 px-5 py-3 sm:gap-3 sm:px-10 lg:gap-6">
+        <MobileNav
+          groups={groups}
+          sessionSlot={
+            <div className="flex flex-col gap-2" data-auth-cta>
+              <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/login" />}>
                 {t("identity.login")}
               </Button>
-              <Button size="sm" render={<Link href="/register" />}>
+              <Button size="sm" nativeButton={false} render={<Link href="/register" />}>
                 {t("identity.register")}
               </Button>
             </div>
+          }
+        />
+        <div className="min-w-0 flex-1 lg:flex-none">
+          <BrandMark
+            fullName={t("surface.protocol")}
+            shortName={t("surface.wordmark")}
+          />
+        </div>
+        <div className="hidden min-w-0 flex-1 lg:block" data-guest-nav>
+          <MainNav groups={groups} />
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          <LanguageSwitcher />
+          <div className="hidden items-center gap-3 lg:flex" data-auth-cta>
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/login" />}>
+              {t("identity.login")}
+            </Button>
+            <Button size="sm" nativeButton={false} render={<Link href="/register" />}>
+              {t("identity.register")}
+            </Button>
           </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }

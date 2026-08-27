@@ -12,6 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DeskLedger,
+  DeskRow,
+  DeskSplit,
+  deskIndex,
+} from "@/components/surface/desk-stage";
 import { actorCan } from "@/domain/identity";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
@@ -71,94 +77,129 @@ export default async function ContractsPage() {
         title={ownOnly ? tWorkspace("ownContractsTitle") : t("title")}
         description={ownOnly ? tWorkspace("ownContractsIntro") : t("description")}
       />
-      <Table className="min-w-[64rem]">
-        <TableHeader>
-          <TableRow>
-            <StickyHead>{t("columns.contractId")}</StickyHead>
-            {ownOnly ? null : <TableHead>{t("columns.producer")}</TableHead>}
-            <TableHead>{t("columns.crop")}</TableHead>
-            <TableHead>{t("columns.season")}</TableHead>
-            <TableHead className="text-right">{t("columns.volume")}</TableHead>
-            <TableHead>{t("columns.delivery")}</TableHead>
-            <TableHead>{t("columns.status")}</TableHead>
-            <TableHead>{t("columns.verification")}</TableHead>
-            <TableHead>{t("columns.pool")}</TableHead>
-            <TableHead>{t("columns.proof")}</TableHead>
-            {ownOnly ? null : (
-              <TableHead className="text-right">{t("columns.score")}</TableHead>
-            )}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map(({ contract, producer }) => {
-            const membership = poolMembershipForContract(contract.id);
-            return (
-              <TableRow key={contract.id}>
-                <StickyCell>
-                  <Link
-                    href={`/contracts/${contract.id}`}
-                    className="font-tabular text-xs text-primary hover:underline"
-                  >
-                    {contract.id}
-                  </Link>
-                </StickyCell>
-                {ownOnly ? null : (
-                  <TableCell className="font-medium">{producer.legalName}</TableCell>
-                )}
-                <TableCell>
-                  {lookupMessage(tCatalog, `crops.${contract.production.crop}`)}
-                </TableCell>
-                <TableCell className="font-tabular">
-                  {contract.production.season}
-                </TableCell>
-                <TableCell className="text-right font-tabular">
-                  {tUnits("tonnes", {
+      <DeskSplit
+        compact={
+          <DeskLedger>
+            {items.map(({ contract, producer }, index) => {
+              const membership = poolMembershipForContract(contract.id);
+              return (
+                <DeskRow
+                  key={contract.id}
+                  href={`/contracts/${contract.id}`}
+                  index={deskIndex(index)}
+                  kicker={
+                    ownOnly
+                      ? contract.field.cadastralRef
+                      : producer.legalName
+                  }
+                  title={contract.id}
+                  value={tUnits("tonnes", {
                     value: formatInteger(
                       contract.production.expectedProductionTonnes,
                       locale,
                     ),
                   })}
-                </TableCell>
-                <TableCell>{contract.production.deliveryPeriod}</TableCell>
-                <TableCell>
-                  <StatusBadge value={contract.status} />
-                </TableCell>
-                <TableCell>
-                  <StatusBadge
-                    value={
-                      isVerificationComplete(contract.verification)
-                        ? "VERIFIED"
-                        : "PENDING"
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  {membership ? (
-                    <Link
-                      href={`/pools/${membership.pool.id}`}
-                      className="font-tabular text-xs text-primary hover:underline"
-                    >
-                      {membership.pool.id}
-                    </Link>
-                  ) : (
-                    tWorkspace("notAllocated")
-                  )}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge
-                    value={proofStatusForContract(contract.id, proofs)}
-                  />
-                </TableCell>
+                  hint={[
+                    lookupMessage(tCatalog, `crops.${contract.production.crop}`),
+                    contract.status,
+                    membership?.pool.id ?? tWorkspace("notAllocated"),
+                  ].join(" · ")}
+                />
+              );
+            })}
+          </DeskLedger>
+        }
+        wide={
+          <Table className="min-w-[64rem]">
+            <TableHeader>
+              <TableRow>
+                <StickyHead>{t("columns.contractId")}</StickyHead>
+                {ownOnly ? null : <TableHead>{t("columns.producer")}</TableHead>}
+                <TableHead>{t("columns.crop")}</TableHead>
+                <TableHead>{t("columns.season")}</TableHead>
+                <TableHead className="text-right">{t("columns.volume")}</TableHead>
+                <TableHead>{t("columns.delivery")}</TableHead>
+                <TableHead>{t("columns.status")}</TableHead>
+                <TableHead>{t("columns.verification")}</TableHead>
+                <TableHead>{t("columns.pool")}</TableHead>
+                <TableHead>{t("columns.proof")}</TableHead>
                 {ownOnly ? null : (
-                  <TableCell className="text-right font-tabular">
-                    {formatScore(producer.score.value, producer.score.maxValue)}
-                  </TableCell>
+                  <TableHead className="text-right">{t("columns.score")}</TableHead>
                 )}
               </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+            </TableHeader>
+            <TableBody>
+              {items.map(({ contract, producer }) => {
+                const membership = poolMembershipForContract(contract.id);
+                return (
+                  <TableRow key={contract.id}>
+                    <StickyCell>
+                      <Link
+                        href={`/contracts/${contract.id}`}
+                        className="font-tabular text-xs text-primary hover:underline"
+                      >
+                        {contract.id}
+                      </Link>
+                    </StickyCell>
+                    {ownOnly ? null : (
+                      <TableCell className="font-medium">{producer.legalName}</TableCell>
+                    )}
+                    <TableCell>
+                      {lookupMessage(tCatalog, `crops.${contract.production.crop}`)}
+                    </TableCell>
+                    <TableCell className="font-tabular">
+                      {contract.production.season}
+                    </TableCell>
+                    <TableCell className="text-right font-tabular">
+                      {tUnits("tonnes", {
+                        value: formatInteger(
+                          contract.production.expectedProductionTonnes,
+                          locale,
+                        ),
+                      })}
+                    </TableCell>
+                    <TableCell>{contract.production.deliveryPeriod}</TableCell>
+                    <TableCell>
+                      <StatusBadge value={contract.status} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        value={
+                          isVerificationComplete(contract.verification)
+                            ? "VERIFIED"
+                            : "PENDING"
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {membership ? (
+                        <Link
+                          href={`/pools/${membership.pool.id}`}
+                          className="font-tabular text-xs text-primary hover:underline"
+                        >
+                          {membership.pool.id}
+                        </Link>
+                      ) : (
+                        tWorkspace("notAllocated")
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        value={proofStatusForContract(contract.id, proofs)}
+                      />
+                    </TableCell>
+                    {ownOnly ? null : (
+                      <TableCell className="text-right font-tabular">
+                        {formatScore(producer.score.value, producer.score.maxValue)}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        }
+      />
     </div>
   );
 }

@@ -62,7 +62,7 @@ export function PersonaSwitcher({
           id={selectId}
           name="personaId"
           defaultValue={currentPersonaId ?? ""}
-          className="h-7 w-full min-w-0 max-w-[18rem] truncate rounded-sm border border-input bg-background px-2 text-xs"
+          className="desk-control h-7 w-full min-w-0 max-w-[18rem] truncate px-2"
           onChange={(event) => {
             if (event.currentTarget.value) {
               event.currentTarget.form?.requestSubmit();

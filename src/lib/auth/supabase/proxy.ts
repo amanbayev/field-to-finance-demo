@@ -5,6 +5,7 @@ import {
   getSupabaseUrl,
   isAuthConfigured,
 } from "@/lib/auth/env";
+import { isDesignPreviewEnabled } from "@/lib/auth/design-preview";
 import { safeReturnTo } from "@/lib/auth/return-to";
 
 const PUBLIC_PREFIXES = [
@@ -30,7 +31,10 @@ function isStaticPath(pathname: string): boolean {
 }
 
 export async function updateSession(request: NextRequest) {
-  if (isStaticPath(request.nextUrl.pathname) || !isAuthConfigured()) {
+  if (
+    isStaticPath(request.nextUrl.pathname) ||
+    (!isAuthConfigured() && !isDesignPreviewEnabled())
+  ) {
     return NextResponse.next({ request });
   }
 
@@ -66,7 +70,11 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const authenticated = Boolean(data?.claims);
 
-  if (!authenticated && !isPublicPath(request.nextUrl.pathname)) {
+  if (
+    !authenticated &&
+    !isPublicPath(request.nextUrl.pathname) &&
+    !isDesignPreviewEnabled()
+  ) {
     const redirect = request.nextUrl.clone();
     redirect.pathname = "/login";
     redirect.searchParams.set(

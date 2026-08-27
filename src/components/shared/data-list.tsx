@@ -8,7 +8,7 @@ export function DataList({
       {items.map((item) => (
         <div
           key={item.label}
-          className="flex items-baseline justify-between gap-4 border-b border-border/70 py-2"
+          className="flex items-baseline justify-between gap-4 border-b border-harvest/15 py-2.5"
         >
           <dt className="label-caps shrink-0">{item.label}</dt>
           <dd className="text-right text-sm font-medium text-foreground">{item.value}</dd>

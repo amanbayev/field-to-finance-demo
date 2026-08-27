@@ -1,0 +1,12 @@
+---
+description: Harvest Capital UI direction for the ui/redesign branch
+alwaysApply: true
+---
+
+# UI redesign branch
+
+This branch replaces the product surface. Before any UI, CSS, or copy change, read `.cursor/skills/harvest-capital-ui/SKILL.md`.
+
+Locked world: nocturnal harvest, Unbounded + Geologica + JetBrains Mono, Ink/Bone/Harvest palette, cinematic photos in `public/media/`, kk/ru/en on every string.
+
+Do not revive olive IBM Plex or gray institutional card chrome. Do not add a parallel `/ui-v2` tree. Do not ship generic AI aesthetics (Inter, purple glow, metric-card heroes, bounce motion).

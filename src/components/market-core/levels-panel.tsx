@@ -1,4 +1,4 @@
-import { Panel, PanelBody, PanelHeader } from "@/components/shared/panel";
+import { deskIndex } from "@/components/surface/desk-stage";
 
 export function LevelsPanel({
   title,
@@ -8,23 +8,21 @@ export function LevelsPanel({
   levels: Array<{ label: string; detail: string }>;
 }) {
   return (
-    <Panel>
-      <PanelHeader title={title} />
-      <PanelBody>
-        <ol className="grid gap-3 sm:grid-cols-3">
-          {levels.map((level, index) => (
-            <li key={level.label} className="border border-border bg-background px-3 py-3">
-              <p className="label-caps text-muted-foreground">
-                {String(index + 1).padStart(2, "0")}
-              </p>
-              <p className="mt-1 text-sm font-medium">{level.label}</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {level.detail}
-              </p>
-            </li>
-          ))}
-        </ol>
-      </PanelBody>
-    </Panel>
+    <div>
+      <p className="label-caps text-harvest">{title}</p>
+      <ol className="mt-3 divide-y divide-harvest/15 border-y border-harvest/20">
+        {levels.map((level, index) => (
+          <li key={level.label} className="flex gap-4 py-4">
+            <span className="font-tabular text-[10px] tracking-widest text-harvest">
+              {deskIndex(index)}
+            </span>
+            <div>
+              <p className="text-sm text-bone">{level.label}</p>
+              <p className="mt-1 text-sm leading-relaxed text-straw">{level.detail}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

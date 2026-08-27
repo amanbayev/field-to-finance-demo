@@ -1,5 +1,7 @@
+import { cache } from "react";
 import { createServerSupabaseClient } from "@/lib/auth/supabase/server";
 import { isAuthConfigured } from "@/lib/auth/env";
+import { getDesignPreviewActor, isDesignPreviewEnabled } from "@/lib/auth/design-preview";
 import {
   AuthorizationError,
   buildPrincipal,
@@ -99,7 +101,7 @@ function mapPersona(row: PersonaRow): DemoPersonaRecord {
   };
 }
 
-export async function getOptionalActor(): Promise<ActorContext | null> {
+async function loadConfiguredActor(): Promise<ActorContext | null> {
   if (!isAuthConfigured()) {
     return null;
   }
@@ -240,8 +242,16 @@ export async function getOptionalActor(): Promise<ActorContext | null> {
   });
 }
 
+export const getOptionalActor = cache(async function getOptionalActor(): Promise<ActorContext | null> {
+  const live = await loadConfiguredActor();
+  if (live) {
+    return live;
+  }
+  return getDesignPreviewActor();
+});
+
 export async function requireActor(): Promise<ActorContext> {
-  if (!isAuthConfigured()) {
+  if (!isAuthConfigured() && !isDesignPreviewEnabled()) {
     throw new AuthorizationError("not_configured");
   }
   const actor = await getOptionalActor();

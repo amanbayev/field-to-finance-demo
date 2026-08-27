@@ -37,6 +37,35 @@ export const contracts: DigitalAgriculturalContract[] = [
     },
   },
   {
+    id: "DAC-2027-0013",
+    producerId: "prd-akmola-agro",
+    field: {
+      region: "Akmola",
+      areaHectares: 420,
+      cadastralRef: "KZ-AKM-22-1184",
+      centroidLabel: "51.74°N 69.88°E",
+    },
+    production: {
+      ...wheatClass3,
+      expectedProductionTonnes: 780,
+      deliveryPeriod: "Aug–Oct 2027",
+    },
+    status: "PENDING_VERIFICATION",
+    verification: {
+      landRights: "PENDING",
+      kyb: "PASSED",
+      directorKyc: "PASSED",
+      field: "PENDING",
+      crop: "PENDING",
+    },
+    monitoring: { satellite: "WATCH", soilMoisture: "NORMAL" },
+    insurance: {
+      status: "NONE",
+      provider: "—",
+      policyRef: "—",
+    },
+  },
+  {
     id: "DAC-2027-0002",
     producerId: "prd-kostanay-grain",
     field: {

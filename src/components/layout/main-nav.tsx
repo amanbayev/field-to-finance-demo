@@ -15,78 +15,72 @@ import {
 } from "@/components/ui/sheet";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { lookupMessage } from "@/i18n/t-dynamic";
-import { productName } from "@/lib/navigation";
+import { navHrefIsActive } from "@/lib/auth/nav-path";
 import type { PermissionNavGroup } from "@/lib/auth/nav";
 import { cn } from "@/lib/utils";
-
-const PREFIX_ACTIVE_HREFS = new Set([
-  "/contracts",
-  "/pools",
-  "/market",
-  "/instruments",
-  "/protocols",
-  "/markets",
-  "/registry",
-  "/clearing",
-  "/supervision",
-]);
-
-function isActive(pathname: string, href: string): boolean {
-  if (href === "/") {
-    return pathname === "/";
-  }
-  if (pathname === href) {
-    return true;
-  }
-  return PREFIX_ACTIVE_HREFS.has(href) && pathname.startsWith(`${href}/`);
-}
 
 function NavItems({
   groups,
   onNavigate,
   className,
-  linkClassName,
+  numbered = false,
 }: {
   groups: PermissionNavGroup[];
   onNavigate?: () => void;
   className?: string;
-  linkClassName?: string;
+  numbered?: boolean;
 }) {
   const pathname = usePathname();
   const t = useTranslations("nav");
+  const items = groups.flatMap((group) => group.items);
+  let hrefIndex = 0;
 
   return (
     <div className={className}>
-      {groups.flatMap((group) =>
-        group.items.map((item) => {
-          if (item.note || !item.href) {
-            return (
-              <span
-                key={item.key}
-                className="px-2 py-1 text-[11px] tracking-wide text-muted-foreground"
-              >
-                {lookupMessage(t, item.key)}
-              </span>
-            );
-          }
+      {items.map((item) => {
+        if (item.note || !item.href) {
           return (
-            <Link
+            <span
               key={item.key}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "whitespace-nowrap px-2 py-1 text-xs tracking-wide",
-                isActive(pathname, item.href)
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-                linkClassName,
-              )}
+              className="px-2 py-1 text-[11px] tracking-wide text-straw"
             >
               {lookupMessage(t, item.key)}
-            </Link>
+            </span>
           );
-        }),
-      )}
+        }
+        const indexLabel = String(++hrefIndex).padStart(2, "0");
+        const active = navHrefIsActive(pathname, item.href);
+        return (
+          <Link
+            key={item.key}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              numbered
+                ? cn(
+                    "flex items-baseline gap-3 px-2 py-2 text-sm",
+                    active ? "bg-harvest/10 text-bone" : "text-straw hover:text-bone",
+                  )
+                : cn(
+                    "whitespace-nowrap px-2 py-1 text-xs tracking-wide",
+                    active ? "font-medium text-harvest" : "text-straw hover:text-bone",
+                  ),
+            )}
+          >
+            {numbered ? (
+              <span
+                className={cn(
+                  "font-tabular text-[10px] tracking-widest",
+                  active ? "text-harvest" : "text-straw/70",
+                )}
+              >
+                {indexLabel}
+              </span>
+            ) : null}
+            {lookupMessage(t, item.key)}
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -116,6 +110,7 @@ export function MobileNav({
 }) {
   const [open, setOpen] = useState(false);
   const t = useTranslations("nav");
+  const tDesk = useTranslations("desk");
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -124,32 +119,37 @@ export function MobileNav({
           <Button
             variant="outline"
             size="icon"
-            className="shrink-0 lg:hidden"
+            className="size-8 shrink-0 border-harvest/30 lg:hidden"
             aria-label={t("open")}
           />
         }
       >
-        <Menu />
+        <Menu className="size-4" />
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 rounded-none">
-        <SheetHeader>
-          <SheetTitle className="text-left text-base font-medium">
-            {productName}
+      <SheetContent
+        side="left"
+        className="w-72 rounded-none border-harvest/20 bg-ink p-0"
+      >
+        <SheetHeader className="border-b border-harvest/20 px-4 py-4">
+          <SheetTitle className="label-caps text-left text-harvest">
+            {tDesk("spine")}
           </SheetTitle>
         </SheetHeader>
-        <nav aria-label={t("primary")} className="flex flex-col gap-4 px-2 pb-6">
+        <nav aria-label={t("primary")} className="flex flex-col gap-4 px-2 py-4">
           {sessionSlot ? (
-            <div className="px-1" onClick={() => setOpen(false)}>
+            <div className="px-2" onClick={() => setOpen(false)}>
               {sessionSlot}
             </div>
           ) : null}
           <NavItems
             groups={groups}
+            numbered
             onNavigate={() => setOpen(false)}
             className="flex flex-col"
-            linkClassName="py-1.5"
           />
-          <LanguageSwitcher />
+          <div className="px-2 pt-2">
+            <LanguageSwitcher />
+          </div>
         </nav>
       </SheetContent>
     </Sheet>

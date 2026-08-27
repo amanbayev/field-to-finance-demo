@@ -5,26 +5,26 @@ export async function SiteFooter() {
   const t = await getTranslations();
 
   return (
-    <footer className="mt-auto border-t border-border bg-card">
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+    <footer className="site-footer mt-auto border-t border-border bg-ink/80">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-5 py-8 sm:flex-row sm:items-start sm:justify-between sm:px-10">
         <div className="space-y-1">
-          <p className="text-xs font-medium tracking-wide text-foreground">
+          <p className="font-heading text-sm tracking-tight text-bone">
             {productName}
           </p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-straw">
             {t("brand.operatedBy", { operator: legalOperatorName })}
           </p>
-          <p className="text-[11px] text-muted-foreground">{t("brand.protocolNote")}</p>
+          <p className="text-[11px] text-straw">{t("brand.protocolNote")}</p>
         </div>
-        <div className="max-w-3xl space-y-1">
-          <p className="text-xs leading-relaxed text-muted-foreground">
+        <div className="max-w-2xl space-y-1">
+          <p className="text-xs leading-relaxed text-straw">
             {t("footer.disclaimer")}
           </p>
-          <p className="text-[11px] text-muted-foreground/80">
+          <p className="text-[11px] text-straw/80">
             {t("footer.contact")}:{" "}
             <a
               href={`mailto:${contactEmail}`}
-              className="underline-offset-2 hover:text-foreground hover:underline"
+              className="text-bone underline-offset-4 transition-colors duration-150 ease-out hover:text-harvest hover:underline"
             >
               {contactEmail}
             </a>

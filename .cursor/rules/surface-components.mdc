@@ -1,0 +1,12 @@
+---
+description: Surface, layout, and locale rules for product UI files
+globs: src/app/**/*.{tsx,css},src/components/**/*.tsx,messages/*.json
+alwaysApply: false
+---
+
+# Surface files
+
+- Tokens live in `src/app/globals.css`. Typography: Unbounded display, Geologica body, JetBrains Mono figures. Subsets must include `cyrillic` and `cyrillic-ext`.
+- Motion: CSS only, no `transition: all`, honor `prefers-reduced-motion`. Loaders and empty states use `public/media/` photography.
+- New copy in `messages/en.json`, `messages/kk.json`, and `messages/ru.json` together. Locale codes are `kk` | `ru` | `en`.
+- Reuse `@/components/ui/*`. Guest `/` is `data-surface="flush"`. Prefer `next/image`.

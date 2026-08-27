@@ -23,11 +23,11 @@ export function PanelHeader({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 border-b border-border px-4 py-2.5",
+        "flex items-center justify-between gap-3 border-b border-harvest/20 px-1 py-2.5",
         className,
       )}
     >
-      <h2 className="text-sm font-medium tracking-wide text-foreground">{title}</h2>
+      <h2 className="label-caps text-harvest">{title}</h2>
       {action}
     </div>
   );
@@ -40,5 +40,5 @@ export function PanelBody({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("px-4 py-3", className)}>{children}</div>;
+  return <div className={cn("px-1 py-3", className)}>{children}</div>;
 }

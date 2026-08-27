@@ -8,9 +8,19 @@ import { loadAdminOverview } from "@/services/admin-service";
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { remainingCoverageCapacity } from "@/services/workspace-view";
 import { listAssetInstruments, listProtocolInvestments } from "@/services/market-core-service";
-import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
-import { PageHeader } from "@/components/shared/page-header";
+import {
+  DeskFigure,
+  DeskLedger,
+  DeskNote,
+  DeskRow,
+  DeskStage,
+  deskIndex,
+} from "@/components/surface/desk-stage";
+import { EmptyState } from "@/components/shared/page-section";
+import { buttonVariants } from "@/components/ui/button";
+import { lookupMessage } from "@/i18n/t-dynamic";
 import { formatInteger } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { AppLocale } from "@/i18n/config";
 
 export async function RoleDashboard({ actor }: { actor: ActorContext }) {
@@ -48,29 +58,50 @@ export async function RoleDashboard({ actor }: { actor: ActorContext }) {
 async function AdminHome() {
   const t = await getTranslations();
   const overview = await loadAdminOverview();
+  const pending = overview?.pendingRequests ?? 0;
   return (
-    <div>
-      <PageHeader
-        eyebrow={t("admin.eyebrow")}
-        title={t("nav.dashboard")}
-        description={t("admin.dashboardIntro")}
+    <>
+      <DeskStage
+        kicker={t("admin.eyebrow")}
+        title={t("desk.adminTitle")}
+        lead={t("admin.dashboardIntro")}
+        photo="/media/grain-kernel-macro.png"
+        figure={
+          <DeskFigure
+            label={t("admin.pendingRequests")}
+            value={String(pending)}
+            meta={[
+              { label: t("admin.users"), value: String(overview?.users ?? "—") },
+              { label: t("admin.organizations"), value: String(overview?.organizations ?? "—") },
+              { label: t("admin.memberships"), value: String(overview?.memberships ?? "—") },
+            ]}
+          />
+        }
       />
-      <MetricStrip className="sm:grid-cols-4">
-        <MetricCell label={t("admin.users")} value={String(overview?.users ?? "—")} />
-        <MetricCell
-          label={t("admin.organizations")}
+      <DeskLedger>
+        <DeskRow
+          href="/admin/users"
+          index={deskIndex(0)}
+          kicker={t("nav.users")}
+          title={t("admin.users")}
+          value={String(overview?.users ?? "—")}
+        />
+        <DeskRow
+          href="/admin/organizations"
+          index={deskIndex(1)}
+          kicker={t("nav.organizations")}
+          title={t("admin.organizations")}
           value={String(overview?.organizations ?? "—")}
         />
-        <MetricCell
-          label={t("admin.memberships")}
-          value={String(overview?.memberships ?? "—")}
+        <DeskRow
+          href="/admin/requests"
+          index={deskIndex(2)}
+          kicker={t("nav.roleRequests")}
+          title={t("admin.pendingRequests")}
+          value={String(pending)}
         />
-        <MetricCell
-          label={t("admin.pendingRequests")}
-          value={String(overview?.pendingRequests ?? "—")}
-        />
-      </MetricStrip>
-    </div>
+      </DeskLedger>
+    </>
   );
 }
 
@@ -84,41 +115,55 @@ async function RegulatorHome() {
     ...listProtocolInvestments(),
   ];
   return (
-    <div>
-      <PageHeader
-        eyebrow={t("nav.supervision")}
-        title={t("nav.dashboard")}
-        description={t("dashboard.regulatorIntro")}
+    <>
+      <DeskStage
+        kicker={t("nav.supervision")}
+        title={t("desk.regulatorTitle")}
+        lead={t("dashboard.regulatorIntro")}
+        photo="/media/grain-kernel-macro.png"
+        figure={
+          <DeskFigure
+            label={t("marketCore.marketStatus")}
+            value={t("marketCore.closedSecondary")}
+            meta={[
+              {
+                label: t("marketCore.issuedInstruments"),
+                value: formatInteger(issued.length, locale),
+              },
+              {
+                label: t("marketCore.conceptsStructuring"),
+                value: formatInteger(concepts.length, locale),
+              },
+              {
+                label: t("dashboard.primaryPlacement"),
+                value: formatInteger(metrics.primaryPlacementVolume, locale),
+              },
+            ]}
+          />
+        }
       />
-      <MetricStrip>
-        <MetricCell
-          emphasis="primary"
-          label={t("marketCore.marketStatus")}
-          value={t("marketCore.closedSecondary")}
+      <DeskLedger>
+        <DeskRow
+          href="/supervision"
+          index={deskIndex(0)}
+          kicker={t("nav.supervision")}
+          title={t("nav.supervision")}
         />
-        <MetricCell
-          label={t("marketCore.issuedInstruments")}
+        <DeskRow
+          href="/markets"
+          index={deskIndex(1)}
+          kicker={t("nav.markets")}
+          title={t("marketCore.marketsTitle")}
           value={formatInteger(issued.length, locale)}
         />
-        <MetricCell
-          label={t("marketCore.conceptsStructuring")}
-          value={formatInteger(concepts.length, locale)}
+        <DeskRow
+          href="/registry"
+          index={deskIndex(2)}
+          kicker={t("nav.holdingsRegistry")}
+          title={t("desk.openRegistry")}
         />
-        <MetricCell
-          label={t("dashboard.primaryPlacement")}
-          value={formatInteger(metrics.primaryPlacementVolume, locale)}
-        />
-      </MetricStrip>
-      <p className="mt-4 text-sm text-muted-foreground">
-        <Link href="/supervision" className="text-primary hover:underline">
-          {t("nav.supervision")}
-        </Link>
-        {" · "}
-        <Link href="/markets" className="text-primary hover:underline">
-          {t("nav.markets")}
-        </Link>
-      </p>
-    </div>
+      </DeskLedger>
+    </>
   );
 }
 
@@ -129,54 +174,61 @@ async function IssuerHome() {
   const coverage = wheatPoolCoverageFromEngine();
   const remaining = remainingCoverageCapacity(coverage, metrics.wheatMintedSupply);
   return (
-    <div>
-      <PageHeader
-        eyebrow={t("dashboard.issuerEyebrow")}
-        title={t("nav.dashboard")}
-        description={t("workspace.issuerOverviewIntro")}
+    <>
+      <DeskStage
+        kicker={t("dashboard.issuerEyebrow")}
+        title={t("desk.issuerTitle")}
+        lead={t("workspace.issuerOverviewIntro")}
+        photo="/media/hero-harvest-dusk.png"
+        figure={
+          <DeskFigure
+            label={t("workspace.availableIssuance")}
+            value={t("units.tonnes", { value: formatInteger(remaining, locale) })}
+            meta={[
+              {
+                label: t("workspace.eligibleBacking"),
+                value: t("units.tonnes", {
+                  value: formatInteger(coverage.eligibleCoverageTonnes, locale),
+                }),
+              },
+              {
+                label: t("workspace.minted"),
+                value: formatInteger(metrics.wheatMintedSupply, locale),
+              },
+              {
+                label: t("workspace.placementProgress"),
+                value: formatInteger(metrics.primaryPlacementVolume, locale),
+              },
+            ]}
+          />
+        }
       />
-      <MetricStrip className="sm:grid-cols-2 lg:grid-cols-3">
-        <MetricCell
-          emphasis="primary"
-          label={t("workspace.eligibleBacking")}
+      <DeskLedger>
+        <DeskRow
+          href="/coverage"
+          index={deskIndex(0)}
+          kicker={t("nav.coverage")}
+          title={t("workspace.eligibleBacking")}
           value={t("units.tonnes", {
             value: formatInteger(coverage.eligibleCoverageTonnes, locale),
           })}
         />
-        <MetricCell
-          label={t("workspace.availableIssuance")}
-          value={t("units.tonnes", {
-            value: formatInteger(remaining, locale),
-          })}
-        />
-        <MetricCell
-          label={t("workspace.tokenProgramme")}
-          value="WHEAT-2027"
-        />
-        <MetricCell
-          label={t("workspace.minted")}
+        <DeskRow
+          href="/issuances"
+          index={deskIndex(1)}
+          kicker={t("nav.issuance")}
+          title="WHEAT-2027"
           value={formatInteger(metrics.wheatMintedSupply, locale)}
         />
-        <MetricCell
-          label={t("dashboard.registrarInventory")}
+        <DeskRow
+          href="/registry"
+          index={deskIndex(2)}
+          kicker={t("dashboard.registrarInventory")}
+          title={t("desk.openRegistry")}
           value={formatInteger(metrics.registrarInventory, locale)}
         />
-        <MetricCell
-          label={t("workspace.placementProgress")}
-          value={formatInteger(metrics.primaryPlacementVolume, locale)}
-        />
-        <MetricCell
-          label={t("dashboard.circulating")}
-          value={formatInteger(metrics.circulatingSupply, locale)}
-        />
-        <MetricCell
-          label={t("workspace.grossVolume")}
-          value={t("units.tonnes", {
-            value: formatInteger(coverage.grossVolumeTonnes, locale),
-          })}
-        />
-      </MetricStrip>
-    </div>
+      </DeskLedger>
+    </>
   );
 }
 
@@ -185,40 +237,68 @@ async function RegistrarHome() {
   const locale = (await getLocale()) as AppLocale;
   const { metrics } = await getDashboardSnapshot();
   return (
-    <div>
-      <PageHeader
-        eyebrow={t("dashboard.registrarEyebrow")}
-        title={t("nav.dashboard")}
-        description={t("dashboard.registrarIntro")}
+    <>
+      <DeskStage
+        kicker={t("dashboard.registrarEyebrow")}
+        title={t("desk.registrarTitle")}
+        lead={t("dashboard.registrarIntro")}
+        photo="/media/grain-kernel-macro.png"
+        figure={
+          <DeskFigure
+            label={t("dashboard.eligibleCoverage")}
+            value={t("units.tonnes", {
+              value: formatInteger(metrics.eligibleCoverageTonnes, locale),
+            })}
+            meta={[
+              {
+                label: t("dashboard.wheatMinted"),
+                value: formatInteger(metrics.wheatMintedSupply, locale),
+              },
+              {
+                label: t("dashboard.registrarInventory"),
+                value: formatInteger(metrics.registrarInventory, locale),
+              },
+              {
+                label: t("dashboard.primaryPlacement"),
+                value: formatInteger(metrics.primaryPlacementVolume, locale),
+              },
+            ]}
+          />
+        }
       />
-      <MetricStrip className="sm:grid-cols-4">
-        <MetricCell
-          emphasis="primary"
-          label={t("dashboard.eligibleCoverage")}
+      <DeskLedger>
+        <DeskRow
+          href="/registry"
+          index={deskIndex(0)}
+          kicker={t("nav.holdingsRegistry")}
+          title={t("desk.openRegistry")}
+          value={formatInteger(metrics.registrarInventory, locale)}
+        />
+        <DeskRow
+          href="/backing"
+          index={deskIndex(1)}
+          kicker={t("nav.backing")}
+          title={t("dashboard.eligibleCoverage")}
           value={t("units.tonnes", {
             value: formatInteger(metrics.eligibleCoverageTonnes, locale),
           })}
         />
-        <MetricCell
-          label={t("dashboard.wheatMinted")}
+        <DeskRow
+          href="/markets"
+          index={deskIndex(2)}
+          kicker={t("nav.markets")}
+          title="WHEAT-2027"
           value={formatInteger(metrics.wheatMintedSupply, locale)}
         />
-        <MetricCell
-          label={t("dashboard.registrarInventory")}
-          value={formatInteger(metrics.registrarInventory, locale)}
-        />
-        <MetricCell
-          label={t("dashboard.primaryPlacement")}
+        <DeskRow
+          href="/placements"
+          index={deskIndex(3)}
+          kicker={t("nav.placements")}
+          title={t("dashboard.primaryPlacement")}
           value={formatInteger(metrics.primaryPlacementVolume, locale)}
         />
-      </MetricStrip>
-      <MetricStrip>
-        <MetricCell
-          label={t("dashboard.circulating")}
-          value={formatInteger(metrics.circulatingSupply, locale)}
-        />
-      </MetricStrip>
-    </div>
+      </DeskLedger>
+    </>
   );
 }
 
@@ -231,27 +311,66 @@ async function ProducerHome({ actor }: { actor: ActorContext }) {
     0,
   );
   return (
-    <div>
-      <PageHeader
-        eyebrow={actor.effective.organization?.name}
-        title={t("nav.dashboard")}
-        description={t("dashboard.producerIntro")}
+    <>
+      <DeskStage
+        kicker={actor.effective.organization?.name}
+        title={t("desk.producerTitle")}
+        lead={t("dashboard.producerIntro")}
+        photo="/media/hero-harvest-dusk.png"
+        figure={
+          <DeskFigure
+            label={t("dashboard.ownVolume")}
+            value={
+              contracts.length
+                ? t("units.tonnes", { value: formatInteger(volume, locale) })
+                : "—"
+            }
+            meta={
+              contracts.length
+                ? [
+                    {
+                      label: t("dashboard.ownContracts"),
+                      value: formatInteger(contracts.length, locale),
+                    },
+                    {
+                      label: t("dashboard.ownStatus"),
+                      value: contracts[0]?.contract.status ?? "—",
+                    },
+                  ]
+                : undefined
+            }
+          />
+        }
       />
-      <MetricStrip>
-        <MetricCell
-          label={t("dashboard.ownContracts")}
-          value={formatInteger(contracts.length, locale)}
+      {contracts.length === 0 ? (
+        <EmptyState
+          kicker={t("nav.myFields")}
+          title={t("desk.noFieldsTitle")}
+          body={t("desk.noFieldsBody")}
+          action={
+            <Link href="/fields" className={cn(buttonVariants())}>
+              {t("desk.openContracts")}
+            </Link>
+          }
         />
-        <MetricCell
-          label={t("dashboard.ownVolume")}
-          value={t("units.tonnes", { value: formatInteger(volume, locale) })}
-        />
-        <MetricCell
-          label={t("dashboard.ownStatus")}
-          value={contracts[0]?.contract.status ?? "—"}
-        />
-      </MetricStrip>
-    </div>
+      ) : (
+        <DeskLedger>
+          {contracts.map((item, index) => (
+            <DeskRow
+              key={item.contract.id}
+              href={`/fields/${item.contract.id}`}
+              index={deskIndex(index)}
+              kicker={lookupMessage(t, `catalog.regions.${item.contract.field.region}`)}
+              title={item.contract.field.cadastralRef}
+              value={t("units.hectaresShort", {
+                value: formatInteger(item.contract.field.areaHectares, locale),
+              })}
+              hint={item.contract.status}
+            />
+          ))}
+        </DeskLedger>
+      )}
+    </>
   );
 }
 
@@ -260,19 +379,41 @@ async function ScasHome({ actor }: { actor: ActorContext }) {
   const locale = (await getLocale()) as AppLocale;
   const contracts = listContractsForActor(actor);
   return (
-    <div>
-      <PageHeader
-        eyebrow={t("nav.scas")}
-        title={t("nav.dashboard")}
-        description={t("dashboard.scasIntro")}
+    <>
+      <DeskStage
+        kicker={t("nav.scas")}
+        title={t("desk.scasTitle")}
+        lead={t("dashboard.scasIntro")}
+        photo="/media/grain-kernel-macro.png"
+        figure={
+          <DeskFigure
+            label={t("dashboard.verifiedOnChain")}
+            value={formatInteger(contracts.length, locale)}
+          />
+        }
       />
-      <MetricStrip>
-        <MetricCell
-          label={t("dashboard.verifiedOnChain")}
-          value={formatInteger(contracts.length, locale)}
+      {contracts.length === 0 ? (
+        <EmptyState
+          kicker={t("nav.scas")}
+          title={t("desk.noneOnBook")}
+          body={t("dashboard.scasIntro")}
         />
-      </MetricStrip>
-    </div>
+      ) : (
+        <DeskLedger>
+          {contracts.slice(0, 8).map((item, index) => (
+            <DeskRow
+              key={item.contract.id}
+              href={`/contracts/${item.contract.id}`}
+              index={deskIndex(index)}
+              kicker={item.contract.id}
+              title={item.producer.legalName}
+              hint={item.contract.status}
+            />
+          ))}
+          <DeskRow href="/scas" index={deskIndex(contracts.length)} title={t("nav.scas")} />
+        </DeskLedger>
+      )}
+    </>
   );
 }
 
@@ -280,63 +421,98 @@ async function InvestorHome({ actor }: { actor: ActorContext }) {
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
   const portfolio = await getInvestorPortfolio(actor);
+  const holding =
+    portfolio?.quantityLive != null
+      ? formatInteger(portfolio.quantityLive, locale)
+      : t("portfolio.unavailable");
   return (
-    <div>
-      <PageHeader
-        eyebrow={actor.effective.organization?.name}
-        title={t("nav.dashboard")}
-        description={t("dashboard.investorIntro")}
+    <>
+      <DeskStage
+        kicker={actor.effective.organization?.name}
+        title={t("desk.investorTitle")}
+        lead={t("dashboard.investorIntro")}
+        photo="/media/grain-kernel-macro.png"
+        figure={
+          <DeskFigure
+            label={t("portfolio.holding")}
+            value={holding}
+            meta={[
+              { label: t("portfolio.placement"), value: portfolio?.placementId ?? "—" },
+              {
+                label: t("marketCore.sectionMarket"),
+                value: t("marketCore.secondaryNotOpen"),
+              },
+            ]}
+          />
+        }
       />
-      <MetricStrip>
-        <MetricCell
-          emphasis="primary"
-          label={t("portfolio.holding")}
-          value={
-            portfolio?.quantityLive != null
-              ? formatInteger(portfolio.quantityLive, locale)
-              : t("portfolio.unavailable")
-          }
+      <DeskNote className="mb-8">{t("marketCore.protocolInvestmentNote")}</DeskNote>
+      <DeskLedger>
+        <DeskRow
+          href="/portfolio"
+          index={deskIndex(0)}
+          kicker={t("nav.portfolio")}
+          title={t("portfolio.holding")}
+          value={holding}
         />
-        <MetricCell label={t("portfolio.placement")} value={portfolio?.placementId ?? "—"} />
-        <MetricCell
-          label={t("marketCore.sectionMarket")}
-          value={t("marketCore.secondaryNotOpen")}
+        <DeskRow
+          href="/secondary"
+          index={deskIndex(1)}
+          kicker={t("nav.secondary")}
+          title={t("desk.secondaryClosed")}
         />
-      </MetricStrip>
-      <p className="mt-4 text-sm text-muted-foreground">
-        {t("marketCore.protocolInvestmentNote")}
-      </p>
-    </div>
+      </DeskLedger>
+    </>
   );
 }
 
 async function TraderHome() {
   const t = await getTranslations();
   return (
-    <div>
-      <PageHeader
-        eyebrow={t("nav.markets")}
-        title={t("nav.dashboard")}
-        description={t("dashboard.traderIntro")}
+    <>
+      <DeskStage
+        kicker={t("nav.markets")}
+        title={t("desk.traderTitle")}
+        lead={t("dashboard.traderIntro")}
+        photo="/media/empty-silo-light.png"
+        figure={
+          <DeskFigure
+            label={t("marketCore.sectionMarket")}
+            value={t("marketCore.closedSecondary")}
+          />
+        }
       />
-      <p className="rounded-sm border border-border bg-card p-4 text-sm text-muted-foreground">
-        {t("marketCore.clearingDistinct")}
-      </p>
-      <p className="mt-3 text-sm text-muted-foreground">{t("workspace.secondaryBody")}</p>
-    </div>
+      <EmptyState
+        kicker={t("nav.secondary")}
+        title={t("desk.secondaryClosed")}
+        body={t("desk.secondaryClosedBody")}
+        action={
+          <Link href="/instruments" className={cn(buttonVariants())}>
+            {t("desk.openInstruments")}
+          </Link>
+        }
+      />
+    </>
   );
 }
 
 async function ComplianceHome() {
   const t = await getTranslations();
   return (
-    <div>
-      <PageHeader
-        eyebrow={t("nav.compliance")}
-        title={t("nav.dashboard")}
-        description={t("dashboard.complianceIntro")}
+    <>
+      <DeskStage
+        kicker={t("nav.compliance")}
+        title={t("desk.complianceTitle")}
+        lead={t("dashboard.complianceIntro")}
+        photo="/media/empty-silo-light.png"
       />
-    </div>
+      <DeskLedger>
+        <DeskRow href="/compliance/checks" index={deskIndex(0)} title={t("nav.checks")} />
+        <DeskRow href="/compliance/alerts" index={deskIndex(1)} title={t("nav.alerts")} />
+        <DeskRow href="/compliance/eligibility" index={deskIndex(2)} title={t("nav.eligibility")} />
+        <DeskRow href="/participants" index={deskIndex(3)} title={t("nav.participants")} />
+      </DeskLedger>
+    </>
   );
 }
 

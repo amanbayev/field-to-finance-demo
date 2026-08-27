@@ -1,26 +1,33 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { DeskStage } from "@/components/surface/desk-stage";
 
 export function SectionHeading({
   eyebrow,
   title,
   description,
+  photo,
+  photoAlt,
+  figure,
   className,
 }: {
   eyebrow?: string;
   title: ReactNode;
   description?: ReactNode;
+  photo?: string;
+  photoAlt?: string;
+  figure?: ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("mb-5 max-w-3xl", className)}>
-      {eyebrow ? <p className="label-caps mb-1.5 text-primary">{eyebrow}</p> : null}
-      <h1 className="font-heading text-2xl tracking-tight text-foreground sm:text-[1.75rem]">
-        {title}
-      </h1>
-      {description ? (
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
-      ) : null}
-    </div>
+    <DeskStage
+      kicker={eyebrow}
+      title={title}
+      lead={description}
+      photo={photo}
+      photoAlt={photoAlt}
+      figure={figure}
+      className={className}
+    />
   );
 }
