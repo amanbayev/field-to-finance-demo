@@ -4,10 +4,14 @@ import {
   actorStamp,
   canManageProducerOrgFields,
   canReadOrigination,
+  canReadOriginationDac,
   canReadProducerOrgFields,
   isProducerOperator,
+  isRegistrarIntakeOperator,
   isScasVerifier,
   matchesProducerFilter,
+  matchesRegistrarDacFilter,
+  matchesScasDacFilter,
   matchesScasFilter,
 } from "./access";
 import { defaultCadastreProvider, type CadastreProvider } from "./cadastre";
@@ -21,7 +25,11 @@ import {
   allowsApproval,
   allowsChangeRequest,
   allowsProducerUpload,
+  allowsRegistrarDecision,
+  allowsRegistrarReviewStart,
   allowsRejection,
+  allowsScasDacEdit,
+  allowsScasDacSubmit,
 } from "./state-guards";
 import type { OriginationStore } from "./store";
 import {
@@ -40,11 +48,16 @@ import {
   type FieldSubmissionRecord,
   type FieldVerificationCaseRecord,
   type FieldVerificationMessageRecord,
+  type OriginationDacCommercialInput,
+  type OriginationDacMessageRecord,
+  type OriginationDacRecord,
   type OriginationEventType,
   type ProducerDeclaredData,
   type ProducerFieldFilter,
   type ProducerFieldRecord,
+  type RegistrarDacFilter,
   type ScasCaseFilter,
+  type ScasDacFilter,
 } from "./types";
 
 function nowIso() {
@@ -188,6 +201,7 @@ export class OriginationService {
       ? await this.store.listMessages(verificationCase.id)
       : [];
     const snapshot = await this.store.getSnapshotByField(field.id);
+    const dac = await this.store.getActiveDacByField(field.id);
     const events = await this.store.listEventsByField(field.id);
     const latestRequest = [...messages]
       .reverse()
@@ -201,6 +215,7 @@ export class OriginationService {
       evidence,
       messages,
       snapshot,
+      dac,
       events,
       latestRequest: latestRequest ?? null,
     };
@@ -905,6 +920,300 @@ export class OriginationService {
     });
   }
 
+  async createDacFromVerifiedCase(actor: ActorContext, caseRef: string) {
+    this.requireVerifier(actor);
+    const verificationCase = await this.resolveCase(caseRef);
+    if (!verificationCase) {
+      throw new OriginationError("not_found");
+    }
+    const field = await this.store.getFieldById(verificationCase.fieldId);
+    if (!field) {
+      throw new OriginationError("not_found");
+    }
+    if (field.status !== "VERIFIED" || verificationCase.status !== "VERIFIED") {
+      throw new OriginationError("invalid_state", "DAC can only be created from a verified field.");
+    }
+    const snapshot = await this.store.getSnapshotByField(field.id);
+    if (!snapshot || snapshot.id !== field.verifiedSnapshotId) {
+      throw new OriginationError("invalid_state", "A verified field snapshot is required.");
+    }
+    const existing = await this.store.getActiveDacBySnapshot(snapshot.id);
+    if (existing) {
+      throw new OriginationError(
+        "invalid_state",
+        "An active DAC already exists for this verified snapshot.",
+      );
+    }
+    const cadastre = snapshot.payload.cadastreVerification;
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const declared = snapshot.payload.producerDeclared;
+    const dac: OriginationDacRecord = {
+      id: randomUUID(),
+      publicId: `DAC-${declared.season}-0000`,
+      fieldId: field.id,
+      verifiedSnapshotId: snapshot.id,
+      scasCaseId: verificationCase.id,
+      producerOrganizationId: field.organizationId,
+      status: "DRAFT",
+      crop: declared.crop,
+      harvestYear: declared.season,
+      expectedVolumeTonnes: null,
+      qualityClass: null,
+      producerReference: field.publicId,
+      cadastreNumber: cadastre.cadastreNumber,
+      declaredAreaHectares: declared.declaredAreaHa,
+      verifiedAreaHectares: cadastre.registeredAreaHa,
+      region: cadastre.region ?? declared.region,
+      district: cadastre.district ?? declared.district,
+      rightHolder: cadastre.rightHolder,
+      rightType: cadastre.rightType,
+      scasNotes: "",
+      registrarNotes: "",
+      createdByUserId: stamp.userId,
+      updatedByUserId: stamp.userId,
+      registrarReviewedByUserId: null,
+      submittedToRegistrarAt: null,
+      acceptedAt: null,
+      returnedAt: null,
+      createdAt: at,
+      updatedAt: at,
+    };
+    return this.store.createDac(
+      dac,
+      this.makeEvent(actor, "dac_created", "dac", dac.id, {
+        fieldId: field.id,
+        verifiedSnapshotId: snapshot.id,
+        scasCaseId: verificationCase.id,
+      }),
+    );
+  }
+
+  async updateDacDraft(actor: ActorContext, dacRef: string, input: OriginationDacCommercialInput) {
+    this.requireVerifier(actor);
+    const dac = await this.requireReadableDac(actor, dacRef);
+    if (!allowsScasDacEdit(dac.status)) {
+      throw new OriginationError("invalid_state", "SCAS can edit a DAC only while it is a draft or returned.");
+    }
+    const commercial = this.requireCommercial(input);
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const updated = await this.store.updateDac({
+      ...dac,
+      ...commercial,
+      updatedByUserId: stamp.userId,
+      updatedAt: at,
+    });
+    await this.store.insertDacEvent(
+      this.makeEvent(actor, "dac_updated", "dac", updated.id, { fieldId: updated.fieldId }),
+    );
+    return updated;
+  }
+
+  async submitDacToRegistrar(actor: ActorContext, dacRef: string) {
+    this.requireVerifier(actor);
+    const dac = await this.requireReadableDac(actor, dacRef);
+    if (!allowsScasDacSubmit(dac.status)) {
+      throw new OriginationError("invalid_state", "Submit to registrar is not allowed from this state.");
+    }
+    if (dac.expectedVolumeTonnes == null || !(dac.expectedVolumeTonnes > 0)) {
+      throw new OriginationError("validation", "Expected volume is required before registrar intake.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const updated = await this.store.updateDac({
+      ...dac,
+      status: "READY_FOR_REGISTRAR",
+      updatedByUserId: stamp.userId,
+      submittedToRegistrarAt: at,
+      returnedAt: dac.status === "RETURNED_BY_REGISTRAR" ? dac.returnedAt : dac.returnedAt,
+      updatedAt: at,
+    });
+    await this.store.insertDacEvent(
+      this.makeEvent(actor, "dac_submitted_to_registrar", "dac", updated.id, {
+        fieldId: updated.fieldId,
+        from: dac.status,
+      }),
+    );
+    return updated;
+  }
+
+  async startRegistrarReview(actor: ActorContext, dacRef: string) {
+    this.requireRegistrar(actor);
+    const dac = await this.requireReadableDac(actor, dacRef);
+    if (!allowsRegistrarReviewStart(dac.status)) {
+      throw new OriginationError("invalid_state", "Registrar review can start only from ready intake.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const updated = await this.store.updateDac({
+      ...dac,
+      status: "UNDER_REGISTRAR_REVIEW",
+      registrarReviewedByUserId: stamp.userId,
+      updatedByUserId: stamp.userId,
+      updatedAt: at,
+    });
+    await this.store.insertDacEvent(
+      this.makeEvent(actor, "dac_review_started", "dac", updated.id, { fieldId: updated.fieldId }),
+    );
+    return updated;
+  }
+
+  async acceptDacIntake(actor: ActorContext, dacRef: string, notes?: string) {
+    this.requireRegistrar(actor);
+    const dac = await this.requireReadableDac(actor, dacRef);
+    if (!allowsRegistrarDecision(dac.status)) {
+      throw new OriginationError("invalid_state", "Registrar can accept only from intake review.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const note = notes?.trim() ?? "";
+    const updated = await this.store.updateDac({
+      ...dac,
+      status: "REGISTRAR_ACCEPTED",
+      registrarNotes: note || dac.registrarNotes,
+      registrarReviewedByUserId: stamp.userId,
+      updatedByUserId: stamp.userId,
+      acceptedAt: at,
+      updatedAt: at,
+    });
+    if (note) {
+      await this.store.insertDacMessage({
+        id: randomUUID(),
+        dacId: updated.id,
+        senderUserId: stamp.userId,
+        senderRole: stamp.role,
+        senderPersonaId: stamp.personaId,
+        body: note,
+        messageType: "DECISION",
+        createdAt: at,
+      });
+    }
+    await this.store.insertDacEvent(
+      this.makeEvent(actor, "dac_accepted", "dac", updated.id, {
+        fieldId: updated.fieldId,
+        from: dac.status,
+        createdPool: false,
+        createdToken: false,
+        createdIssuance: false,
+        createdPlacement: false,
+        chainWrite: false,
+      }),
+    );
+    return updated;
+  }
+
+  async returnDacIntake(actor: ActorContext, dacRef: string, notes: string) {
+    this.requireRegistrar(actor);
+    const dac = await this.requireReadableDac(actor, dacRef);
+    if (!allowsRegistrarDecision(dac.status)) {
+      throw new OriginationError("invalid_state", "Registrar can return only from intake review.");
+    }
+    const note = notes.trim();
+    if (!note) {
+      throw new OriginationError("validation", "Return requires a reason.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const updated = await this.store.updateDac({
+      ...dac,
+      status: "RETURNED_BY_REGISTRAR",
+      registrarNotes: note,
+      registrarReviewedByUserId: stamp.userId,
+      updatedByUserId: stamp.userId,
+      returnedAt: at,
+      updatedAt: at,
+    });
+    await this.store.insertDacMessage({
+      id: randomUUID(),
+      dacId: updated.id,
+      senderUserId: stamp.userId,
+      senderRole: stamp.role,
+      senderPersonaId: stamp.personaId,
+      body: note,
+      messageType: "DECISION",
+      createdAt: at,
+    });
+    await this.store.insertDacEvent(
+      this.makeEvent(actor, "dac_returned", "dac", updated.id, {
+        fieldId: updated.fieldId,
+        from: dac.status,
+      }),
+    );
+    return updated;
+  }
+
+  async sendDacMessage(actor: ActorContext, dacRef: string, body: string) {
+    const dac = await this.requireReadableDac(actor, dacRef);
+    if (!isScasVerifier(actor) && !isRegistrarIntakeOperator(actor)) {
+      throw new OriginationError("forbidden");
+    }
+    if (isRegistrarIntakeOperator(actor) && dac.status === "DRAFT") {
+      throw new OriginationError("not_found");
+    }
+    const text = body.trim();
+    if (!text) {
+      throw new OriginationError("validation", "Message is required.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const message: OriginationDacMessageRecord = {
+      id: randomUUID(),
+      dacId: dac.id,
+      senderUserId: stamp.userId,
+      senderRole: stamp.role,
+      senderPersonaId: stamp.personaId,
+      body: text,
+      messageType: "COMMENT",
+      createdAt: at,
+    };
+    await this.store.insertDacMessage(message);
+    await this.store.insertDacEvent(
+      this.makeEvent(actor, "dac_message_sent", "dac", dac.id, { fieldId: dac.fieldId }),
+    );
+    return message;
+  }
+
+  async listScasDacs(actor: ActorContext, filter: ScasDacFilter = "all") {
+    this.requireVerifier(actor);
+    const dacs = await this.store.listDacs();
+    return dacs.filter((item) => matchesScasDacFilter(item.status, filter));
+  }
+
+  async listRegistrarIntake(actor: ActorContext, filter: RegistrarDacFilter = "all") {
+    this.requireRegistrar(actor);
+    const dacs = await this.store.listDacs();
+    return dacs.filter((item) => matchesRegistrarDacFilter(item.status, filter));
+  }
+
+  async listLiveOriginatedDacs(actor: ActorContext) {
+    const dacs = await this.store.listDacs();
+    const visible = dacs.filter(
+      (item) =>
+        item.status !== "ARCHIVED" &&
+        canReadOriginationDac(actor, item.producerOrganizationId, item.status),
+    );
+    const rows: Array<{ dac: OriginationDacRecord; fieldPublicId: string }> = [];
+    for (const dac of visible) {
+      const field = await this.store.getFieldById(dac.fieldId);
+      rows.push({ dac, fieldPublicId: field?.publicId ?? "" });
+    }
+    return rows;
+  }
+
+  async getDacBundle(actor: ActorContext, dacRef: string) {
+    const dac = await this.requireReadableDac(actor, dacRef);
+    const fieldBundle = await this.getFieldBundle(actor, dac.fieldId);
+    const messages = await this.store.listDacMessages(dac.id);
+    const events = await this.store.listDacEvents(dac.id);
+    return {
+      ...fieldBundle,
+      dac,
+      messages,
+      events,
+    };
+  }
+
   async tryHardDeleteVerified(actor: ActorContext, fieldId: string) {
     const field = await this.resolveField(fieldId);
     if (!field) {
@@ -1154,6 +1463,49 @@ export class OriginationService {
     if (!isScasVerifier(actor)) {
       throw new OriginationError("forbidden");
     }
+  }
+
+  private requireRegistrar(actor: ActorContext) {
+    if (!isRegistrarIntakeOperator(actor)) {
+      throw new OriginationError("forbidden");
+    }
+  }
+
+  private async resolveDac(dacRef: string) {
+    return resolveByUuidOrPublicId(
+      dacRef,
+      (id) => this.store.getDacById(id),
+      (publicId) => this.store.getDacByPublicId(publicId),
+    );
+  }
+
+  private async requireReadableDac(actor: ActorContext, dacRef: string) {
+    const dac = await this.resolveDac(dacRef);
+    if (!dac || !canReadOriginationDac(actor, dac.producerOrganizationId, dac.status)) {
+      throw new OriginationError("not_found");
+    }
+    return dac;
+  }
+
+  private requireCommercial(input: OriginationDacCommercialInput): OriginationDacCommercialInput {
+    const crop = input.crop.trim();
+    if (!crop) {
+      throw new OriginationError("validation", "Crop is required.");
+    }
+    if (!Number.isInteger(input.harvestYear) || input.harvestYear < 2020 || input.harvestYear > 2100) {
+      throw new OriginationError("validation", "Harvest year is required.");
+    }
+    if (input.expectedVolumeTonnes != null && !(input.expectedVolumeTonnes > 0)) {
+      throw new OriginationError("validation", "Expected volume must be positive.");
+    }
+    return {
+      crop,
+      harvestYear: input.harvestYear,
+      expectedVolumeTonnes: input.expectedVolumeTonnes,
+      qualityClass: input.qualityClass?.trim() || null,
+      producerReference: input.producerReference?.trim() || null,
+      scasNotes: input.scasNotes.trim(),
+    };
   }
 
   private async requireWritableCase(actor: ActorContext, caseRef: string) {

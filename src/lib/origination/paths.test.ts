@@ -13,6 +13,7 @@ describe("origination vs demonstrator paths", () => {
     expect(demonstratorContractPath("DAC-2027-0001")).toBe("/contracts/DAC-2027-0001");
     expect(isDemonstratorContractId("DAC-2027-0001")).toBe(true);
     expect(isDemonstratorContractId("FIELD-2027-0009")).toBe(false);
+    expect(isDemonstratorContractId("DAC-2027-0014")).toBe(false);
   });
 
   it("does not treat mock DAC plots as origination public ids", () => {

@@ -141,6 +141,7 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
       },
 
       { href: "/scas/verification", key: "verification", anyOf: ["scas.verify"], noneOf: ADMIN_NONE },
+      { href: "/scas/dacs", key: "scasDacs", anyOf: ["scas.verify"], noneOf: ADMIN_NONE },
       { href: "/scas", key: "attestation", anyOf: ["scas.attest"], noneOf: ADMIN_NONE },
       { href: "/scas/matching", key: "matching", anyOf: ["scas.match"], noneOf: ADMIN_NONE },
       {
@@ -212,6 +213,12 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
         href: "/placements",
         key: "placements",
         allOf: ["placement.read.all", "audit.read"],
+        noneOf: ["admin.access", "regulator.read"],
+      },
+      {
+        href: "/registrar/intake",
+        key: "registrarIntake",
+        allOf: REGISTRAR_COMBO,
         noneOf: ["admin.access", "regulator.read"],
       },
       {

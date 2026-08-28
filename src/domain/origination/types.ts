@@ -109,6 +109,14 @@ export const ORIGINATION_EVENT_TYPES = [
   "field_verified",
   "field_rejected",
   "field_archived",
+  "dac_created",
+  "dac_updated",
+  "dac_submitted_to_registrar",
+  "dac_review_started",
+  "dac_returned",
+  "dac_accepted",
+  "dac_archived",
+  "dac_message_sent",
 ] as const;
 
 export type OriginationEventType = (typeof ORIGINATION_EVENT_TYPES)[number];
@@ -135,6 +143,54 @@ export const SCAS_CASE_FILTERS = [
 ] as const;
 
 export type ScasCaseFilter = (typeof SCAS_CASE_FILTERS)[number];
+
+export const ORIGINATION_DAC_STATUSES = [
+  "DRAFT",
+  "READY_FOR_REGISTRAR",
+  "UNDER_REGISTRAR_REVIEW",
+  "RETURNED_BY_REGISTRAR",
+  "REGISTRAR_ACCEPTED",
+  "ARCHIVED",
+] as const;
+
+export type OriginationDacStatus = (typeof ORIGINATION_DAC_STATUSES)[number];
+
+export const ACTIVE_ORIGINATION_DAC_STATUSES = ORIGINATION_DAC_STATUSES.filter(
+  (status) => status !== "ARCHIVED",
+) as OriginationDacStatus[];
+
+export const SCAS_DAC_EDITABLE_STATUSES = ["DRAFT", "RETURNED_BY_REGISTRAR"] as const;
+
+export type ScasDacEditableStatus = (typeof SCAS_DAC_EDITABLE_STATUSES)[number];
+
+export const ORIGINATION_DAC_MESSAGE_TYPES = ["COMMENT", "SYSTEM", "DECISION"] as const;
+
+export type OriginationDacMessageType = (typeof ORIGINATION_DAC_MESSAGE_TYPES)[number];
+
+export const SCAS_DAC_FILTERS = [
+  "all",
+  "draft",
+  "ready",
+  "under_review",
+  "returned",
+  "accepted",
+  "archived",
+] as const;
+
+export type ScasDacFilter = (typeof SCAS_DAC_FILTERS)[number];
+
+export const REGISTRAR_DAC_FILTERS = [
+  "all",
+  "ready",
+  "under_review",
+  "returned",
+  "accepted",
+] as const;
+
+export type RegistrarDacFilter = (typeof REGISTRAR_DAC_FILTERS)[number];
+
+/** Demonstrator fixtures use DAC-2027-0001..0013. Live origination starts here. */
+export const LIVE_ORIGINATION_DAC_SEQUENCE_START = 14;
 
 export const FIELD_DOCUMENT_BUCKET = "field-documents";
 export const SCAS_EVIDENCE_BUCKET = "scas-evidence";
@@ -321,6 +377,58 @@ export interface FieldUploadIntentRecord {
   createdAt: string;
   expiresAt: string;
   status: FieldUploadIntentStatus;
+}
+
+export interface OriginationDacRecord {
+  id: string;
+  publicId: string;
+  fieldId: string;
+  verifiedSnapshotId: string;
+  scasCaseId: string;
+  producerOrganizationId: string;
+  status: OriginationDacStatus;
+  crop: string;
+  harvestYear: number;
+  expectedVolumeTonnes: number | null;
+  qualityClass: string | null;
+  producerReference: string | null;
+  cadastreNumber: string;
+  declaredAreaHectares: number | null;
+  verifiedAreaHectares: number | null;
+  region: string | null;
+  district: string | null;
+  rightHolder: string;
+  rightType: string;
+  scasNotes: string;
+  registrarNotes: string;
+  createdByUserId: string;
+  updatedByUserId: string;
+  registrarReviewedByUserId: string | null;
+  submittedToRegistrarAt: string | null;
+  acceptedAt: string | null;
+  returnedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OriginationDacCommercialInput {
+  crop: string;
+  harvestYear: number;
+  expectedVolumeTonnes: number | null;
+  qualityClass: string | null;
+  producerReference: string | null;
+  scasNotes: string;
+}
+
+export interface OriginationDacMessageRecord {
+  id: string;
+  dacId: string;
+  senderUserId: string;
+  senderRole: string;
+  senderPersonaId: string | null;
+  body: string;
+  messageType: OriginationDacMessageType;
+  createdAt: string;
 }
 
 export interface OriginationAuditEvent {

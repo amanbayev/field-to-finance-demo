@@ -175,16 +175,19 @@ export function MessageForm({
   action,
   caseId,
   fieldId,
+  dacId,
 }: {
   action: (formData: FormData) => void | Promise<void>;
-  caseId: string;
+  caseId?: string;
   fieldId?: string;
+  dacId?: string;
 }) {
   const t = useTranslations("origination");
   return (
     <form action={action} className="grid gap-3">
-      <input type="hidden" name="caseId" value={caseId} />
+      {caseId ? <input type="hidden" name="caseId" value={caseId} /> : null}
       {fieldId ? <input type="hidden" name="fieldId" value={fieldId} /> : null}
+      {dacId ? <input type="hidden" name="dacId" value={dacId} /> : null}
       <label className="grid gap-2">
         <span className="label-caps">{t("message")}</span>
         <textarea name="body" required rows={3} className="desk-control min-h-[5rem] w-full py-2" />

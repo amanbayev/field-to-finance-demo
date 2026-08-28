@@ -291,15 +291,21 @@ async function RegistrarHome() {
       />
       <DeskLedger>
         <DeskRow
-          href="/registry"
+          href="/registrar/intake"
           index={deskIndex(0)}
+          kicker={t("nav.registrarIntake")}
+          title={t("origination.intakeTitle")}
+        />
+        <DeskRow
+          href="/registry"
+          index={deskIndex(1)}
           kicker={t("nav.holdingsRegistry")}
           title={t("desk.openRegistry")}
           value={formatInteger(metrics.registrarInventory, locale)}
         />
         <DeskRow
           href="/backing"
-          index={deskIndex(1)}
+          index={deskIndex(2)}
           kicker={t("nav.backing")}
           title={t("dashboard.eligibleCoverage")}
           value={t("units.tonnes", {
@@ -308,14 +314,14 @@ async function RegistrarHome() {
         />
         <DeskRow
           href="/markets"
-          index={deskIndex(2)}
+          index={deskIndex(3)}
           kicker={t("nav.markets")}
           title="WHEAT-2027"
           value={formatInteger(metrics.wheatMintedSupply, locale)}
         />
         <DeskRow
           href="/placements"
-          index={deskIndex(3)}
+          index={deskIndex(4)}
           kicker={t("nav.placements")}
           title={t("dashboard.primaryPlacement")}
           value={formatInteger(metrics.primaryPlacementVolume, locale)}
@@ -443,21 +449,27 @@ async function ScasHome() {
           value={formatInteger(snapshot.pendingCount, locale)}
         />
         <DeskRow
-          href="/scas/matching"
+          href="/scas/dacs"
           index={deskIndex(1)}
+          kicker={t("nav.scasDacs")}
+          title={t("origination.dacQueueTitle")}
+        />
+        <DeskRow
+          href="/scas/matching"
+          index={deskIndex(2)}
           kicker={t("nav.matching")}
           title={t("scas.matching.title")}
           value={formatInteger(snapshot.listings.length, locale)}
         />
         <DeskRow
           href="/scas/monitoring"
-          index={deskIndex(2)}
+          index={deskIndex(3)}
           kicker={t("nav.scasMonitoring")}
           title={t("workspace.scasMonitoringTitle")}
         />
         <DeskRow
           href="/coverage"
-          index={deskIndex(3)}
+          index={deskIndex(4)}
           kicker={t("nav.coverage")}
           title={t("scas.payload.eligible")}
         />

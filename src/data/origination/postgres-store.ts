@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 import { OriginationError } from "@/domain/origination/types";
 import type {
   FieldCadastreVerificationRecord,
@@ -9,6 +10,8 @@ import type {
   FieldVerificationEvidenceRecord,
   FieldVerificationMessageRecord,
   OriginationAuditEvent,
+  OriginationDacMessageRecord,
+  OriginationDacRecord,
   ProducerDeclaredData,
   ProducerFieldRecord,
   VerifiedFieldSnapshotRecord,
@@ -174,6 +177,10 @@ export class PostgresOriginationStore implements OriginationStore {
 
   async nextSubmissionSequence() {
     return this.nextSeq("origination_next_submission_seq");
+  }
+
+  async nextDacSequence() {
+    return this.nextSeq("origination_next_dac_seq");
   }
 
   async insertField(record: ProducerFieldRecord) {
@@ -739,6 +746,157 @@ export class PostgresOriginationStore implements OriginationStore {
       fail(error);
     }
   }
+
+  async createDac(record: OriginationDacRecord, event: OriginationAuditEvent) {
+    const { data, error } = await this.client.rpc("origination_create_dac", {
+      payload: {
+        dac: dacToRow(record),
+        event: eventToRow(event),
+      },
+    });
+    if (error) {
+      fail(error);
+    }
+    const row = (data as { dac?: Row } | null)?.dac;
+    if (!row) {
+      fail({ message: "origination DAC create returned no record" });
+    }
+    return dacFrom(row);
+  }
+
+  async updateDac(record: OriginationDacRecord) {
+    const { data, error } = await this.client
+      .from("origination_dacs")
+      .update(dacToRow(record))
+      .eq("id", record.id)
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return dacFrom(data as Row);
+  }
+
+  async getDacById(id: string) {
+    const { data, error } = await this.client.from("origination_dacs").select("*").eq("id", id).maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? dacFrom(data as Row) : null;
+  }
+
+  async getDacByPublicId(publicId: string) {
+    const { data, error } = await this.client
+      .from("origination_dacs")
+      .select("*")
+      .eq("public_id", publicId)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? dacFrom(data as Row) : null;
+  }
+
+  async getActiveDacBySnapshot(snapshotId: string) {
+    const { data, error } = await this.client
+      .from("origination_dacs")
+      .select("*")
+      .eq("verified_snapshot_id", snapshotId)
+      .neq("status", "ARCHIVED")
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? dacFrom(data as Row) : null;
+  }
+
+  async getActiveDacByField(fieldId: string) {
+    const { data, error } = await this.client
+      .from("origination_dacs")
+      .select("*")
+      .eq("field_id", fieldId)
+      .neq("status", "ARCHIVED")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? dacFrom(data as Row) : null;
+  }
+
+  async listDacs() {
+    const { data, error } = await this.client
+      .from("origination_dacs")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(dacFrom);
+  }
+
+  async insertDacMessage(record: OriginationDacMessageRecord) {
+    const { data, error } = await this.client
+      .from("origination_dac_messages")
+      .insert({
+        id: record.id,
+        dac_id: record.dacId,
+        sender_user_id: record.senderUserId,
+        sender_role: record.senderRole,
+        sender_persona_id: record.senderPersonaId,
+        body: record.body,
+        message_type: record.messageType,
+        created_at: record.createdAt,
+      })
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    return dacMessageFrom(data as Row);
+  }
+
+  async listDacMessages(dacId: string) {
+    const { data, error } = await this.client
+      .from("origination_dac_messages")
+      .select("*")
+      .eq("dac_id", dacId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(dacMessageFrom);
+  }
+
+  async insertDacEvent(record: OriginationAuditEvent) {
+    const { data, error } = await this.client
+      .from("origination_dac_events")
+      .insert(eventToRow(record))
+      .select()
+      .single();
+    if (error) {
+      fail(error);
+    }
+    await this.insertEvent({
+      ...record,
+      id: randomUUID(),
+      metadata: { ...record.metadata },
+    });
+    return eventFrom(data as Row);
+  }
+
+  async listDacEvents(dacId: string) {
+    const { data, error } = await this.client
+      .from("origination_dac_events")
+      .select("*")
+      .eq("object_id", dacId)
+      .order("occurred_at", { ascending: true });
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(eventFrom);
+  }
 }
 
 function submissionFrom(row: Row): FieldSubmissionRecord {
@@ -1012,5 +1170,86 @@ function snapshotToRow(record: VerifiedFieldSnapshotRecord): Row {
     approved_by_role: record.approvedByRole,
     approved_by_persona_id: record.approvedByPersonaId,
     approved_at: record.approvedAt,
+  };
+}
+
+function dacToRow(record: OriginationDacRecord): Row {
+  return {
+    id: record.id,
+    public_id: record.publicId,
+    field_id: record.fieldId,
+    verified_snapshot_id: record.verifiedSnapshotId,
+    scas_case_id: record.scasCaseId,
+    producer_organization_id: record.producerOrganizationId,
+    status: record.status,
+    crop: record.crop,
+    harvest_year: record.harvestYear,
+    expected_volume_tonnes: record.expectedVolumeTonnes,
+    quality_class: record.qualityClass,
+    producer_reference: record.producerReference,
+    cadastre_number: record.cadastreNumber,
+    declared_area_hectares: record.declaredAreaHectares,
+    verified_area_hectares: record.verifiedAreaHectares,
+    region: record.region,
+    district: record.district,
+    right_holder: record.rightHolder,
+    right_type: record.rightType,
+    scas_notes: record.scasNotes,
+    registrar_notes: record.registrarNotes,
+    created_by_user_id: record.createdByUserId,
+    updated_by_user_id: record.updatedByUserId,
+    registrar_reviewed_by_user_id: record.registrarReviewedByUserId,
+    submitted_to_registrar_at: record.submittedToRegistrarAt,
+    accepted_at: record.acceptedAt,
+    returned_at: record.returnedAt,
+    created_at: record.createdAt,
+    updated_at: record.updatedAt,
+  };
+}
+
+function dacFrom(row: Row): OriginationDacRecord {
+  return {
+    id: String(row.id),
+    publicId: String(row.public_id),
+    fieldId: String(row.field_id),
+    verifiedSnapshotId: String(row.verified_snapshot_id),
+    scasCaseId: String(row.scas_case_id),
+    producerOrganizationId: String(row.producer_organization_id),
+    status: row.status as OriginationDacRecord["status"],
+    crop: String(row.crop ?? ""),
+    harvestYear: Number(row.harvest_year ?? 0),
+    expectedVolumeTonnes: num(row.expected_volume_tonnes),
+    qualityClass: (row.quality_class as string | null) ?? null,
+    producerReference: (row.producer_reference as string | null) ?? null,
+    cadastreNumber: String(row.cadastre_number ?? ""),
+    declaredAreaHectares: num(row.declared_area_hectares),
+    verifiedAreaHectares: num(row.verified_area_hectares),
+    region: (row.region as string | null) ?? null,
+    district: (row.district as string | null) ?? null,
+    rightHolder: String(row.right_holder ?? ""),
+    rightType: String(row.right_type ?? ""),
+    scasNotes: String(row.scas_notes ?? ""),
+    registrarNotes: String(row.registrar_notes ?? ""),
+    createdByUserId: String(row.created_by_user_id),
+    updatedByUserId: String(row.updated_by_user_id),
+    registrarReviewedByUserId: (row.registrar_reviewed_by_user_id as string | null) ?? null,
+    submittedToRegistrarAt: (row.submitted_to_registrar_at as string | null) ?? null,
+    acceptedAt: (row.accepted_at as string | null) ?? null,
+    returnedAt: (row.returned_at as string | null) ?? null,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+function dacMessageFrom(row: Row): OriginationDacMessageRecord {
+  return {
+    id: String(row.id),
+    dacId: String(row.dac_id),
+    senderUserId: String(row.sender_user_id),
+    senderRole: String(row.sender_role),
+    senderPersonaId: (row.sender_persona_id as string | null) ?? null,
+    body: String(row.body),
+    messageType: row.message_type as OriginationDacMessageRecord["messageType"],
+    createdAt: String(row.created_at),
   };
 }

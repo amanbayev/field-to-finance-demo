@@ -10,10 +10,16 @@ import type {
   FieldVerificationEvidenceRecord,
   FieldVerificationMessageRecord,
   OriginationAuditEvent,
+  OriginationDacMessageRecord,
+  OriginationDacRecord,
   ProducerFieldRecord,
   VerifiedFieldSnapshotRecord,
 } from "./types";
-import { OriginationError } from "./types";
+import {
+  ACTIVE_ORIGINATION_DAC_STATUSES,
+  LIVE_ORIGINATION_DAC_SEQUENCE_START,
+  OriginationError,
+} from "./types";
 import type {
   ApprovalBundle,
   ChangeRequestBundle,
@@ -44,6 +50,7 @@ type DiskState = {
   fieldSeq: number;
   caseSeq: number;
   submissionSeq: number;
+  dacSeq: number;
   fields: ProducerFieldRecord[];
   documents: FieldDocumentRecord[];
   submissions: FieldSubmissionRecord[];
@@ -54,6 +61,9 @@ type DiskState = {
   snapshots: VerifiedFieldSnapshotRecord[];
   events: OriginationAuditEvent[];
   intents: FieldUploadIntentRecord[];
+  dacs: OriginationDacRecord[];
+  dacMessages: OriginationDacMessageRecord[];
+  dacEvents: OriginationAuditEvent[];
   blobs: DiskBlob[];
 };
 
@@ -61,6 +71,7 @@ export class MemoryOriginationStore implements OriginationStore {
   private fieldSeq = 0;
   private caseSeq = 0;
   private submissionSeq = 0;
+  private dacSeq = LIVE_ORIGINATION_DAC_SEQUENCE_START - 1;
   private fields = new Map<string, ProducerFieldRecord>();
   private documents = new Map<string, FieldDocumentRecord>();
   private submissions = new Map<string, FieldSubmissionRecord>();
@@ -71,6 +82,9 @@ export class MemoryOriginationStore implements OriginationStore {
   private snapshots = new Map<string, VerifiedFieldSnapshotRecord>();
   private events: OriginationAuditEvent[] = [];
   private intents = new Map<string, FieldUploadIntentRecord>();
+  private dacs = new Map<string, OriginationDacRecord>();
+  private dacMessages: OriginationDacMessageRecord[] = [];
+  private dacEvents: OriginationAuditEvent[] = [];
   private blobs = new Map<string, OriginationBlob>();
 
   constructor(
@@ -88,6 +102,7 @@ export class MemoryOriginationStore implements OriginationStore {
     this.fieldSeq = parsed.fieldSeq ?? 0;
     this.caseSeq = parsed.caseSeq ?? 0;
     this.submissionSeq = parsed.submissionSeq ?? 0;
+    this.dacSeq = parsed.dacSeq ?? LIVE_ORIGINATION_DAC_SEQUENCE_START - 1;
     this.fields = new Map(
       (parsed.fields ?? []).map((record) => [
         record.id,
@@ -103,6 +118,9 @@ export class MemoryOriginationStore implements OriginationStore {
     this.snapshots = new Map((parsed.snapshots ?? []).map((record) => [record.fieldId, record]));
     this.events = parsed.events ?? [];
     this.intents = new Map((parsed.intents ?? []).map((record) => [record.id, record]));
+    this.dacs = new Map((parsed.dacs ?? []).map((record) => [record.id, record]));
+    this.dacMessages = parsed.dacMessages ?? [];
+    this.dacEvents = parsed.dacEvents ?? [];
     this.blobs = new Map(
       (parsed.blobs ?? []).map((blob) => [
         `${blob.bucket}:${blob.objectPath}`,
@@ -125,6 +143,7 @@ export class MemoryOriginationStore implements OriginationStore {
       fieldSeq: this.fieldSeq,
       caseSeq: this.caseSeq,
       submissionSeq: this.submissionSeq,
+      dacSeq: this.dacSeq,
       fields: [...this.fields.values()],
       documents: [...this.documents.values()],
       submissions: [...this.submissions.values()],
@@ -135,6 +154,9 @@ export class MemoryOriginationStore implements OriginationStore {
       snapshots: [...this.snapshots.values()],
       events: this.events,
       intents: [...this.intents.values()],
+      dacs: [...this.dacs.values()],
+      dacMessages: this.dacMessages,
+      dacEvents: this.dacEvents,
       blobs: [...this.blobs.values()].map((blob) => ({
         bucket: blob.bucket,
         objectPath: blob.objectPath,
@@ -757,5 +779,143 @@ export class MemoryOriginationStore implements OriginationStore {
       this.messages.push(clone(input.message));
       this.events.push(clone(input.event));
     });
+  }
+
+  async nextDacSequence() {
+    return this.write(() => {
+      this.dacSeq += 1;
+      return this.dacSeq;
+    });
+  }
+
+  async createDac(record: OriginationDacRecord, event: OriginationAuditEvent) {
+    return this.write(() => {
+      for (const existing of this.dacs.values()) {
+        if (
+          existing.verifiedSnapshotId === record.verifiedSnapshotId &&
+          (ACTIVE_ORIGINATION_DAC_STATUSES as readonly string[]).includes(existing.status)
+        ) {
+          throw new OriginationError(
+            "invalid_state",
+            "An active DAC already exists for this verified snapshot.",
+          );
+        }
+      }
+      this.dacSeq += 1;
+      const created: OriginationDacRecord = {
+        ...record,
+        publicId: `DAC-${record.harvestYear}-${String(this.dacSeq).padStart(4, "0")}`,
+      };
+      this.dacs.set(created.id, clone(created));
+      this.dacEvents.push(
+        clone({
+          ...event,
+          objectId: created.id,
+          metadata: { ...event.metadata, publicId: created.publicId },
+        }),
+      );
+      this.events.push(
+        clone({
+          ...event,
+          id: `${event.id}-field`,
+          objectType: "dac",
+          objectId: created.id,
+          metadata: {
+            ...event.metadata,
+            publicId: created.publicId,
+            fieldId: created.fieldId,
+            verifiedSnapshotId: created.verifiedSnapshotId,
+          },
+        }),
+      );
+      return clone(created);
+    });
+  }
+
+  async updateDac(record: OriginationDacRecord) {
+    return this.write(() => {
+      this.dacs.set(record.id, clone(record));
+      return clone(record);
+    });
+  }
+
+  async getDacById(id: string) {
+    return this.read(() => {
+      const record = this.dacs.get(id);
+      return record ? clone(record) : null;
+    });
+  }
+
+  async getDacByPublicId(publicId: string) {
+    return this.read(() => {
+      for (const record of this.dacs.values()) {
+        if (record.publicId === publicId) {
+          return clone(record);
+        }
+      }
+      return null;
+    });
+  }
+
+  async getActiveDacBySnapshot(snapshotId: string) {
+    return this.read(() => {
+      for (const record of this.dacs.values()) {
+        if (
+          record.verifiedSnapshotId === snapshotId &&
+          (ACTIVE_ORIGINATION_DAC_STATUSES as readonly string[]).includes(record.status)
+        ) {
+          return clone(record);
+        }
+      }
+      return null;
+    });
+  }
+
+  async getActiveDacByField(fieldId: string) {
+    return this.read(() => {
+      const matches = [...this.dacs.values()].filter(
+        (record) =>
+          record.fieldId === fieldId &&
+          (ACTIVE_ORIGINATION_DAC_STATUSES as readonly string[]).includes(record.status),
+      );
+      return matches[0] ? clone(matches[0]) : null;
+    });
+  }
+
+  async listDacs() {
+    return this.read(() => [...this.dacs.values()].map(clone));
+  }
+
+  async insertDacMessage(record: OriginationDacMessageRecord) {
+    return this.write(() => {
+      this.dacMessages.push(clone(record));
+      return clone(record);
+    });
+  }
+
+  async listDacMessages(dacId: string) {
+    return this.read(() => this.dacMessages.filter((item) => item.dacId === dacId).map(clone));
+  }
+
+  async insertDacEvent(record: OriginationAuditEvent) {
+    return this.write(() => {
+      this.dacEvents.push(clone(record));
+      this.events.push(
+        clone({
+          ...record,
+          metadata: { ...record.metadata, fieldId: record.metadata.fieldId },
+        }),
+      );
+      return clone(record);
+    });
+  }
+
+  async listDacEvents(dacId: string) {
+    return this.read(() =>
+      this.dacEvents
+        .filter((item) => item.objectId === dacId)
+        .map(clone)
+        .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
+    );
   }
 }

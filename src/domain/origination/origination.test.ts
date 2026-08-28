@@ -22,10 +22,13 @@ import {
   type ProducerDeclaredData,
 } from "@/domain/origination";
 import { MemoryOriginationStore } from "@/domain/origination/memory-store";
+import { isDemonstratorContractId } from "@/lib/origination/paths";
+import { listContracts } from "@/services/contract-service";
 
 const farm1 = DEMO_ORGANIZATIONS.find((item) => item.slug === "akmola-agro")!;
 const farm2 = DEMO_ORGANIZATIONS.find((item) => item.slug === "steppe-grain")!;
 const scasOrg = DEMO_ORGANIZATIONS.find((item) => item.slug === "scas")!;
+const registrarOrg = DEMO_ORGANIZATIONS.find((item) => item.slug === "agricultural-registrar")!;
 const issuerOrg = DEMO_ORGANIZATIONS.find((item) => item.slug === "agro-issuer")!;
 const platform = DEMO_ORGANIZATIONS.find((item) => item.slug === "field-to-finance")!;
 
@@ -101,6 +104,10 @@ function producerTwo(userId = "prod-2") {
 
 function scas(userId = "scas-1") {
   return actorFor(scasOrg, ["SCAS_OPERATOR"], userId, "DEMO-SCAS-001");
+}
+
+function registrar(userId = "reg-1") {
+  return actorFor(registrarOrg, ["REGISTRAR_OPERATOR"], userId, "DEMO-REGISTRAR-001");
 }
 
 function issuer() {
@@ -1072,5 +1079,183 @@ describe("origination desk curation", () => {
     await expect(service.archiveField(actor, field.id)).rejects.toMatchObject({
       code: "invalid_state",
     });
+  });
+});
+
+describe("origination Slice B off-chain DAC", () => {
+  async function verifiedField(service: OriginationService, farm = producer(), reviewer = scas()) {
+    const field = await draft(service, farm);
+    const document = await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf(),
+    });
+    const submitted = await service.submitToScas(farm, field.id);
+    await service.acceptDocument(reviewer, document.id);
+    await service.recordCadastreVerification(reviewer, submitted.verificationCase.id, {
+      cadastreNumber: sample.cadastreNumber,
+      rightHolder: "Akmola Agro LLP",
+      rightType: "lease",
+      registeredAreaHa: 1238.6,
+      region: "Akmola",
+      district: "Astrakhan",
+      validityStatus: "active",
+      sourceReference: "manual",
+      notes: "",
+    });
+    const snapshot = await service.approveField(reviewer, submitted.verificationCase.id);
+    return {
+      farm,
+      reviewer,
+      field: (await service.getFieldBundle(farm, field.id)).field,
+      verificationCase: submitted.verificationCase,
+      snapshot,
+    };
+  }
+
+  async function draftDac(service: OriginationService) {
+    const ready = await verifiedField(service);
+    const dac = await service.createDacFromVerifiedCase(ready.reviewer, ready.verificationCase.id);
+    return { ...ready, dac };
+  }
+
+  it("lets SCAS create a DAC only from a verified field snapshot", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const ready = await verifiedField(service);
+    const dac = await service.createDacFromVerifiedCase(ready.reviewer, ready.verificationCase.id);
+    expect(dac.publicId).toMatch(/^DAC-2027-\d{4}$/);
+    expect(Number(dac.publicId.slice(-4))).toBeGreaterThanOrEqual(14);
+    expect(dac.status).toBe("DRAFT");
+    expect(dac.verifiedSnapshotId).toBe(ready.snapshot.id);
+    expect(dac.fieldId).toBe(ready.field.id);
+    expect(dac.rightHolder).toBe("Akmola Agro LLP");
+    expect(dac.verifiedAreaHectares).toBe(1238.6);
+  });
+
+  it("rejects DAC creation from draft and submitted fields", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const farm = producer();
+    const reviewer = scas();
+    const field = await draft(service, farm);
+    await expect(service.createDacFromVerifiedCase(reviewer, field.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await service.uploadDocument(farm, { fieldId: field.id, documentType: "CADASTRE_EXTRACT", ...pdf() });
+    const submitted = await service.submitToScas(farm, field.id);
+    await expect(
+      service.createDacFromVerifiedCase(reviewer, submitted.verificationCase.id),
+    ).rejects.toMatchObject({ code: "invalid_state" });
+  });
+
+  it("rejects a second active DAC from the same verified snapshot", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    await expect(
+      service.createDacFromVerifiedCase(opened.reviewer, opened.verificationCase.id),
+    ).rejects.toMatchObject({ code: "invalid_state" });
+  });
+
+  it("does not let a producer or registrar create a DAC", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const ready = await verifiedField(service);
+    await expect(
+      service.createDacFromVerifiedCase(ready.farm, ready.verificationCase.id),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      service.createDacFromVerifiedCase(registrar(), ready.verificationCase.id),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      service.createDacFromVerifiedCase(issuer(), ready.verificationCase.id),
+    ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("lets SCAS submit and registrar accept without pool, token, issuance or chain writes", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    const clerk = registrar();
+    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      expectedVolumeTonnes: 280,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      scasNotes: "Off-chain rights object from the verified snapshot.",
+    });
+    const submitted = await service.submitDacToRegistrar(opened.reviewer, opened.dac.id);
+    expect(submitted.status).toBe("READY_FOR_REGISTRAR");
+    const reviewing = await service.startRegistrarReview(clerk, submitted.id);
+    expect(reviewing.status).toBe("UNDER_REGISTRAR_REVIEW");
+    const accepted = await service.acceptDacIntake(clerk, submitted.id, "Intake complete.");
+    expect(accepted.status).toBe("REGISTRAR_ACCEPTED");
+    expect(accepted.acceptedAt).toBeTruthy();
+    expect(accepted).not.toHaveProperty("poolId");
+    expect(accepted).not.toHaveProperty("tokenId");
+    expect(accepted).not.toHaveProperty("issuanceId");
+    expect(accepted).not.toHaveProperty("placementId");
+    const bundle = await service.getDacBundle(clerk, accepted.publicId);
+    expect(bundle.events.map((event) => event.eventType)).not.toContain("field_verified");
+    expect(bundle.events.map((event) => event.eventType)).toContain("dac_accepted");
+    const acceptEvent = bundle.events.find((event) => event.eventType === "dac_accepted");
+    expect(acceptEvent?.metadata).toMatchObject({
+      createdPool: false,
+      createdToken: false,
+      createdIssuance: false,
+      createdPlacement: false,
+      chainWrite: false,
+    });
+  });
+
+  it("lets registrar return a DAC for SCAS edits", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      expectedVolumeTonnes: 280,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      scasNotes: "",
+    });
+    await service.submitDacToRegistrar(opened.reviewer, opened.dac.id);
+    const returned = await service.returnDacIntake(registrar(), opened.dac.id, "Volume needs a source note.");
+    expect(returned.status).toBe("RETURNED_BY_REGISTRAR");
+    const revised = await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      expectedVolumeTonnes: 275,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      scasNotes: "Volume from the producer declaration, haircut pending later phases.",
+    });
+    expect(revised.expectedVolumeTonnes).toBe(275);
+    const resubmitted = await service.submitDacToRegistrar(opened.reviewer, opened.dac.id);
+    expect(resubmitted.status).toBe("READY_FOR_REGISTRAR");
+  });
+
+  it("lets a producer see only their own DAC status", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    const own = await service.getDacBundle(opened.farm, opened.dac.publicId);
+    expect(own.dac.publicId).toBe(opened.dac.publicId);
+    await expect(service.getDacBundle(producerTwo(), opened.dac.publicId)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    const listed = await service.listLiveOriginatedDacs(opened.farm);
+    expect(listed.map((item) => item.dac.id)).toEqual([opened.dac.id]);
+    expect(listed[0]?.fieldPublicId).toBe(opened.field.publicId);
+    expect(await service.listLiveOriginatedDacs(producerTwo())).toEqual([]);
+    const fieldBundle = await service.getFieldBundle(opened.farm, opened.field.id);
+    expect(fieldBundle.dac?.id).toBe(opened.dac.id);
+    expect(fieldBundle.events.some((event) => event.eventType === "dac_created")).toBe(true);
+  });
+
+  it("keeps demonstrator contract ids distinct from live origination DACs", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    expect(opened.dac.publicId).not.toBe("DAC-2027-0001");
+    expect(opened.dac.publicId).not.toBe("DAC-2027-0005");
+    expect(isDemonstratorContractId(opened.dac.publicId)).toBe(false);
+    expect(listContracts().some((item) => item.contract.id === "DAC-2027-0001")).toBe(true);
+    expect(listContracts().some((item) => item.contract.id === opened.dac.publicId)).toBe(false);
   });
 });

@@ -12,7 +12,7 @@ import type { AppLocale } from "@/i18n/config";
 import { formatNumber, formatTimestamp } from "@/lib/format";
 import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
 import { originationService } from "@/services/origination-service";
-import { OriginationError, producerNextActionMessageKey } from "@/domain/origination";
+import { OriginationError, producerDacTimelineKey, producerNextActionMessageKey } from "@/domain/origination";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import {
   demonstratorContractPath,
@@ -79,7 +79,7 @@ export default async function FieldDetailPage({
   const tUnits = await getTranslations("units");
   const tCatalog = await getTranslations("catalog");
   const locale = (await getLocale()) as AppLocale;
-  const { field, documents, cadastre, messages, events, verificationCase, snapshot, latestRequest } = bundle;
+  const { field, documents, cadastre, messages, events, verificationCase, snapshot, latestRequest, dac } = bundle;
   const tab = TABS.includes(query.tab as (typeof TABS)[number]) ? query.tab : "overview";
   const nextCopy = tOrig(producerNextActionMessageKey(field.status));
   const canEdit = field.status === "DRAFT" || field.status === "CHANGES_REQUESTED";
@@ -285,7 +285,37 @@ export default async function FieldDetailPage({
         <EmptyState title={tOrig("tabMonitoring")} body={tOrig("monitoringSoon")} />
       ) : null}
       {tab === "contracts" ? (
-        <EmptyState title={tOrig("tabContracts")} body={tOrig("contractsSoon")} />
+        dac ? (
+          <PageSection title={tOrig("tabContracts")} description={tOrig("contractsSoon")}>
+            <DataList
+              items={[
+                { label: tOrig("dacId"), value: dac.publicId },
+                { label: tOrig("dacDeskTitle"), value: <StatusBadge value={dac.status} /> },
+              ]}
+            />
+            <ul className="mt-8 divide-y divide-harvest/15 border-y border-harvest/20">
+              {events.flatMap((event) => {
+                const copyKey = producerDacTimelineKey(event.eventType);
+                if (!copyKey) {
+                  return [];
+                }
+                return [
+                  <li key={event.id} className="py-4">
+                    <p className="font-tabular text-xs text-straw">
+                      {formatTimestamp(event.occurredAt, locale)}
+                    </p>
+                    <p className="mt-1 text-bone">{tOrig(copyKey)}</p>
+                  </li>,
+                ];
+              })}
+            </ul>
+          </PageSection>
+        ) : (
+          <EmptyState
+            title={tOrig("tabContracts")}
+            body={field.status === "VERIFIED" ? tOrig("noDacYet") : tOrig("contractsSoon")}
+          />
+        )
       ) : null}
       {tab === "audit" ? (
         events.length === 0 ? (

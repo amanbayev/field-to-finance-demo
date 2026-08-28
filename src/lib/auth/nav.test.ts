@@ -115,6 +115,7 @@ describe("effective navigation", () => {
     expect(keysOf("DEMO-SCAS-001")).toEqual([
       "dashboard",
       "verification",
+      "scasDacs",
       "attestation",
       "matching",
       "scasMonitoring",
@@ -123,6 +124,7 @@ describe("effective navigation", () => {
       "coverage",
     ]);
     expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/verification");
+    expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/dacs");
     expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/monitoring");
     expect(hrefsOf("DEMO-SCAS-001")).toContain("/coverage");
     expect(hrefsOf("DEMO-SCAS-001")).not.toContain("/pools/POOL-WHEAT-2027-01");
@@ -153,6 +155,7 @@ describe("effective navigation", () => {
       "tokens",
       "issuance",
       "placements",
+      "registrarIntake",
       "registry",
       "clearing",
       "audit",
@@ -164,6 +167,7 @@ describe("effective navigation", () => {
       "/tokens",
       "/issuances",
       "/placements",
+      "/registrar/intake",
       "/registry",
       "/clearing",
       "/audit",

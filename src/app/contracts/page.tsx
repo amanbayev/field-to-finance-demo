@@ -32,6 +32,11 @@ import { requirePermission } from "@/lib/auth/guard";
 import { blockchainProvider } from "@/services/providers";
 import { poolMembershipForContract } from "@/services/pool-service";
 import { isVerificationComplete } from "@/services/workspace-view";
+import { originationService } from "@/services/origination-service";
+import { OriginationError } from "@/domain/origination";
+import { organizationById } from "@/data/identity/demo-catalog";
+import { liveOriginatedDacHref } from "@/lib/origination/paths";
+import { PageSection } from "@/components/shared/page-section";
 
 export async function generateMetadata(): Promise<Metadata> {
   const actor = await requirePermission(
@@ -59,6 +64,14 @@ export default async function ContractsPage() {
   const tUnits = await getTranslations("units");
   const locale = (await getLocale()) as AppLocale;
   const items = listContractsForActor(actor);
+  let liveRows: Awaited<ReturnType<ReturnType<typeof originationService>["listLiveOriginatedDacs"]>> = [];
+  try {
+    liveRows = await originationService().listLiveOriginatedDacs(actor);
+  } catch (error) {
+    if (!(error instanceof OriginationError && error.code === "storage")) {
+      throw error;
+    }
+  }
   const proofEntries = await Promise.all(
     ON_CHAIN_DEMO_CONTRACT_IDS.map(
       async (id) =>
@@ -77,6 +90,30 @@ export default async function ContractsPage() {
         title={ownOnly ? tWorkspace("ownContractsTitle") : t("title")}
         description={ownOnly ? tWorkspace("ownContractsIntro") : t("description")}
       />
+      <PageSection title={t("liveOriginatedTitle")} description={t("liveOriginatedLead")}>
+        {liveRows.length === 0 ? (
+          <p className="text-sm text-straw">{t("liveOriginatedEmpty")}</p>
+        ) : (
+          <DeskLedger>
+            {liveRows.map(({ dac, fieldPublicId }, index) => (
+              <DeskRow
+                key={dac.id}
+                href={liveOriginatedDacHref(actor, dac.publicId, fieldPublicId)}
+                index={deskIndex(index)}
+                kicker={dac.publicId}
+                title={organizationById(dac.producerOrganizationId)?.name ?? dac.producerOrganizationId}
+                hint={[
+                  lookupMessage(tCatalog, `crops.${dac.crop}`),
+                  String(dac.harvestYear),
+                  dac.cadastreNumber,
+                ].join(" · ")}
+                value={<StatusBadge value={dac.status} />}
+              />
+            ))}
+          </DeskLedger>
+        )}
+      </PageSection>
+      <PageSection title={t("demonstratorTitle")} description={t("demonstratorLead")}>
       <DeskSplit
         compact={
           <DeskLedger>
@@ -200,6 +237,7 @@ export default async function ContractsPage() {
           </Table>
         }
       />
+      </PageSection>
     </div>
   );
 }

@@ -14,6 +14,8 @@ import type {
   FieldVerificationEvidenceRecord,
   FieldVerificationMessageRecord,
   OriginationAuditEvent,
+  OriginationDacMessageRecord,
+  OriginationDacRecord,
   ProducerFieldRecord,
   VerifiedFieldSnapshotRecord,
 } from "./types";
@@ -79,4 +81,16 @@ export interface OriginationStore {
   applyChangeRequestBundle(input: ChangeRequestBundle): Promise<void>;
   applyApprovalBundle(input: ApprovalBundle): Promise<VerifiedFieldSnapshotRecord>;
   applyRejectionBundle(input: RejectionBundle): Promise<void>;
+  nextDacSequence(): Promise<number>;
+  createDac(record: OriginationDacRecord, event: OriginationAuditEvent): Promise<OriginationDacRecord>;
+  updateDac(record: OriginationDacRecord): Promise<OriginationDacRecord>;
+  getDacById(id: string): Promise<OriginationDacRecord | null>;
+  getDacByPublicId(publicId: string): Promise<OriginationDacRecord | null>;
+  getActiveDacBySnapshot(snapshotId: string): Promise<OriginationDacRecord | null>;
+  getActiveDacByField(fieldId: string): Promise<OriginationDacRecord | null>;
+  listDacs(): Promise<OriginationDacRecord[]>;
+  insertDacMessage(record: OriginationDacMessageRecord): Promise<OriginationDacMessageRecord>;
+  listDacMessages(dacId: string): Promise<OriginationDacMessageRecord[]>;
+  insertDacEvent(record: OriginationAuditEvent): Promise<OriginationAuditEvent>;
+  listDacEvents(dacId: string): Promise<OriginationAuditEvent[]>;
 }

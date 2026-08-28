@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataList } from "@/components/shared/data-list";
@@ -30,6 +31,7 @@ import {
   requestReplacementAction,
   sendCaseMessageAction,
 } from "@/app/scas/verification/actions";
+import { createDacAction } from "@/app/scas/dacs/actions";
 import { stageMediaForRole } from "@/lib/surface/role-media";
 
 export async function generateMetadata({
@@ -66,7 +68,7 @@ export default async function ScasVerificationCasePage({
   const tCatalog = await getTranslations("catalog");
   const locale = (await getLocale()) as AppLocale;
   const media = stageMediaForRole("SCAS_OPERATOR");
-  const { field, documents, cadastre, evidence, messages, verificationCase, submissions } = bundle;
+  const { field, documents, cadastre, evidence, messages, verificationCase, submissions, dac } = bundle;
   const currentDocs = documents.filter((document) => document.current);
   const viewerItems = [
     ...documentsToViewerItems(documents),
@@ -74,6 +76,8 @@ export default async function ScasVerificationCasePage({
   ];
   const producerName = organizationById(field.organizationId)?.name ?? field.organizationId;
   const latestSubmission = submissions.at(-1);
+  const verified = verificationCase.status === "VERIFIED";
+  const closed = verified || verificationCase.status === "REJECTED";
 
   return (
     <div>
@@ -121,26 +125,30 @@ export default async function ScasVerificationCasePage({
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <StatusBadge value={document.status} />
-                  <form action={acceptDocumentAction}>
-                    <input type="hidden" name="caseId" value={verificationCase.publicId} />
-                    <input type="hidden" name="documentId" value={document.id} />
-                    <FormSubmitButton size="xs" variant="ghost" pendingLabel={t("accept")}>
-                      {t("accept")}
-                    </FormSubmitButton>
-                  </form>
-                  <form action={requestReplacementAction} className="grid gap-2">
-                    <input type="hidden" name="caseId" value={verificationCase.publicId} />
-                    <input type="hidden" name="documentId" value={document.id} />
-                    <input
-                      name="comment"
-                      required
-                      placeholder={t("replacementComment")}
-                      className="desk-control h-8 w-full min-w-[12rem]"
-                    />
-                    <FormSubmitButton size="xs" variant="ghost" pendingLabel={t("requestReplacement")}>
-                      {t("requestReplacement")}
-                    </FormSubmitButton>
-                  </form>
+                  {closed ? null : (
+                    <>
+                      <form action={acceptDocumentAction}>
+                        <input type="hidden" name="caseId" value={verificationCase.publicId} />
+                        <input type="hidden" name="documentId" value={document.id} />
+                        <FormSubmitButton size="xs" variant="ghost" pendingLabel={t("accept")}>
+                          {t("accept")}
+                        </FormSubmitButton>
+                      </form>
+                      <form action={requestReplacementAction} className="grid gap-2">
+                        <input type="hidden" name="caseId" value={verificationCase.publicId} />
+                        <input type="hidden" name="documentId" value={document.id} />
+                        <input
+                          name="comment"
+                          required
+                          placeholder={t("replacementComment")}
+                          className="desk-control h-8 w-full min-w-[12rem]"
+                        />
+                        <FormSubmitButton size="xs" variant="ghost" pendingLabel={t("requestReplacement")}>
+                          {t("requestReplacement")}
+                        </FormSubmitButton>
+                      </form>
+                    </>
+                  )}
                 </div>
               </li>
             ))}
@@ -152,21 +160,24 @@ export default async function ScasVerificationCasePage({
         </section>
 
         <aside className="order-3 min-w-0">
-          <form action={assignReviewerAction} className="mb-8 grid gap-2">
-            <span className="label-caps">{t("assign")}</span>
-            <input
-              name="reviewerUserId"
-              defaultValue={verificationCase.assignedReviewerUserId ?? actor.principal.userId}
-              className="desk-control h-8 w-full font-tabular"
-            />
-            <input type="hidden" name="caseId" value={verificationCase.publicId} />
-            <FormSubmitButton size="xs" pendingLabel={t("assign")}>
-              {t("assign")}
-            </FormSubmitButton>
-          </form>
+          {closed ? null : (
+            <form action={assignReviewerAction} className="mb-8 grid gap-2">
+              <span className="label-caps">{t("assign")}</span>
+              <input
+                name="reviewerUserId"
+                defaultValue={verificationCase.assignedReviewerUserId ?? actor.principal.userId}
+                className="desk-control h-8 w-full font-tabular"
+              />
+              <input type="hidden" name="caseId" value={verificationCase.publicId} />
+              <FormSubmitButton size="xs" pendingLabel={t("assign")}>
+                {t("assign")}
+              </FormSubmitButton>
+            </form>
+          )}
 
           <p className="label-caps text-harvest">{t("cadastreForm")}</p>
           <p className="mt-2 text-xs text-straw">{t("providerManual")}</p>
+          {closed ? null : (
           <form action={recordCadastreAction} className="mt-4 grid gap-3">
             <input type="hidden" name="caseId" value={verificationCase.publicId} />
             <input
@@ -212,6 +223,7 @@ export default async function ScasVerificationCasePage({
             <textarea name="notes" defaultValue={cadastre?.notes ?? ""} className="desk-control min-h-[4rem] w-full py-2" />
             <FormSubmitButton pendingLabel={t("recordCadastre")}>{t("recordCadastre")}</FormSubmitButton>
           </form>
+          )}
 
           {cadastre && field.declared.declaredAreaHa != null && cadastre.registeredAreaHa != null ? (
             <p className="mt-4 font-tabular text-sm text-straw">
@@ -228,6 +240,7 @@ export default async function ScasVerificationCasePage({
           ) : null}
 
           <p className="mt-10 label-caps text-harvest">{t("evidence")}</p>
+          {closed ? null : (
           <form action={addEvidenceAction} className="mt-4 grid gap-3">
             <input type="hidden" name="caseId" value={verificationCase.publicId} />
             <select name="kind" className="desk-control h-8 w-full">
@@ -241,6 +254,7 @@ export default async function ScasVerificationCasePage({
             <input type="file" name="file" accept="application/pdf,image/jpeg,image/png" className="desk-control h-10 w-full text-xs" />
             <FormSubmitButton pendingLabel={t("addEvidence")}>{t("addEvidence")}</FormSubmitButton>
           </form>
+          )}
 
           <p className="mt-10 label-caps text-harvest">{t("conversation")}</p>
           <ul className="mt-3 max-h-64 overflow-auto divide-y divide-harvest/15 border-y border-harvest/20">
@@ -254,9 +268,26 @@ export default async function ScasVerificationCasePage({
             ))}
           </ul>
           <div className="mt-4">
-            <MessageForm action={sendCaseMessageAction} caseId={verificationCase.publicId} />
+            {closed ? null : (
+              <MessageForm action={sendCaseMessageAction} caseId={verificationCase.publicId} />
+            )}
           </div>
 
+          {verified ? (
+            <div className="mt-10 grid gap-4">
+              <p className="text-sm text-straw">{t("dacNotAToken")}</p>
+              {dac ? (
+                <Link href={`/scas/dacs/${dac.publicId}`} className="label-caps text-harvest">
+                  {t("dacOpenExisting")} · {dac.publicId}
+                </Link>
+              ) : (
+                <form action={createDacAction}>
+                  <input type="hidden" name="caseId" value={verificationCase.publicId} />
+                  <FormSubmitButton pendingLabel={t("dacCreate")}>{t("dacCreate")}</FormSubmitButton>
+                </form>
+              )}
+            </div>
+          ) : closed ? null : (
           <div className="mt-10 grid gap-6">
             <form action={requestChangesAction} className="grid gap-2">
               <input type="hidden" name="caseId" value={verificationCase.publicId} />
@@ -277,6 +308,7 @@ export default async function ScasVerificationCasePage({
               <FormSubmitButton pendingLabel={t("approve")}>{t("approve")}</FormSubmitButton>
             </form>
           </div>
+          )}
           {latestSubmission ? (
             <p className="mt-4 font-tabular text-xs text-straw">
               {t("submitted")}: {formatTimestamp(latestSubmission.submittedAt, locale)}

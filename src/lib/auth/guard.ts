@@ -95,6 +95,18 @@ export async function requireScasVerifier() {
   return actor;
 }
 
+export async function requireRegistrarIntake() {
+  const actor = await loadAuthorizedActor();
+  if (
+    actor.effective.organization?.type !== "REGISTRAR" ||
+    !actorCan(actor, "issuance.manage") ||
+    !actorCan(actor, "audit.read")
+  ) {
+    forbidden();
+  }
+  return actor;
+}
+
 export function assertAuthConfigured() {
   if (!isAuthConfigured()) {
     redirect("/login?reason=not_configured");
