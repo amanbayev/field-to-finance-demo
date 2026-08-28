@@ -133,6 +133,7 @@ describe("effective navigation", () => {
   it("issuer nav points instrument and issuance to distinct routes", () => {
     expect(keysOf("DEMO-ISSUER-001")).toEqual([
       "dashboard",
+      "issuerDacs",
       "contracts",
       "pools",
       "coverage",
@@ -140,6 +141,7 @@ describe("effective navigation", () => {
       "iss001",
       "primaryPlacements",
     ]);
+    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/issuer/dacs");
     expect(hrefsOf("DEMO-ISSUER-001")).toContain("/instruments/WHEAT-2027");
     expect(hrefsOf("DEMO-ISSUER-001")).toContain("/issuances/ISS-001");
     expect(hrefsOf("DEMO-ISSUER-001")).toContain("/placements");

@@ -10,6 +10,7 @@ export const PREFIX_ACTIVE_HREFS = new Set([
   "/fields",
   "/scas/verification",
   "/scas/dacs",
+  "/issuer/dacs",
   "/registrar/intake",
   "/monitoring",
   "/documents",

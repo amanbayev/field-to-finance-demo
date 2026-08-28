@@ -20,9 +20,11 @@ import {
   LIVE_ORIGINATION_DAC_SEQUENCE_START,
   OriginationError,
 } from "./types";
+import { hashCurrentDacTerms } from "./terms";
 import type {
   ApprovalBundle,
   ChangeRequestBundle,
+  DacTransitionBundle,
   DocumentCommitBundle,
   RejectionBundle,
   SubmissionBundle,
@@ -118,7 +120,12 @@ export class MemoryOriginationStore implements OriginationStore {
     this.snapshots = new Map((parsed.snapshots ?? []).map((record) => [record.fieldId, record]));
     this.events = parsed.events ?? [];
     this.intents = new Map((parsed.intents ?? []).map((record) => [record.id, record]));
-    this.dacs = new Map((parsed.dacs ?? []).map((record) => [record.id, record]));
+    this.dacs = new Map(
+      (parsed.dacs ?? []).map((record) => [
+        record.id,
+        normalizePersistedDac(record),
+      ]),
+    );
     this.dacMessages = parsed.dacMessages ?? [];
     this.dacEvents = parsed.dacEvents ?? [];
     this.blobs = new Map(
@@ -832,10 +839,57 @@ export class MemoryOriginationStore implements OriginationStore {
     });
   }
 
-  async updateDac(record: OriginationDacRecord) {
+  async applyDacTransition(input: DacTransitionBundle) {
     return this.write(() => {
-      this.dacs.set(record.id, clone(record));
-      return clone(record);
+      const current = this.dacs.get(input.dac.id);
+      if (!current) {
+        throw new OriginationError("not_found", "origination DAC not found");
+      }
+      if (!input.expectedStatuses.includes(current.status)) {
+        throw new OriginationError("invalid_state", "Not in an allowed source state.");
+      }
+      if (
+        input.expectedProducerOrganizationId &&
+        current.producerOrganizationId !== input.expectedProducerOrganizationId
+      ) {
+        throw new OriginationError("invalid_state", "Producer organization does not match.");
+      }
+      if (
+        input.expectedIssuerOrganizationId &&
+        current.issuerOrganizationId !== input.expectedIssuerOrganizationId
+      ) {
+        throw new OriginationError("invalid_state", "Issuer organization does not match.");
+      }
+      if (input.expectedTermsHash && current.currentTermsHash !== input.expectedTermsHash) {
+        throw new OriginationError("invalid_state", "terms hash mismatch");
+      }
+      if (input.kind === "issuer_confirm") {
+        if (
+          !current.producerConfirmedTermsHash ||
+          current.producerConfirmedTermsHash !== current.currentTermsHash
+        ) {
+          throw new OriginationError("invalid_state", "Issuer confirmation requires the same terms hash.");
+        }
+        if (
+          input.dac.issuerConfirmedTermsHash &&
+          input.dac.issuerConfirmedTermsHash !== current.currentTermsHash
+        ) {
+          throw new OriginationError("invalid_state", "terms hash mismatch");
+        }
+      }
+      const next = clone(input.dac);
+      this.dacs.set(next.id, next);
+      this.dacEvents.push(clone(input.event));
+      this.events.push(
+        clone({
+          ...input.event,
+          metadata: { ...input.event.metadata, fieldId: next.fieldId },
+        }),
+      );
+      if (input.message) {
+        this.dacMessages.push(clone(input.message));
+      }
+      return clone(next);
     });
   }
 
@@ -918,4 +972,32 @@ export class MemoryOriginationStore implements OriginationStore {
         .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
     );
   }
+}
+
+function normalizePersistedDac(
+  record: OriginationDacRecord & { rightHolder?: string; rightType?: string },
+): OriginationDacRecord {
+  const next: OriginationDacRecord = {
+    ...record,
+    issuerOrganizationId: record.issuerOrganizationId ?? null,
+    landRightHolder: record.landRightHolder ?? record.rightHolder ?? "",
+    landRightType: record.landRightType ?? record.rightType ?? "",
+    termsVersion: record.termsVersion ?? 1,
+    currentTermsHash: record.currentTermsHash ?? "",
+    producerConfirmedTermsHash: record.producerConfirmedTermsHash ?? null,
+    producerConfirmedByUserId: record.producerConfirmedByUserId ?? null,
+    producerConfirmedByRole: record.producerConfirmedByRole ?? null,
+    producerConfirmedAt: record.producerConfirmedAt ?? null,
+    issuerConfirmedTermsHash: record.issuerConfirmedTermsHash ?? null,
+    issuerConfirmedByUserId: record.issuerConfirmedByUserId ?? null,
+    issuerConfirmedByRole: record.issuerConfirmedByRole ?? null,
+    issuerConfirmedAt: record.issuerConfirmedAt ?? null,
+    executedTermsSnapshot: record.executedTermsSnapshot ?? null,
+    executedTermsHash: record.executedTermsHash ?? null,
+    executedAt: record.executedAt ?? null,
+  };
+  return {
+    ...next,
+    currentTermsHash: next.currentTermsHash || hashCurrentDacTerms(next),
+  };
 }

@@ -1,6 +1,7 @@
 import type {
   ApprovalBundle,
   ChangeRequestBundle,
+  DacTransitionBundle,
   DocumentCommitBundle,
   RejectionBundle,
   SubmissionBundle,
@@ -83,7 +84,7 @@ export interface OriginationStore {
   applyRejectionBundle(input: RejectionBundle): Promise<void>;
   nextDacSequence(): Promise<number>;
   createDac(record: OriginationDacRecord, event: OriginationAuditEvent): Promise<OriginationDacRecord>;
-  updateDac(record: OriginationDacRecord): Promise<OriginationDacRecord>;
+  applyDacTransition(input: DacTransitionBundle): Promise<OriginationDacRecord>;
   getDacById(id: string): Promise<OriginationDacRecord | null>;
   getDacByPublicId(publicId: string): Promise<OriginationDacRecord | null>;
   getActiveDacBySnapshot(snapshotId: string): Promise<OriginationDacRecord | null>;

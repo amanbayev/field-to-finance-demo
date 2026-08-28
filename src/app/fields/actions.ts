@@ -107,3 +107,36 @@ export async function sendFieldMessageAction(formData: FormData) {
   });
   revalidatePath(`/fields/${fieldId}`);
 }
+
+export async function confirmDacTermsAction(formData: FormData) {
+  const actor = await requireOwnProducerWorkspace({ manage: true });
+  const dacId = String(formData.get("dacId") ?? "");
+  const fieldId = String(formData.get("fieldId") ?? "");
+  try {
+    await originationService().confirmDacAsProducer(actor, dacId);
+    revalidatePath(`/fields/${fieldId}`);
+    revalidatePath("/issuer/dacs");
+    revalidatePath("/scas/dacs");
+  } catch (error) {
+    if (error instanceof OriginationError) {
+      redirect(`/fields/${fieldId}?tab=contracts&error=${encodeURIComponent(error.code)}`);
+    }
+    throw error;
+  }
+}
+
+export async function returnDacTermsAction(formData: FormData) {
+  const actor = await requireOwnProducerWorkspace({ manage: true });
+  const dacId = String(formData.get("dacId") ?? "");
+  const fieldId = String(formData.get("fieldId") ?? "");
+  try {
+    await originationService().returnDacAsProducer(actor, dacId, String(formData.get("reason") ?? ""));
+    revalidatePath(`/fields/${fieldId}`);
+    revalidatePath("/scas/dacs");
+  } catch (error) {
+    if (error instanceof OriginationError) {
+      redirect(`/fields/${fieldId}?tab=contracts&error=${encodeURIComponent(error.code)}`);
+    }
+    throw error;
+  }
+}

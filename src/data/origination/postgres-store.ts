@@ -19,6 +19,7 @@ import type {
 import type {
   ApprovalBundle,
   ChangeRequestBundle,
+  DacTransitionBundle,
   DocumentCommitBundle,
   RejectionBundle,
   SubmissionBundle,
@@ -32,7 +33,7 @@ function fail(error: { message?: string; code?: string } | null, fallback = "sto
   if (
     error?.code === "23505" ||
     error?.code === "P0001" ||
-    /already verified|duplicate|expected state|not usable|current version|already in progress|upload window|not allowed source|approval requires|terminal state|not bound|does not belong|case is not in the expected/i.test(
+    /already verified|duplicate|expected state|not usable|current version|already in progress|upload window|not allowed source|approval requires|terminal state|not bound|does not belong|case is not in the expected|terms hash|issuer organization|producer organization|not permitted/i.test(
       message,
     )
   ) {
@@ -764,17 +765,38 @@ export class PostgresOriginationStore implements OriginationStore {
     return dacFrom(row);
   }
 
-  async updateDac(record: OriginationDacRecord) {
-    const { data, error } = await this.client
-      .from("origination_dacs")
-      .update(dacToRow(record))
-      .eq("id", record.id)
-      .select()
-      .single();
+  async applyDacTransition(input: DacTransitionBundle) {
+    const rpcName: Record<DacTransitionBundle["kind"], string> = {
+      update_draft: "origination_update_dac_draft",
+      send_to_producer: "origination_send_dac_to_producer",
+      producer_confirm: "origination_producer_confirm_dac",
+      producer_return: "origination_producer_return_dac",
+      issuer_confirm: "origination_issuer_confirm_dac",
+      issuer_return: "origination_issuer_return_dac",
+      submit_to_registrar: "origination_submit_dac_to_registrar",
+      start_review: "origination_start_dac_review",
+      accept: "origination_accept_dac",
+      return_intake: "origination_return_dac_intake",
+    };
+    const { data, error } = await this.client.rpc(rpcName[input.kind], {
+      payload: {
+        expected_statuses: input.expectedStatuses,
+        expected_producer_organization_id: input.expectedProducerOrganizationId ?? null,
+        expected_issuer_organization_id: input.expectedIssuerOrganizationId ?? null,
+        expected_terms_hash: input.expectedTermsHash ?? null,
+        dac: dacToRow(input.dac),
+        event: eventToRow(input.event),
+        message: input.message ? dacMessageToRow(input.message) : null,
+      },
+    });
     if (error) {
       fail(error);
     }
-    return dacFrom(data as Row);
+    const row = (data as { dac?: Row } | null)?.dac;
+    if (!row) {
+      fail({ message: "origination DAC transition returned no record" });
+    }
+    return dacFrom(row);
   }
 
   async getDacById(id: string) {
@@ -1181,6 +1203,7 @@ function dacToRow(record: OriginationDacRecord): Row {
     verified_snapshot_id: record.verifiedSnapshotId,
     scas_case_id: record.scasCaseId,
     producer_organization_id: record.producerOrganizationId,
+    issuer_organization_id: record.issuerOrganizationId,
     status: record.status,
     crop: record.crop,
     harvest_year: record.harvestYear,
@@ -1192,10 +1215,23 @@ function dacToRow(record: OriginationDacRecord): Row {
     verified_area_hectares: record.verifiedAreaHectares,
     region: record.region,
     district: record.district,
-    right_holder: record.rightHolder,
-    right_type: record.rightType,
+    land_right_holder: record.landRightHolder,
+    land_right_type: record.landRightType,
     scas_notes: record.scasNotes,
     registrar_notes: record.registrarNotes,
+    terms_version: record.termsVersion,
+    current_terms_hash: record.currentTermsHash,
+    producer_confirmed_terms_hash: record.producerConfirmedTermsHash,
+    producer_confirmed_by_user_id: record.producerConfirmedByUserId,
+    producer_confirmed_by_role: record.producerConfirmedByRole,
+    producer_confirmed_at: record.producerConfirmedAt,
+    issuer_confirmed_terms_hash: record.issuerConfirmedTermsHash,
+    issuer_confirmed_by_user_id: record.issuerConfirmedByUserId,
+    issuer_confirmed_by_role: record.issuerConfirmedByRole,
+    issuer_confirmed_at: record.issuerConfirmedAt,
+    executed_terms_snapshot: record.executedTermsSnapshot,
+    executed_terms_hash: record.executedTermsHash,
+    executed_at: record.executedAt,
     created_by_user_id: record.createdByUserId,
     updated_by_user_id: record.updatedByUserId,
     registrar_reviewed_by_user_id: record.registrarReviewedByUserId,
@@ -1215,6 +1251,7 @@ function dacFrom(row: Row): OriginationDacRecord {
     verifiedSnapshotId: String(row.verified_snapshot_id),
     scasCaseId: String(row.scas_case_id),
     producerOrganizationId: String(row.producer_organization_id),
+    issuerOrganizationId: (row.issuer_organization_id as string | null) ?? null,
     status: row.status as OriginationDacRecord["status"],
     crop: String(row.crop ?? ""),
     harvestYear: Number(row.harvest_year ?? 0),
@@ -1226,10 +1263,23 @@ function dacFrom(row: Row): OriginationDacRecord {
     verifiedAreaHectares: num(row.verified_area_hectares),
     region: (row.region as string | null) ?? null,
     district: (row.district as string | null) ?? null,
-    rightHolder: String(row.right_holder ?? ""),
-    rightType: String(row.right_type ?? ""),
+    landRightHolder: String(row.land_right_holder ?? ""),
+    landRightType: String(row.land_right_type ?? ""),
     scasNotes: String(row.scas_notes ?? ""),
     registrarNotes: String(row.registrar_notes ?? ""),
+    termsVersion: Number(row.terms_version ?? 1),
+    currentTermsHash: String(row.current_terms_hash ?? ""),
+    producerConfirmedTermsHash: (row.producer_confirmed_terms_hash as string | null) ?? null,
+    producerConfirmedByUserId: (row.producer_confirmed_by_user_id as string | null) ?? null,
+    producerConfirmedByRole: (row.producer_confirmed_by_role as string | null) ?? null,
+    producerConfirmedAt: (row.producer_confirmed_at as string | null) ?? null,
+    issuerConfirmedTermsHash: (row.issuer_confirmed_terms_hash as string | null) ?? null,
+    issuerConfirmedByUserId: (row.issuer_confirmed_by_user_id as string | null) ?? null,
+    issuerConfirmedByRole: (row.issuer_confirmed_by_role as string | null) ?? null,
+    issuerConfirmedAt: (row.issuer_confirmed_at as string | null) ?? null,
+    executedTermsSnapshot: (row.executed_terms_snapshot as Record<string, unknown> | null) ?? null,
+    executedTermsHash: (row.executed_terms_hash as string | null) ?? null,
+    executedAt: (row.executed_at as string | null) ?? null,
     createdByUserId: String(row.created_by_user_id),
     updatedByUserId: String(row.updated_by_user_id),
     registrarReviewedByUserId: (row.registrar_reviewed_by_user_id as string | null) ?? null,
@@ -1251,5 +1301,18 @@ function dacMessageFrom(row: Row): OriginationDacMessageRecord {
     body: String(row.body),
     messageType: row.message_type as OriginationDacMessageRecord["messageType"],
     createdAt: String(row.created_at),
+  };
+}
+
+function dacMessageToRow(record: OriginationDacMessageRecord): Row {
+  return {
+    id: record.id,
+    dac_id: record.dacId,
+    sender_user_id: record.senderUserId,
+    sender_role: record.senderRole,
+    sender_persona_id: record.senderPersonaId,
+    body: record.body,
+    message_type: record.messageType,
+    created_at: record.createdAt,
   };
 }

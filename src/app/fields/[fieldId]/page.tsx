@@ -12,19 +12,24 @@ import type { AppLocale } from "@/i18n/config";
 import { formatNumber, formatTimestamp } from "@/lib/format";
 import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
 import { originationService } from "@/services/origination-service";
-import { OriginationError, producerDacTimelineKey, producerNextActionMessageKey } from "@/domain/origination";
+import { OriginationError, allowsProducerDacConfirm, producerDacTimelineKey, producerNextActionMessageKey } from "@/domain/origination";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import {
   demonstratorContractPath,
   isDemonstratorContractId,
 } from "@/lib/origination/paths";
 import {
+  confirmDacTermsAction,
   resubmitFieldAction,
+  returnDacTermsAction,
   sendFieldMessageAction,
   submitFieldAction,
   updateFieldAction,
 } from "@/app/fields/actions";
 import { FormSubmitButton } from "@/components/identity/form-submit-button";
+import { DacPartiesPanel, DacStageLegend } from "@/components/origination/dac-parties";
+import { organizationById } from "@/data/identity/demo-catalog";
+import { shortenTermsHash } from "@/domain/origination/terms";
 
 export const dynamic = "force-dynamic";
 
@@ -286,13 +291,57 @@ export default async function FieldDetailPage({
       ) : null}
       {tab === "contracts" ? (
         dac ? (
-          <PageSection title={tOrig("tabContracts")} description={tOrig("contractsSoon")}>
-            <DataList
-              items={[
-                { label: tOrig("dacId"), value: dac.publicId },
-                { label: tOrig("dacDeskTitle"), value: <StatusBadge value={dac.status} /> },
-              ]}
-            />
+          <PageSection title={tOrig("tabContracts")} description={tOrig("stageLegend")}>
+            <DacStageLegend />
+            <div className="mt-6">
+              <DacPartiesPanel dac={dac} />
+            </div>
+            <div className="mt-8">
+              <DataList
+                items={[
+                  { label: tOrig("dacId"), value: dac.publicId },
+                  { label: tOrig("dacDeskTitle"), value: <StatusBadge value={dac.status} /> },
+                  {
+                    label: tOrig("issuer"),
+                    value: dac.issuerOrganizationId
+                      ? (organizationById(dac.issuerOrganizationId)?.name ?? dac.issuerOrganizationId)
+                      : tOrig("issuerNotSelected"),
+                  },
+                  { label: tOrig("crop"), value: lookupMessage(tCatalog, `crops.${dac.crop}`) },
+                  { label: tOrig("harvestYear"), value: String(dac.harvestYear) },
+                  {
+                    label: tOrig("expectedVolume"),
+                    value: dac.expectedVolumeTonnes != null ? String(dac.expectedVolumeTonnes) : "—",
+                  },
+                  { label: tOrig("qualityClass"), value: dac.qualityClass ?? "—" },
+                  { label: tOrig("termsVersion"), value: String(dac.termsVersion) },
+                  { label: tOrig("termsHash"), value: shortenTermsHash(dac.currentTermsHash) },
+                ]}
+              />
+            </div>
+            {allowsProducerDacConfirm(dac.status) ? (
+              <div className="mt-8 grid gap-6">
+                <form action={confirmDacTermsAction}>
+                  <input type="hidden" name="dacId" value={dac.publicId} />
+                  <input type="hidden" name="fieldId" value={field.publicId} />
+                  <FormSubmitButton pendingLabel={tOrig("confirmTerms")}>{tOrig("confirmTerms")}</FormSubmitButton>
+                  <p className="mt-2 text-xs text-straw">{tOrig("demoConfirmation")}</p>
+                </form>
+                <form action={returnDacTermsAction} className="grid gap-2">
+                  <input type="hidden" name="dacId" value={dac.publicId} />
+                  <input type="hidden" name="fieldId" value={field.publicId} />
+                  <textarea
+                    name="reason"
+                    required
+                    placeholder={tOrig("returnReason")}
+                    className="desk-control min-h-[4rem] w-full py-2"
+                  />
+                  <FormSubmitButton variant="outline" pendingLabel={tOrig("returnForChanges")}>
+                    {tOrig("returnForChanges")}
+                  </FormSubmitButton>
+                </form>
+              </div>
+            ) : null}
             <ul className="mt-8 divide-y divide-harvest/15 border-y border-harvest/20">
               {events.flatMap((event) => {
                 const copyKey = producerDacTimelineKey(event.eventType);

@@ -20,12 +20,14 @@ export async function DacDesk({
   tab,
   messageAction,
   children,
+  allowComments = true,
 }: {
   bundle: DacBundle;
   basePath: string;
   tab: string;
-  messageAction: (formData: FormData) => void | Promise<void>;
+  messageAction?: (formData: FormData) => void | Promise<void>;
   children?: React.ReactNode;
+  allowComments?: boolean;
 }) {
   const t = await getTranslations("origination");
   const tUnits = await getTranslations("units");
@@ -68,10 +70,11 @@ export async function DacDesk({
             <DataList
               items={[
                 { label: t("producer"), value: producerName },
+                { label: t("issuer"), value: organizationById(dac.issuerOrganizationId ?? "")?.name ?? t("issuerNotSelected") },
                 { label: t("fieldId"), value: field.publicId },
                 { label: t("cadastre"), value: dac.cadastreNumber },
-                { label: t("rightHolder"), value: dac.rightHolder },
-                { label: t("rightType"), value: dac.rightType },
+                { label: t("landRightHolder"), value: dac.landRightHolder },
+                { label: t("landRightType"), value: dac.landRightType },
                 {
                   label: t("declaredArea"),
                   value:
@@ -133,7 +136,7 @@ export async function DacDesk({
                     { label: t("crop"), value: lookupMessage(tCatalog, `crops.${dac.crop}`) },
                     { label: t("harvestYear"), value: String(dac.harvestYear) },
                     { label: t("cadastre"), value: dac.cadastreNumber },
-                    { label: t("rightHolder"), value: dac.rightHolder },
+                    { label: t("landRightHolder"), value: dac.landRightHolder },
                   ]}
                 />
               </div>
@@ -173,9 +176,11 @@ export async function DacDesk({
                   ))}
                 </ul>
               )}
-              <div className="mt-6">
-                <MessageForm action={messageAction} dacId={dac.publicId} />
-              </div>
+              {allowComments && messageAction ? (
+                <div className="mt-6">
+                  <MessageForm action={messageAction} dacId={dac.publicId} />
+                </div>
+              ) : null}
             </PageSection>
           ) : null}
           {activeTab === "audit" ? (

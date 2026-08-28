@@ -39,6 +39,12 @@ export const authenticatedNavGroups: PermissionNavGroup[] = [
     key: "effective",
     items: [
       { href: "/", key: "dashboard" },
+      {
+        href: "/issuer/dacs",
+        key: "issuerDacs",
+        anyOf: ["issuance.manage"],
+        noneOf: ["admin.access", "audit.read"],
+      },
 
       {
         href: "/markets",

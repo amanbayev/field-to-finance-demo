@@ -2,13 +2,16 @@ import {
   actorCan,
   type ActorContext,
 } from "@/domain/identity";
+import { isDacExecutedOrLater, isRegistrarVisibleDac } from "./state-guards";
 import type {
   FieldLifecycleStatus,
+  OriginationDacRecord,
   OriginationDacStatus,
   ProducerFieldFilter,
   RegistrarDacFilter,
   ScasCaseFilter,
   ScasDacFilter,
+  IssuerDacFilter,
 } from "./types";
 
 export function actorStamp(actor: ActorContext) {
@@ -32,6 +35,13 @@ export function isScasVerifier(actor: ActorContext): boolean {
   return (
     actor.effective.organization?.type === "SCAS" &&
     actorCan(actor, "scas.verify")
+  );
+}
+
+export function isIssuerOperator(actor: ActorContext): boolean {
+  return (
+    actor.effective.organization?.type === "ISSUER" &&
+    actorCan(actor, "issuance.manage")
   );
 }
 
@@ -130,18 +140,40 @@ export function producerNextAction(status: FieldLifecycleStatus): string {
   }
 }
 
-export function canReadOriginationDac(
-  actor: ActorContext,
-  producerOrganizationId: string,
-  status: OriginationDacStatus,
-): boolean {
-  if (isScasVerifier(actor) || actorCan(actor, "fields.read.all")) {
+export function canReadOriginationDac(actor: ActorContext, dac: OriginationDacRecord): boolean {
+  if (isScasVerifier(actor)) {
     return true;
   }
-  if (isRegistrarIntakeOperator(actor) || actorCan(actor, "contracts.read.all")) {
-    return status !== "DRAFT";
+  if (isProducerOperator(actor) && actor.effective.organization?.id === dac.producerOrganizationId) {
+    return true;
   }
-  return isProducerOperator(actor) && actor.effective.organization?.id === producerOrganizationId;
+  if (
+    isIssuerOperator(actor) &&
+    dac.issuerOrganizationId &&
+    actor.effective.organization?.id === dac.issuerOrganizationId
+  ) {
+    return true;
+  }
+  if (isRegistrarIntakeOperator(actor)) {
+    return isRegistrarVisibleDac(dac.status);
+  }
+  if (actorCan(actor, "contracts.read.all") || actorCan(actor, "fields.read.all")) {
+    return isDacExecutedOrLater(dac.status);
+  }
+  return false;
+}
+
+export function canListLiveDacOnContractsIndex(
+  actor: ActorContext,
+  dac: OriginationDacRecord,
+): boolean {
+  if (!canReadOriginationDac(actor, dac) || dac.status === "ARCHIVED") {
+    return false;
+  }
+  if (isProducerOperator(actor)) {
+    return true;
+  }
+  return isDacExecutedOrLater(dac.status);
 }
 
 export function matchesScasDacFilter(status: OriginationDacStatus, filter: ScasDacFilter): boolean {
@@ -150,6 +182,10 @@ export function matchesScasDacFilter(status: OriginationDacStatus, filter: ScasD
       return true;
     case "draft":
       return status === "DRAFT";
+    case "pending":
+      return status === "PENDING_PRODUCER_CONFIRMATION" || status === "PENDING_ISSUER_CONFIRMATION";
+    case "executed":
+      return status === "EXECUTED";
     case "ready":
       return status === "READY_FOR_REGISTRAR";
     case "under_review":
@@ -167,7 +203,7 @@ export function matchesRegistrarDacFilter(
   status: OriginationDacStatus,
   filter: RegistrarDacFilter,
 ): boolean {
-  if (status === "DRAFT" || status === "ARCHIVED") {
+  if (!isRegistrarVisibleDac(status)) {
     return false;
   }
   switch (filter) {
@@ -184,11 +220,29 @@ export function matchesRegistrarDacFilter(
   }
 }
 
+export function matchesIssuerDacFilter(status: OriginationDacStatus, filter: IssuerDacFilter): boolean {
+  switch (filter) {
+    case "all":
+      return status !== "ARCHIVED";
+    case "pending":
+      return status === "PENDING_ISSUER_CONFIRMATION" || status === "PENDING_PRODUCER_CONFIRMATION";
+    case "executed":
+      return status === "EXECUTED";
+    case "registrar":
+      return isRegistrarVisibleDac(status);
+  }
+}
+
 export function producerDacTimelineKey(
   eventType: string,
 ):
   | "timelineFieldVerified"
   | "timelineDacOpened"
+  | "timelineSentToProducer"
+  | "timelineProducerConfirmed"
+  | "timelineProducerReturned"
+  | "timelineIssuerConfirmed"
+  | "timelineIssuerReturned"
   | "timelineSubmitted"
   | "timelineReturned"
   | "timelineAccepted"
@@ -198,6 +252,16 @@ export function producerDacTimelineKey(
       return "timelineFieldVerified";
     case "dac_created":
       return "timelineDacOpened";
+    case "dac_sent_to_producer":
+      return "timelineSentToProducer";
+    case "dac_producer_confirmed":
+      return "timelineProducerConfirmed";
+    case "dac_producer_returned":
+      return "timelineProducerReturned";
+    case "dac_issuer_confirmed":
+      return "timelineIssuerConfirmed";
+    case "dac_issuer_returned":
+      return "timelineIssuerReturned";
     case "dac_submitted_to_registrar":
       return "timelineSubmitted";
     case "dac_returned":

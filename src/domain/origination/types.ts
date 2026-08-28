@@ -111,6 +111,11 @@ export const ORIGINATION_EVENT_TYPES = [
   "field_archived",
   "dac_created",
   "dac_updated",
+  "dac_sent_to_producer",
+  "dac_producer_confirmed",
+  "dac_producer_returned",
+  "dac_issuer_confirmed",
+  "dac_issuer_returned",
   "dac_submitted_to_registrar",
   "dac_review_started",
   "dac_returned",
@@ -146,6 +151,9 @@ export type ScasCaseFilter = (typeof SCAS_CASE_FILTERS)[number];
 
 export const ORIGINATION_DAC_STATUSES = [
   "DRAFT",
+  "PENDING_PRODUCER_CONFIRMATION",
+  "PENDING_ISSUER_CONFIRMATION",
+  "EXECUTED",
   "READY_FOR_REGISTRAR",
   "UNDER_REGISTRAR_REVIEW",
   "RETURNED_BY_REGISTRAR",
@@ -159,7 +167,27 @@ export const ACTIVE_ORIGINATION_DAC_STATUSES = ORIGINATION_DAC_STATUSES.filter(
   (status) => status !== "ARCHIVED",
 ) as OriginationDacStatus[];
 
-export const SCAS_DAC_EDITABLE_STATUSES = ["DRAFT", "RETURNED_BY_REGISTRAR"] as const;
+export const SCAS_DAC_EDITABLE_STATUSES = ["DRAFT"] as const;
+
+export const DAC_CONFIRMATION_PENDING_STATUSES = [
+  "PENDING_PRODUCER_CONFIRMATION",
+  "PENDING_ISSUER_CONFIRMATION",
+] as const;
+
+export const DAC_EXECUTED_OR_LATER_STATUSES = [
+  "EXECUTED",
+  "READY_FOR_REGISTRAR",
+  "UNDER_REGISTRAR_REVIEW",
+  "RETURNED_BY_REGISTRAR",
+  "REGISTRAR_ACCEPTED",
+] as const;
+
+export const REGISTRAR_VISIBLE_DAC_STATUSES = [
+  "READY_FOR_REGISTRAR",
+  "UNDER_REGISTRAR_REVIEW",
+  "RETURNED_BY_REGISTRAR",
+  "REGISTRAR_ACCEPTED",
+] as const;
 
 export type ScasDacEditableStatus = (typeof SCAS_DAC_EDITABLE_STATUSES)[number];
 
@@ -170,6 +198,8 @@ export type OriginationDacMessageType = (typeof ORIGINATION_DAC_MESSAGE_TYPES)[n
 export const SCAS_DAC_FILTERS = [
   "all",
   "draft",
+  "pending",
+  "executed",
   "ready",
   "under_review",
   "returned",
@@ -186,6 +216,10 @@ export const REGISTRAR_DAC_FILTERS = [
   "returned",
   "accepted",
 ] as const;
+
+export const ISSUER_DAC_FILTERS = ["all", "pending", "executed", "registrar"] as const;
+
+export type IssuerDacFilter = (typeof ISSUER_DAC_FILTERS)[number];
 
 export type RegistrarDacFilter = (typeof REGISTRAR_DAC_FILTERS)[number];
 
@@ -386,6 +420,7 @@ export interface OriginationDacRecord {
   verifiedSnapshotId: string;
   scasCaseId: string;
   producerOrganizationId: string;
+  issuerOrganizationId: string | null;
   status: OriginationDacStatus;
   crop: string;
   harvestYear: number;
@@ -397,10 +432,23 @@ export interface OriginationDacRecord {
   verifiedAreaHectares: number | null;
   region: string | null;
   district: string | null;
-  rightHolder: string;
-  rightType: string;
+  landRightHolder: string;
+  landRightType: string;
   scasNotes: string;
   registrarNotes: string;
+  termsVersion: number;
+  currentTermsHash: string;
+  producerConfirmedTermsHash: string | null;
+  producerConfirmedByUserId: string | null;
+  producerConfirmedByRole: string | null;
+  producerConfirmedAt: string | null;
+  issuerConfirmedTermsHash: string | null;
+  issuerConfirmedByUserId: string | null;
+  issuerConfirmedByRole: string | null;
+  issuerConfirmedAt: string | null;
+  executedTermsSnapshot: Record<string, unknown> | null;
+  executedTermsHash: string | null;
+  executedAt: string | null;
   createdByUserId: string;
   updatedByUserId: string;
   registrarReviewedByUserId: string | null;
@@ -418,6 +466,7 @@ export interface OriginationDacCommercialInput {
   qualityClass: string | null;
   producerReference: string | null;
   scasNotes: string;
+  issuerOrganizationId: string | null;
 }
 
 export interface OriginationDacMessageRecord {

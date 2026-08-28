@@ -95,6 +95,17 @@ export async function requireScasVerifier() {
   return actor;
 }
 
+export async function requireIssuerOperator() {
+  const actor = await loadAuthorizedActor();
+  if (
+    actor.effective.organization?.type !== "ISSUER" ||
+    !actorCan(actor, "issuance.manage")
+  ) {
+    forbidden();
+  }
+  return actor;
+}
+
 export async function requireRegistrarIntake() {
   const actor = await loadAuthorizedActor();
   if (

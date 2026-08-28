@@ -42,9 +42,24 @@ export async function updateDacAction(formData: FormData) {
       qualityClass: String(formData.get("qualityClass") ?? "") || null,
       producerReference: String(formData.get("producerReference") ?? "") || null,
       scasNotes: String(formData.get("scasNotes") ?? ""),
+      issuerOrganizationId: String(formData.get("issuerOrganizationId") ?? "") || null,
     });
     revalidatePath(`/scas/dacs/${dacId}`);
     revalidatePath("/contracts");
+  } catch (error) {
+    bounce(`/scas/dacs/${dacId}`, error);
+  }
+}
+
+export async function sendDacToProducerAction(formData: FormData) {
+  const actor = await requireScasVerifier();
+  const dacId = String(formData.get("dacId") ?? "");
+  try {
+    await originationService().sendDacToProducer(actor, dacId);
+    revalidatePath("/scas/dacs");
+    revalidatePath("/issuer/dacs");
+    revalidatePath("/contracts");
+    revalidatePath(`/scas/dacs/${dacId}`);
   } catch (error) {
     bounce(`/scas/dacs/${dacId}`, error);
   }

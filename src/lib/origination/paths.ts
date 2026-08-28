@@ -1,5 +1,6 @@
 import type { ActorContext } from "@/domain/identity";
 import {
+  isIssuerOperator,
   isProducerOperator,
   isRegistrarIntakeOperator,
   isScasVerifier,
@@ -28,6 +29,10 @@ export function registrarIntakePath(publicId: string) {
   return `/registrar/intake/${publicId}`;
 }
 
+export function issuerDacPath(publicId: string) {
+  return `/issuer/dacs/${publicId}`;
+}
+
 export function producerDacStatusPath(fieldPublicId: string) {
   return `/fields/${fieldPublicId}?tab=contracts`;
 }
@@ -42,6 +47,9 @@ export function liveOriginatedDacHref(
   }
   if (isRegistrarIntakeOperator(actor)) {
     return registrarIntakePath(dacPublicId);
+  }
+  if (isIssuerOperator(actor)) {
+    return issuerDacPath(dacPublicId);
   }
   if (isProducerOperator(actor) && fieldPublicId) {
     return producerDacStatusPath(fieldPublicId);

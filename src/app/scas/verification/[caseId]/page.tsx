@@ -275,7 +275,7 @@ export default async function ScasVerificationCasePage({
 
           {verified ? (
             <div className="mt-10 grid gap-4">
-              <p className="text-sm text-straw">{t("dacNotAToken")}</p>
+              <p className="text-sm text-straw">{t("dacOpenDraftLead")}</p>
               {dac ? (
                 <Link href={`/scas/dacs/${dac.publicId}`} className="label-caps text-harvest">
                   {t("dacOpenExisting")} · {dac.publicId}

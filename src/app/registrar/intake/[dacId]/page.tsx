@@ -9,6 +9,8 @@ import { FormSubmitButton } from "@/components/identity/form-submit-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DataList } from "@/components/shared/data-list";
 import { lookupMessage } from "@/i18n/t-dynamic";
+import { organizationById } from "@/data/identity/demo-catalog";
+import { DacPartiesPanel } from "@/components/origination/dac-parties";
 import { requireRegistrarIntake } from "@/lib/auth/guard";
 import { originationService } from "@/services/origination-service";
 import {
@@ -81,6 +83,8 @@ export default async function RegistrarIntakeDeskPage({
         tab={query.tab ?? "overview"}
         messageAction={sendRegistrarDacMessageAction}
       >
+        <DacPartiesPanel dac={dac} />
+        <div className="mt-8">
         <DataList
           items={[
             { label: t("crop"), value: lookupMessage(tCatalog, `crops.${dac.crop}`) },
@@ -93,11 +97,25 @@ export default async function RegistrarIntakeDeskPage({
                   : "—",
             },
             { label: t("qualityClass"), value: dac.qualityClass ?? "—" },
+            { label: t("producer"), value: organizationById(dac.producerOrganizationId)?.name ?? dac.producerOrganizationId },
+            {
+              label: t("issuer"),
+              value: dac.issuerOrganizationId
+                ? (organizationById(dac.issuerOrganizationId)?.name ?? dac.issuerOrganizationId)
+                : "—",
+            },
+            { label: t("termsVersion"), value: String(dac.termsVersion) },
+            { label: t("termsHash"), value: dac.executedTermsHash ? dac.executedTermsHash.slice(0, 12) + "…" : "—" },
+            { label: t("executedAt"), value: dac.executedAt ?? "—" },
+            { label: t("producerConfirmedAt"), value: dac.producerConfirmedAt ?? "—" },
+            { label: t("issuerConfirmedAt"), value: dac.issuerConfirmedAt ?? "—" },
+            { label: t("submittedAt"), value: dac.submittedToRegistrarAt ?? "—" },
             { label: t("producerReference"), value: dac.producerReference ?? "—" },
             { label: t("scasNotes"), value: dac.scasNotes || "—" },
             { label: t("registrarNotes"), value: dac.registrarNotes || "—" },
           ]}
         />
+        </div>
         <div className="mt-8 grid gap-6">
           {allowsRegistrarReviewStart(dac.status) ? (
             <form action={startRegistrarReviewAction}>

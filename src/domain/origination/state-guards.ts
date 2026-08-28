@@ -1,4 +1,7 @@
 import {
+  DAC_CONFIRMATION_PENDING_STATUSES,
+  DAC_EXECUTED_OR_LATER_STATUSES,
+  REGISTRAR_VISIBLE_DAC_STATUSES,
   SCAS_DAC_EDITABLE_STATUSES,
   type FieldCaseStatus,
   type FieldLifecycleStatus,
@@ -65,8 +68,20 @@ export function allowsScasDacEdit(status: OriginationDacStatus) {
   return (SCAS_DAC_EDITABLE_STATUSES as readonly OriginationDacStatus[]).includes(status);
 }
 
+export function allowsScasSendToProducer(status: OriginationDacStatus) {
+  return status === "DRAFT";
+}
+
 export function allowsScasDacSubmit(status: OriginationDacStatus) {
-  return status === "DRAFT" || status === "RETURNED_BY_REGISTRAR";
+  return status === "EXECUTED" || status === "RETURNED_BY_REGISTRAR";
+}
+
+export function allowsProducerDacConfirm(status: OriginationDacStatus) {
+  return status === "PENDING_PRODUCER_CONFIRMATION";
+}
+
+export function allowsIssuerDacConfirm(status: OriginationDacStatus) {
+  return status === "PENDING_ISSUER_CONFIRMATION";
 }
 
 export function allowsRegistrarReviewStart(status: OriginationDacStatus) {
@@ -75,4 +90,16 @@ export function allowsRegistrarReviewStart(status: OriginationDacStatus) {
 
 export function allowsRegistrarDecision(status: OriginationDacStatus) {
   return status === "READY_FOR_REGISTRAR" || status === "UNDER_REGISTRAR_REVIEW";
+}
+
+export function isDacConfirmationPending(status: OriginationDacStatus) {
+  return (DAC_CONFIRMATION_PENDING_STATUSES as readonly OriginationDacStatus[]).includes(status);
+}
+
+export function isDacExecutedOrLater(status: OriginationDacStatus) {
+  return (DAC_EXECUTED_OR_LATER_STATUSES as readonly OriginationDacStatus[]).includes(status);
+}
+
+export function isRegistrarVisibleDac(status: OriginationDacStatus) {
+  return (REGISTRAR_VISIBLE_DAC_STATUSES as readonly OriginationDacStatus[]).includes(status);
 }

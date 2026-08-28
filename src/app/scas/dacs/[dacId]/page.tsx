@@ -9,11 +9,14 @@ import { FormSubmitButton } from "@/components/identity/form-submit-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { requireScasVerifier } from "@/lib/auth/guard";
 import { originationService } from "@/services/origination-service";
-import { OriginationError, allowsScasDacEdit, allowsScasDacSubmit } from "@/domain/origination";
+import { OriginationError, allowsScasDacEdit, allowsScasDacSubmit, allowsScasSendToProducer } from "@/domain/origination";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { stageMediaForRole } from "@/lib/surface/role-media";
+import { listPermittedIssuerOrganizations } from "@/domain/origination/issuers";
+import { DacPartiesPanel, DacStageLegend } from "@/components/origination/dac-parties";
 import {
   sendDacMessageAction,
+  sendDacToProducerAction,
   submitDacAction,
   updateDacAction,
 } from "@/app/scas/dacs/actions";
@@ -53,7 +56,9 @@ export default async function ScasDacDeskPage({
   const media = stageMediaForRole("SCAS_OPERATOR");
   const { dac } = bundle;
   const canEdit = allowsScasDacEdit(dac.status);
+  const canSendProducer = allowsScasSendToProducer(dac.status);
   const canSubmit = allowsScasDacSubmit(dac.status);
+  const issuers = listPermittedIssuerOrganizations();
 
   return (
     <div>
@@ -77,9 +82,31 @@ export default async function ScasDacDeskPage({
         messageAction={sendDacMessageAction}
       >
         <p className="label-caps text-harvest">{t("dacCommercial")}</p>
+        <div className="mt-4">
+          <DacStageLegend />
+        </div>
+        <div className="mt-6">
+          <DacPartiesPanel dac={dac} />
+        </div>
         {canEdit ? (
-          <form action={updateDacAction} className="mt-4 grid gap-4">
+          <form action={updateDacAction} className="mt-8 grid gap-4">
             <input type="hidden" name="dacId" value={dac.publicId} />
+            <label className="grid gap-2">
+              <span className="label-caps">{t("issuer")}</span>
+              <select
+                name="issuerOrganizationId"
+                required
+                defaultValue={dac.issuerOrganizationId ?? ""}
+                className="desk-control w-full py-2"
+              >
+                <option value="">{t("issuerNotSelected")}</option>
+                {issuers.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="grid gap-2">
               <span className="label-caps">{t("crop")}</span>
               <select name="crop" required defaultValue={dac.crop} className="desk-control w-full py-2">
@@ -138,7 +165,7 @@ export default async function ScasDacDeskPage({
             <FormSubmitButton pendingLabel={t("saveDac")}>{t("saveDac")}</FormSubmitButton>
           </form>
         ) : (
-          <dl className="mt-4 grid gap-3 text-sm text-bone">
+          <dl className="mt-8 grid gap-3 text-sm text-bone">
             <div>
               <dt className="label-caps text-straw">{t("crop")}</dt>
               <dd className="mt-1">{lookupMessage(tCatalog, `crops.${dac.crop}`)}</dd>
@@ -153,6 +180,12 @@ export default async function ScasDacDeskPage({
             </div>
           </dl>
         )}
+        {canSendProducer ? (
+          <form action={sendDacToProducerAction} className="mt-8">
+            <input type="hidden" name="dacId" value={dac.publicId} />
+            <FormSubmitButton pendingLabel={t("sendToProducer")}>{t("sendToProducer")}</FormSubmitButton>
+          </form>
+        ) : null}
         {canSubmit ? (
           <form action={submitDacAction} className="mt-8">
             <input type="hidden" name="dacId" value={dac.publicId} />

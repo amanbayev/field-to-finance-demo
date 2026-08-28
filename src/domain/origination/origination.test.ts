@@ -1119,6 +1119,50 @@ describe("origination Slice B off-chain DAC", () => {
     return { ...ready, dac };
   }
 
+  async function preparedDraft(service: OriginationService) {
+    const opened = await draftDac(service);
+    const dac = await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      expectedVolumeTonnes: 280,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      scasNotes: "Prepare the Producer-Issuer contract.",
+      issuerOrganizationId: issuerOrg.id,
+    });
+    return { ...opened, dac };
+  }
+
+  async function pendingProducer(service: OriginationService) {
+    const prepared = await preparedDraft(service);
+    const dac = await service.sendDacToProducer(prepared.reviewer, prepared.dac.id);
+    return { ...prepared, dac };
+  }
+
+  async function pendingIssuer(service: OriginationService) {
+    const pending = await pendingProducer(service);
+    const dac = await service.confirmDacAsProducer(pending.farm, pending.dac.id);
+    return { ...pending, dac };
+  }
+
+  async function executedContract(service: OriginationService) {
+    const pending = await pendingIssuer(service);
+    const dac = await service.confirmDacAsIssuer(issuer(), pending.dac.id);
+    return { ...pending, dac };
+  }
+
+  const otherIssuerOrg: OrganizationRecord = {
+    id: "11111111-1111-4111-8111-111111111099",
+    slug: "other-issuer",
+    name: "Other Issuer",
+    type: "ISSUER",
+    status: "ACTIVE",
+  };
+
+  function issuerTwo() {
+    return actorFor(otherIssuerOrg, ["ISSUER_OPERATOR"], "issuer-2");
+  }
+
   it("lets SCAS create a DAC only from a verified field snapshot", async () => {
     const service = new OriginationService(new MemoryOriginationStore());
     const ready = await verifiedField(service);
@@ -1128,8 +1172,12 @@ describe("origination Slice B off-chain DAC", () => {
     expect(dac.status).toBe("DRAFT");
     expect(dac.verifiedSnapshotId).toBe(ready.snapshot.id);
     expect(dac.fieldId).toBe(ready.field.id);
-    expect(dac.rightHolder).toBe("Akmola Agro LLP");
+    expect(dac.landRightHolder).toBe("Akmola Agro LLP");
+    expect(dac.landRightType).toBe("lease");
+    expect(dac.issuerOrganizationId).toBeNull();
     expect(dac.verifiedAreaHectares).toBe(1238.6);
+    expect(dac.termsVersion).toBe(1);
+    expect(dac.currentTermsHash).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("rejects DAC creation from draft and submitted fields", async () => {
@@ -1169,32 +1217,182 @@ describe("origination Slice B off-chain DAC", () => {
     ).rejects.toMatchObject({ code: "forbidden" });
   });
 
-  it("lets SCAS submit and registrar accept without pool, token, issuance or chain writes", async () => {
+  it("requires a permitted issuer before the confirmation flow", async () => {
     const service = new OriginationService(new MemoryOriginationStore());
     const opened = await draftDac(service);
-    const clerk = registrar();
-    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+      code: "validation",
+    });
+    await expect(
+      service.updateDacDraft(opened.reviewer, opened.dac.id, {
+        crop: "Wheat",
+        harvestYear: 2027,
+        expectedVolumeTonnes: 280,
+        qualityClass: "Class 3",
+        producerReference: opened.field.publicId,
+        scasNotes: "",
+        issuerOrganizationId: farm1.id,
+      }),
+    ).rejects.toMatchObject({ code: "validation" });
+  });
+
+  it("rejects an invalid issuer organization", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    await expect(
+      service.updateDacDraft(opened.reviewer, opened.dac.id, {
+        crop: "Wheat",
+        harvestYear: 2027,
+        expectedVolumeTonnes: 280,
+        qualityClass: "Class 3",
+        producerReference: opened.field.publicId,
+        scasNotes: "",
+        issuerOrganizationId: registrarOrg.id,
+      }),
+    ).rejects.toMatchObject({ code: "validation" });
+  });
+
+  it("does not let another producer, issuer, SCAS or registrar confirm the wrong party", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const pending = await pendingProducer(service);
+    await expect(service.confirmDacAsProducer(producerTwo(), pending.dac.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(service.confirmDacAsProducer(pending.reviewer, pending.dac.id)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await expect(service.confirmDacAsProducer(registrar(), pending.dac.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(service.confirmDacAsIssuer(pending.reviewer, pending.dac.id)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    const waitingIssuer = await service.confirmDacAsProducer(pending.farm, pending.dac.id);
+    await expect(service.confirmDacAsIssuer(issuerTwo(), waitingIssuer.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(service.confirmDacAsIssuer(pending.reviewer, waitingIssuer.id)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await expect(service.confirmDacAsIssuer(registrar(), waitingIssuer.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
+
+  it("freezes terms after send to producer and stores exact hashes on confirmation", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const pending = await pendingProducer(service);
+    expect(pending.dac.status).toBe("PENDING_PRODUCER_CONFIRMATION");
+    const frozenHash = pending.dac.currentTermsHash;
+    await expect(
+      service.updateDacDraft(pending.reviewer, pending.dac.id, {
+        crop: "Wheat",
+        harvestYear: 2027,
+        expectedVolumeTonnes: 275,
+        qualityClass: "Class 3",
+        producerReference: pending.field.publicId,
+        scasNotes: "",
+        issuerOrganizationId: issuerOrg.id,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_state" });
+    const producerConfirmed = await service.confirmDacAsProducer(pending.farm, pending.dac.id);
+    expect(producerConfirmed.status).toBe("PENDING_ISSUER_CONFIRMATION");
+    expect(producerConfirmed.producerConfirmedTermsHash).toBe(frozenHash);
+    expect(producerConfirmed.producerConfirmedByRole).toBe("PRODUCER_ADMIN");
+    expect(producerConfirmed.producerConfirmedAt).toBeTruthy();
+    const executed = await service.confirmDacAsIssuer(issuer(), producerConfirmed.id);
+    expect(executed.status).toBe("EXECUTED");
+    expect(executed.issuerConfirmedTermsHash).toBe(frozenHash);
+    expect(executed.executedTermsHash).toBe(frozenHash);
+    expect(executed.executedAt).toBeTruthy();
+    expect(executed.executedTermsSnapshot).toMatchObject({
+      producerOrganizationId: farm1.id,
+      issuerOrganizationId: issuerOrg.id,
       crop: "Wheat",
       harvestYear: 2027,
       expectedVolumeTonnes: 280,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      scasNotes: "Off-chain rights object from the verified snapshot.",
     });
-    const submitted = await service.submitDacToRegistrar(opened.reviewer, opened.dac.id);
+  });
+
+  it("clears confirmations when a returned draft is edited", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const pending = await pendingProducer(service);
+    const returned = await service.returnDacAsProducer(pending.farm, pending.dac.id, "Volume is too high.");
+    expect(returned.status).toBe("DRAFT");
+    expect(returned.producerConfirmedTermsHash).toBeNull();
+    const edited = await service.updateDacDraft(pending.reviewer, returned.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      expectedVolumeTonnes: 270,
+      qualityClass: "Class 3",
+      producerReference: pending.field.publicId,
+      scasNotes: "Revised after producer return.",
+      issuerOrganizationId: issuerOrg.id,
+    });
+    expect(edited.termsVersion).toBeGreaterThan(pending.dac.termsVersion);
+    expect(edited.currentTermsHash).not.toBe(pending.dac.currentTermsHash);
+    expect(edited.producerConfirmedTermsHash).toBeNull();
+    expect(edited.issuerConfirmedTermsHash).toBeNull();
+  });
+
+  it("hides confirmation-pending DACs from registrar and generic contracts readers", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const pending = await pendingProducer(service);
+    await expect(service.getDacBundle(registrar(), pending.dac.publicId)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    expect(await service.listRegistrarIntake(registrar(), "all")).toEqual([]);
+    const issuerPending = await service.confirmDacAsProducer(pending.farm, pending.dac.id);
+    await expect(service.getDacBundle(registrar(), issuerPending.publicId)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    expect(await service.listLiveOriginatedDacs(adminOnly())).toEqual([]);
+    expect(await service.listLiveOriginatedDacs(issuer())).toEqual([]);
+    await expect(service.submitDacToRegistrar(pending.reviewer, pending.dac.id)).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+  });
+
+  it("lets SCAS submit only an executed DAC, and registrar return does not undo execution", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    await expect(service.submitDacToRegistrar(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+    const executed = await executedContract(service);
+    expect(executed.dac.status).toBe("EXECUTED");
+    const submitted = await service.submitDacToRegistrar(executed.reviewer, executed.dac.id);
     expect(submitted.status).toBe("READY_FOR_REGISTRAR");
+    const clerk = registrar();
     const reviewing = await service.startRegistrarReview(clerk, submitted.id);
     expect(reviewing.status).toBe("UNDER_REGISTRAR_REVIEW");
-    const accepted = await service.acceptDacIntake(clerk, submitted.id, "Intake complete.");
+    const returned = await service.returnDacIntake(clerk, submitted.id, "Need the harvest-note dossier.");
+    expect(returned.status).toBe("RETURNED_BY_REGISTRAR");
+    expect(returned.executedTermsHash).toBe(executed.dac.executedTermsHash);
+    expect(returned.executedAt).toBe(executed.dac.executedAt);
+    expect(returned.producerConfirmedTermsHash).toBe(executed.dac.producerConfirmedTermsHash);
+    expect(returned.issuerConfirmedTermsHash).toBe(executed.dac.issuerConfirmedTermsHash);
+    await expect(
+      service.updateDacDraft(executed.reviewer, returned.id, {
+        crop: "Wheat",
+        harvestYear: 2027,
+        expectedVolumeTonnes: 250,
+        qualityClass: "Class 3",
+        producerReference: executed.field.publicId,
+        scasNotes: "silent term change",
+        issuerOrganizationId: issuerOrg.id,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_state" });
+    const resubmitted = await service.submitDacToRegistrar(executed.reviewer, returned.id);
+    expect(resubmitted.status).toBe("READY_FOR_REGISTRAR");
+    expect(resubmitted.executedTermsHash).toBe(executed.dac.executedTermsHash);
+    const accepted = await service.acceptDacIntake(clerk, resubmitted.id, "Intake complete.");
     expect(accepted.status).toBe("REGISTRAR_ACCEPTED");
-    expect(accepted.acceptedAt).toBeTruthy();
     expect(accepted).not.toHaveProperty("poolId");
     expect(accepted).not.toHaveProperty("tokenId");
     expect(accepted).not.toHaveProperty("issuanceId");
     expect(accepted).not.toHaveProperty("placementId");
     const bundle = await service.getDacBundle(clerk, accepted.publicId);
-    expect(bundle.events.map((event) => event.eventType)).not.toContain("field_verified");
-    expect(bundle.events.map((event) => event.eventType)).toContain("dac_accepted");
     const acceptEvent = bundle.events.find((event) => event.eventType === "dac_accepted");
     expect(acceptEvent?.metadata).toMatchObject({
       createdPool: false,
@@ -1203,33 +1401,6 @@ describe("origination Slice B off-chain DAC", () => {
       createdPlacement: false,
       chainWrite: false,
     });
-  });
-
-  it("lets registrar return a DAC for SCAS edits", async () => {
-    const service = new OriginationService(new MemoryOriginationStore());
-    const opened = await draftDac(service);
-    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
-      crop: "Wheat",
-      harvestYear: 2027,
-      expectedVolumeTonnes: 280,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      scasNotes: "",
-    });
-    await service.submitDacToRegistrar(opened.reviewer, opened.dac.id);
-    const returned = await service.returnDacIntake(registrar(), opened.dac.id, "Volume needs a source note.");
-    expect(returned.status).toBe("RETURNED_BY_REGISTRAR");
-    const revised = await service.updateDacDraft(opened.reviewer, opened.dac.id, {
-      crop: "Wheat",
-      harvestYear: 2027,
-      expectedVolumeTonnes: 275,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      scasNotes: "Volume from the producer declaration, haircut pending later phases.",
-    });
-    expect(revised.expectedVolumeTonnes).toBe(275);
-    const resubmitted = await service.submitDacToRegistrar(opened.reviewer, opened.dac.id);
-    expect(resubmitted.status).toBe("READY_FOR_REGISTRAR");
   });
 
   it("lets a producer see only their own DAC status", async () => {
@@ -1257,5 +1428,60 @@ describe("origination Slice B off-chain DAC", () => {
     expect(isDemonstratorContractId(opened.dac.publicId)).toBe(false);
     expect(listContracts().some((item) => item.contract.id === "DAC-2027-0001")).toBe(true);
     expect(listContracts().some((item) => item.contract.id === opened.dac.publicId)).toBe(false);
+  });
+
+  it("allows only one of two concurrent producer confirms", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const pending = await pendingProducer(service);
+    const results = await Promise.allSettled([
+      service.confirmDacAsProducer(pending.farm, pending.dac.id),
+      service.confirmDacAsProducer(pending.farm, pending.dac.id),
+    ]);
+    const fulfilled = results.filter((item) => item.status === "fulfilled");
+    const rejected = results.filter((item) => item.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: "invalid_state" });
+  });
+
+  it("allows only one of producer confirm versus return", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const pending = await pendingProducer(service);
+    const results = await Promise.allSettled([
+      service.confirmDacAsProducer(pending.farm, pending.dac.id),
+      service.returnDacAsProducer(pending.farm, pending.dac.id, "Need a lower volume."),
+    ]);
+    const fulfilled = results.filter((item) => item.status === "fulfilled");
+    const rejected = results.filter((item) => item.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+  });
+
+  it("allows only one of issuer confirm versus return", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const pending = await pendingIssuer(service);
+    const results = await Promise.allSettled([
+      service.confirmDacAsIssuer(issuer(), pending.dac.id),
+      service.returnDacAsIssuer(issuer(), pending.dac.id, "Need a quality note."),
+    ]);
+    const fulfilled = results.filter((item) => item.status === "fulfilled");
+    const rejected = results.filter((item) => item.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+  });
+
+  it("allows only one registrar terminal decision", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const executed = await executedContract(service);
+    const submitted = await service.submitDacToRegistrar(executed.reviewer, executed.dac.id);
+    const clerk = registrar();
+    const results = await Promise.allSettled([
+      service.acceptDacIntake(clerk, submitted.id, "Accept."),
+      service.returnDacIntake(clerk, submitted.id, "Return."),
+    ]);
+    const fulfilled = results.filter((item) => item.status === "fulfilled");
+    const rejected = results.filter((item) => item.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
   });
 });

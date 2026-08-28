@@ -227,8 +227,14 @@ async function IssuerHome() {
       />
       <DeskLedger>
         <DeskRow
-          href="/coverage"
+          href="/issuer/dacs"
           index={deskIndex(0)}
+          kicker={t("nav.issuerDacs")}
+          title={t("origination.issuerQueueTitle")}
+        />
+        <DeskRow
+          href="/coverage"
+          index={deskIndex(1)}
           kicker={t("nav.coverage")}
           title={t("workspace.eligibleBacking")}
           value={t("units.tonnes", {
@@ -237,14 +243,14 @@ async function IssuerHome() {
         />
         <DeskRow
           href="/issuances"
-          index={deskIndex(1)}
+          index={deskIndex(2)}
           kicker={t("nav.issuance")}
           title="WHEAT-2027"
           value={formatInteger(metrics.wheatMintedSupply, locale)}
         />
         <DeskRow
           href="/registry"
-          index={deskIndex(2)}
+          index={deskIndex(3)}
           kicker={t("dashboard.registrarInventory")}
           title={t("desk.openRegistry")}
           value={formatInteger(metrics.registrarInventory, locale)}

@@ -2,13 +2,16 @@ import { createHash, randomUUID } from "node:crypto";
 import type { ActorContext } from "@/domain/identity";
 import {
   actorStamp,
+  canListLiveDacOnContractsIndex,
   canManageProducerOrgFields,
   canReadOrigination,
   canReadOriginationDac,
   canReadProducerOrgFields,
+  isIssuerOperator,
   isProducerOperator,
   isRegistrarIntakeOperator,
   isScasVerifier,
+  matchesIssuerDacFilter,
   matchesProducerFilter,
   matchesRegistrarDacFilter,
   matchesScasDacFilter,
@@ -24,13 +27,22 @@ import { resolveByUuidOrPublicId, isUuid } from "./refs";
 import {
   allowsApproval,
   allowsChangeRequest,
+  allowsIssuerDacConfirm,
+  allowsProducerDacConfirm,
   allowsProducerUpload,
   allowsRegistrarDecision,
   allowsRegistrarReviewStart,
   allowsRejection,
   allowsScasDacEdit,
   allowsScasDacSubmit,
+  allowsScasSendToProducer,
 } from "./state-guards";
+import { isPermittedIssuerOrganizationId } from "./issuers";
+import {
+  clearedDacConfirmations,
+  hashCurrentDacTerms,
+  termsFromDac,
+} from "./terms";
 import type { OriginationStore } from "./store";
 import {
   ALLOWED_FIELD_MIME_TYPES,
@@ -48,6 +60,7 @@ import {
   type FieldSubmissionRecord,
   type FieldVerificationCaseRecord,
   type FieldVerificationMessageRecord,
+  type IssuerDacFilter,
   type OriginationDacCommercialInput,
   type OriginationDacMessageRecord,
   type OriginationDacRecord,
@@ -955,6 +968,7 @@ export class OriginationService {
       verifiedSnapshotId: snapshot.id,
       scasCaseId: verificationCase.id,
       producerOrganizationId: field.organizationId,
+      issuerOrganizationId: null,
       status: "DRAFT",
       crop: declared.crop,
       harvestYear: declared.season,
@@ -966,10 +980,16 @@ export class OriginationService {
       verifiedAreaHectares: cadastre.registeredAreaHa,
       region: cadastre.region ?? declared.region,
       district: cadastre.district ?? declared.district,
-      rightHolder: cadastre.rightHolder,
-      rightType: cadastre.rightType,
+      landRightHolder: cadastre.rightHolder,
+      landRightType: cadastre.rightType,
       scasNotes: "",
       registrarNotes: "",
+      termsVersion: 1,
+      currentTermsHash: "",
+      ...clearedDacConfirmations(),
+      executedTermsSnapshot: null,
+      executedTermsHash: null,
+      executedAt: null,
       createdByUserId: stamp.userId,
       updatedByUserId: stamp.userId,
       registrarReviewedByUserId: null,
@@ -979,6 +999,7 @@ export class OriginationService {
       createdAt: at,
       updatedAt: at,
     };
+    dac.currentTermsHash = hashCurrentDacTerms(dac);
     return this.store.createDac(
       dac,
       this.makeEvent(actor, "dac_created", "dac", dac.id, {
@@ -993,21 +1014,237 @@ export class OriginationService {
     this.requireVerifier(actor);
     const dac = await this.requireReadableDac(actor, dacRef);
     if (!allowsScasDacEdit(dac.status)) {
-      throw new OriginationError("invalid_state", "SCAS can edit a DAC only while it is a draft or returned.");
+      throw new OriginationError("invalid_state", "SCAS can edit DAC commercial terms only while the DAC is a draft.");
     }
     const commercial = this.requireCommercial(input);
     const stamp = actorStamp(actor);
     const at = this.clock();
-    const updated = await this.store.updateDac({
+    const next: OriginationDacRecord = {
       ...dac,
       ...commercial,
+      ...clearedDacConfirmations(),
+      termsVersion: dac.termsVersion + 1,
       updatedByUserId: stamp.userId,
       updatedAt: at,
+    };
+    next.currentTermsHash = hashCurrentDacTerms(next);
+    return this.store.applyDacTransition({
+      kind: "update_draft",
+      expectedStatuses: ["DRAFT"],
+      dac: next,
+      event: this.makeEvent(actor, "dac_updated", "dac", next.id, {
+        fieldId: next.fieldId,
+        termsVersion: next.termsVersion,
+        currentTermsHash: next.currentTermsHash,
+      }),
     });
-    await this.store.insertDacEvent(
-      this.makeEvent(actor, "dac_updated", "dac", updated.id, { fieldId: updated.fieldId }),
-    );
-    return updated;
+  }
+
+  async sendDacToProducer(actor: ActorContext, dacRef: string) {
+    this.requireVerifier(actor);
+    const dac = await this.requireReadableDac(actor, dacRef);
+    if (!allowsScasSendToProducer(dac.status)) {
+      throw new OriginationError("invalid_state", "Send to producer is allowed only from a draft.");
+    }
+    if (!dac.issuerOrganizationId || !isPermittedIssuerOrganizationId(dac.issuerOrganizationId)) {
+      throw new OriginationError("validation", "A permitted issuer must be selected before confirmation.");
+    }
+    if (dac.expectedVolumeTonnes == null || !(dac.expectedVolumeTonnes > 0)) {
+      throw new OriginationError("validation", "Expected volume is required before producer confirmation.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const next: OriginationDacRecord = {
+      ...dac,
+      status: "PENDING_PRODUCER_CONFIRMATION",
+      currentTermsHash: hashCurrentDacTerms(dac),
+      ...clearedDacConfirmations(),
+      updatedByUserId: stamp.userId,
+      updatedAt: at,
+    };
+    return this.store.applyDacTransition({
+      kind: "send_to_producer",
+      expectedStatuses: ["DRAFT"],
+      expectedTermsHash: next.currentTermsHash,
+      dac: next,
+      event: this.makeEvent(actor, "dac_sent_to_producer", "dac", next.id, {
+        fieldId: next.fieldId,
+        termsVersion: next.termsVersion,
+        currentTermsHash: next.currentTermsHash,
+      }),
+    });
+  }
+
+  async confirmDacAsProducer(actor: ActorContext, dacRef: string) {
+    const dac = await this.requireReadableDac(actor, dacRef);
+    this.requireProducer(actor);
+    if (!allowsProducerDacConfirm(dac.status)) {
+      throw new OriginationError("invalid_state", "Producer can confirm only pending producer terms.");
+    }
+    const orgId = actor.effective.organization?.id;
+    if (!orgId || orgId !== dac.producerOrganizationId) {
+      throw new OriginationError("forbidden");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const hash = dac.currentTermsHash;
+    const next: OriginationDacRecord = {
+      ...dac,
+      status: "PENDING_ISSUER_CONFIRMATION",
+      producerConfirmedTermsHash: hash,
+      producerConfirmedByUserId: stamp.userId,
+      producerConfirmedByRole: stamp.role,
+      producerConfirmedAt: at,
+      updatedByUserId: stamp.userId,
+      updatedAt: at,
+    };
+    return this.store.applyDacTransition({
+      kind: "producer_confirm",
+      expectedStatuses: ["PENDING_PRODUCER_CONFIRMATION"],
+      expectedProducerOrganizationId: orgId,
+      expectedTermsHash: hash,
+      dac: next,
+      event: this.makeEvent(actor, "dac_producer_confirmed", "dac", next.id, {
+        fieldId: next.fieldId,
+        termsVersion: next.termsVersion,
+        currentTermsHash: hash,
+      }),
+    });
+  }
+
+  async returnDacAsProducer(actor: ActorContext, dacRef: string, reason: string) {
+    const dac = await this.requireReadableDac(actor, dacRef);
+    this.requireProducer(actor);
+    if (!allowsProducerDacConfirm(dac.status)) {
+      throw new OriginationError("invalid_state", "Producer can return only pending producer terms.");
+    }
+    const orgId = actor.effective.organization?.id;
+    if (!orgId || orgId !== dac.producerOrganizationId) {
+      throw new OriginationError("forbidden");
+    }
+    const note = reason.trim();
+    if (!note) {
+      throw new OriginationError("validation", "Return requires a reason.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const next: OriginationDacRecord = {
+      ...dac,
+      status: "DRAFT",
+      ...clearedDacConfirmations(),
+      updatedByUserId: stamp.userId,
+      updatedAt: at,
+    };
+    return this.store.applyDacTransition({
+      kind: "producer_return",
+      expectedStatuses: ["PENDING_PRODUCER_CONFIRMATION"],
+      expectedProducerOrganizationId: orgId,
+      dac: next,
+      message: {
+        id: randomUUID(),
+        dacId: next.id,
+        senderUserId: stamp.userId,
+        senderRole: stamp.role,
+        senderPersonaId: stamp.personaId,
+        body: note,
+        messageType: "DECISION",
+        createdAt: at,
+      },
+      event: this.makeEvent(actor, "dac_producer_returned", "dac", next.id, {
+        fieldId: next.fieldId,
+        reason: note,
+      }),
+    });
+  }
+
+  async confirmDacAsIssuer(actor: ActorContext, dacRef: string) {
+    const dac = await this.requireReadableDac(actor, dacRef);
+    this.requireIssuer(actor);
+    if (!allowsIssuerDacConfirm(dac.status)) {
+      throw new OriginationError("invalid_state", "Issuer can confirm only pending issuer terms.");
+    }
+    const orgId = actor.effective.organization?.id;
+    if (!orgId || orgId !== dac.issuerOrganizationId) {
+      throw new OriginationError("forbidden");
+    }
+    if (dac.producerConfirmedTermsHash !== dac.currentTermsHash) {
+      throw new OriginationError("invalid_state", "Issuer confirmation requires the same terms hash.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const hash = dac.currentTermsHash;
+    const snapshot = termsFromDac(dac) as unknown as Record<string, unknown>;
+    const next: OriginationDacRecord = {
+      ...dac,
+      status: "EXECUTED",
+      issuerConfirmedTermsHash: hash,
+      issuerConfirmedByUserId: stamp.userId,
+      issuerConfirmedByRole: stamp.role,
+      issuerConfirmedAt: at,
+      executedTermsSnapshot: snapshot,
+      executedTermsHash: hash,
+      executedAt: at,
+      updatedByUserId: stamp.userId,
+      updatedAt: at,
+    };
+    return this.store.applyDacTransition({
+      kind: "issuer_confirm",
+      expectedStatuses: ["PENDING_ISSUER_CONFIRMATION"],
+      expectedIssuerOrganizationId: orgId,
+      expectedTermsHash: hash,
+      dac: next,
+      event: this.makeEvent(actor, "dac_issuer_confirmed", "dac", next.id, {
+        fieldId: next.fieldId,
+        termsVersion: next.termsVersion,
+        executedTermsHash: hash,
+        executedAt: at,
+      }),
+    });
+  }
+
+  async returnDacAsIssuer(actor: ActorContext, dacRef: string, reason: string) {
+    const dac = await this.requireReadableDac(actor, dacRef);
+    this.requireIssuer(actor);
+    if (!allowsIssuerDacConfirm(dac.status)) {
+      throw new OriginationError("invalid_state", "Issuer can return only pending issuer terms.");
+    }
+    const orgId = actor.effective.organization?.id;
+    if (!orgId || orgId !== dac.issuerOrganizationId) {
+      throw new OriginationError("forbidden");
+    }
+    const note = reason.trim();
+    if (!note) {
+      throw new OriginationError("validation", "Return requires a reason.");
+    }
+    const stamp = actorStamp(actor);
+    const at = this.clock();
+    const next: OriginationDacRecord = {
+      ...dac,
+      status: "DRAFT",
+      ...clearedDacConfirmations(),
+      updatedByUserId: stamp.userId,
+      updatedAt: at,
+    };
+    return this.store.applyDacTransition({
+      kind: "issuer_return",
+      expectedStatuses: ["PENDING_ISSUER_CONFIRMATION"],
+      expectedIssuerOrganizationId: orgId,
+      dac: next,
+      message: {
+        id: randomUUID(),
+        dacId: next.id,
+        senderUserId: stamp.userId,
+        senderRole: stamp.role,
+        senderPersonaId: stamp.personaId,
+        body: note,
+        messageType: "DECISION",
+        createdAt: at,
+      },
+      event: this.makeEvent(actor, "dac_issuer_returned", "dac", next.id, {
+        fieldId: next.fieldId,
+        reason: note,
+      }),
+    });
   }
 
   async submitDacToRegistrar(actor: ActorContext, dacRef: string) {
@@ -1016,26 +1253,28 @@ export class OriginationService {
     if (!allowsScasDacSubmit(dac.status)) {
       throw new OriginationError("invalid_state", "Submit to registrar is not allowed from this state.");
     }
-    if (dac.expectedVolumeTonnes == null || !(dac.expectedVolumeTonnes > 0)) {
-      throw new OriginationError("validation", "Expected volume is required before registrar intake.");
+    if (!dac.executedTermsHash || !dac.executedAt) {
+      throw new OriginationError("invalid_state", "Registrar intake requires an executed Producer-Issuer contract.");
     }
     const stamp = actorStamp(actor);
     const at = this.clock();
-    const updated = await this.store.updateDac({
+    const next: OriginationDacRecord = {
       ...dac,
       status: "READY_FOR_REGISTRAR",
       updatedByUserId: stamp.userId,
       submittedToRegistrarAt: at,
-      returnedAt: dac.status === "RETURNED_BY_REGISTRAR" ? dac.returnedAt : dac.returnedAt,
       updatedAt: at,
-    });
-    await this.store.insertDacEvent(
-      this.makeEvent(actor, "dac_submitted_to_registrar", "dac", updated.id, {
-        fieldId: updated.fieldId,
+    };
+    return this.store.applyDacTransition({
+      kind: "submit_to_registrar",
+      expectedStatuses: ["EXECUTED", "RETURNED_BY_REGISTRAR"],
+      dac: next,
+      event: this.makeEvent(actor, "dac_submitted_to_registrar", "dac", next.id, {
+        fieldId: next.fieldId,
         from: dac.status,
+        executedTermsHash: dac.executedTermsHash,
       }),
-    );
-    return updated;
+    });
   }
 
   async startRegistrarReview(actor: ActorContext, dacRef: string) {
@@ -1046,17 +1285,19 @@ export class OriginationService {
     }
     const stamp = actorStamp(actor);
     const at = this.clock();
-    const updated = await this.store.updateDac({
+    const next: OriginationDacRecord = {
       ...dac,
       status: "UNDER_REGISTRAR_REVIEW",
       registrarReviewedByUserId: stamp.userId,
       updatedByUserId: stamp.userId,
       updatedAt: at,
+    };
+    return this.store.applyDacTransition({
+      kind: "start_review",
+      expectedStatuses: ["READY_FOR_REGISTRAR"],
+      dac: next,
+      event: this.makeEvent(actor, "dac_review_started", "dac", next.id, { fieldId: next.fieldId }),
     });
-    await this.store.insertDacEvent(
-      this.makeEvent(actor, "dac_review_started", "dac", updated.id, { fieldId: updated.fieldId }),
-    );
-    return updated;
   }
 
   async acceptDacIntake(actor: ActorContext, dacRef: string, notes?: string) {
@@ -1068,7 +1309,7 @@ export class OriginationService {
     const stamp = actorStamp(actor);
     const at = this.clock();
     const note = notes?.trim() ?? "";
-    const updated = await this.store.updateDac({
+    const next: OriginationDacRecord = {
       ...dac,
       status: "REGISTRAR_ACCEPTED",
       registrarNotes: note || dac.registrarNotes,
@@ -1076,22 +1317,25 @@ export class OriginationService {
       updatedByUserId: stamp.userId,
       acceptedAt: at,
       updatedAt: at,
-    });
-    if (note) {
-      await this.store.insertDacMessage({
-        id: randomUUID(),
-        dacId: updated.id,
-        senderUserId: stamp.userId,
-        senderRole: stamp.role,
-        senderPersonaId: stamp.personaId,
-        body: note,
-        messageType: "DECISION",
-        createdAt: at,
-      });
-    }
-    await this.store.insertDacEvent(
-      this.makeEvent(actor, "dac_accepted", "dac", updated.id, {
-        fieldId: updated.fieldId,
+    };
+    return this.store.applyDacTransition({
+      kind: "accept",
+      expectedStatuses: ["READY_FOR_REGISTRAR", "UNDER_REGISTRAR_REVIEW"],
+      dac: next,
+      message: note
+        ? {
+            id: randomUUID(),
+            dacId: next.id,
+            senderUserId: stamp.userId,
+            senderRole: stamp.role,
+            senderPersonaId: stamp.personaId,
+            body: note,
+            messageType: "DECISION",
+            createdAt: at,
+          }
+        : null,
+      event: this.makeEvent(actor, "dac_accepted", "dac", next.id, {
+        fieldId: next.fieldId,
         from: dac.status,
         createdPool: false,
         createdToken: false,
@@ -1099,8 +1343,7 @@ export class OriginationService {
         createdPlacement: false,
         chainWrite: false,
       }),
-    );
-    return updated;
+    });
   }
 
   async returnDacIntake(actor: ActorContext, dacRef: string, notes: string) {
@@ -1115,7 +1358,7 @@ export class OriginationService {
     }
     const stamp = actorStamp(actor);
     const at = this.clock();
-    const updated = await this.store.updateDac({
+    const next: OriginationDacRecord = {
       ...dac,
       status: "RETURNED_BY_REGISTRAR",
       registrarNotes: note,
@@ -1123,24 +1366,28 @@ export class OriginationService {
       updatedByUserId: stamp.userId,
       returnedAt: at,
       updatedAt: at,
-    });
-    await this.store.insertDacMessage({
-      id: randomUUID(),
-      dacId: updated.id,
-      senderUserId: stamp.userId,
-      senderRole: stamp.role,
-      senderPersonaId: stamp.personaId,
-      body: note,
-      messageType: "DECISION",
-      createdAt: at,
-    });
-    await this.store.insertDacEvent(
-      this.makeEvent(actor, "dac_returned", "dac", updated.id, {
-        fieldId: updated.fieldId,
+    };
+    return this.store.applyDacTransition({
+      kind: "return_intake",
+      expectedStatuses: ["READY_FOR_REGISTRAR", "UNDER_REGISTRAR_REVIEW"],
+      dac: next,
+      message: {
+        id: randomUUID(),
+        dacId: next.id,
+        senderUserId: stamp.userId,
+        senderRole: stamp.role,
+        senderPersonaId: stamp.personaId,
+        body: note,
+        messageType: "DECISION",
+        createdAt: at,
+      },
+      event: this.makeEvent(actor, "dac_returned", "dac", next.id, {
+        fieldId: next.fieldId,
         from: dac.status,
+        executedTermsHash: dac.executedTermsHash,
+        executionUndone: false,
       }),
-    );
-    return updated;
+    });
   }
 
   async sendDacMessage(actor: ActorContext, dacRef: string, body: string) {
@@ -1148,7 +1395,12 @@ export class OriginationService {
     if (!isScasVerifier(actor) && !isRegistrarIntakeOperator(actor)) {
       throw new OriginationError("forbidden");
     }
-    if (isRegistrarIntakeOperator(actor) && dac.status === "DRAFT") {
+    if (
+      isRegistrarIntakeOperator(actor) &&
+      (dac.status === "DRAFT" ||
+        dac.status === "PENDING_PRODUCER_CONFIRMATION" ||
+        dac.status === "PENDING_ISSUER_CONFIRMATION")
+    ) {
       throw new OriginationError("not_found");
     }
     const text = body.trim();
@@ -1180,6 +1432,18 @@ export class OriginationService {
     return dacs.filter((item) => matchesScasDacFilter(item.status, filter));
   }
 
+  async listIssuerDacs(actor: ActorContext, filter: IssuerDacFilter = "all") {
+    this.requireIssuer(actor);
+    const orgId = actor.effective.organization?.id;
+    if (!orgId) {
+      throw new OriginationError("forbidden");
+    }
+    const dacs = await this.store.listDacs();
+    return dacs.filter(
+      (item) => item.issuerOrganizationId === orgId && matchesIssuerDacFilter(item.status, filter),
+    );
+  }
+
   async listRegistrarIntake(actor: ActorContext, filter: RegistrarDacFilter = "all") {
     this.requireRegistrar(actor);
     const dacs = await this.store.listDacs();
@@ -1188,11 +1452,7 @@ export class OriginationService {
 
   async listLiveOriginatedDacs(actor: ActorContext) {
     const dacs = await this.store.listDacs();
-    const visible = dacs.filter(
-      (item) =>
-        item.status !== "ARCHIVED" &&
-        canReadOriginationDac(actor, item.producerOrganizationId, item.status),
-    );
+    const visible = dacs.filter((item) => canListLiveDacOnContractsIndex(actor, item));
     const rows: Array<{ dac: OriginationDacRecord; fieldPublicId: string }> = [];
     for (const dac of visible) {
       const field = await this.store.getFieldById(dac.fieldId);
@@ -1203,14 +1463,38 @@ export class OriginationService {
 
   async getDacBundle(actor: ActorContext, dacRef: string) {
     const dac = await this.requireReadableDac(actor, dacRef);
-    const fieldBundle = await this.getFieldBundle(actor, dac.fieldId);
+    const field = await this.store.getFieldById(dac.fieldId);
+    if (!field) {
+      throw new OriginationError("not_found");
+    }
+    const documents = await this.store.listDocuments(field.id);
+    const submissions = await this.store.listSubmissions(field.id);
+    const verificationCase = await this.store.getCaseByFieldId(field.id);
+    const cadastre = verificationCase
+      ? await this.store.getCadastreByCase(verificationCase.id)
+      : null;
+    const evidence = verificationCase
+      ? await this.store.listEvidence(verificationCase.id)
+      : [];
+    const fieldMessages = verificationCase
+      ? await this.store.listMessages(verificationCase.id)
+      : [];
+    const snapshot = await this.store.getSnapshotByField(field.id);
     const messages = await this.store.listDacMessages(dac.id);
     const events = await this.store.listDacEvents(dac.id);
     return {
-      ...fieldBundle,
-      dac,
+      field,
+      documents,
+      submissions,
+      verificationCase,
+      cadastre,
+      evidence,
       messages,
+      snapshot,
+      dac,
       events,
+      latestRequest: null,
+      fieldMessages,
     };
   }
 
@@ -1471,6 +1755,18 @@ export class OriginationService {
     }
   }
 
+  private requireProducer(actor: ActorContext) {
+    if (!isProducerOperator(actor)) {
+      throw new OriginationError("forbidden");
+    }
+  }
+
+  private requireIssuer(actor: ActorContext) {
+    if (!isIssuerOperator(actor)) {
+      throw new OriginationError("forbidden");
+    }
+  }
+
   private async resolveDac(dacRef: string) {
     return resolveByUuidOrPublicId(
       dacRef,
@@ -1481,7 +1777,7 @@ export class OriginationService {
 
   private async requireReadableDac(actor: ActorContext, dacRef: string) {
     const dac = await this.resolveDac(dacRef);
-    if (!dac || !canReadOriginationDac(actor, dac.producerOrganizationId, dac.status)) {
+    if (!dac || !canReadOriginationDac(actor, dac)) {
       throw new OriginationError("not_found");
     }
     return dac;
@@ -1498,6 +1794,10 @@ export class OriginationService {
     if (input.expectedVolumeTonnes != null && !(input.expectedVolumeTonnes > 0)) {
       throw new OriginationError("validation", "Expected volume must be positive.");
     }
+    const issuerOrganizationId = input.issuerOrganizationId?.trim() || null;
+    if (issuerOrganizationId && !isPermittedIssuerOrganizationId(issuerOrganizationId)) {
+      throw new OriginationError("validation", "Issuer organization is not permitted.");
+    }
     return {
       crop,
       harvestYear: input.harvestYear,
@@ -1505,6 +1805,7 @@ export class OriginationService {
       qualityClass: input.qualityClass?.trim() || null,
       producerReference: input.producerReference?.trim() || null,
       scasNotes: input.scasNotes.trim(),
+      issuerOrganizationId,
     };
   }
 

@@ -5,6 +5,9 @@ import type {
   FieldVerificationCaseRecord,
   FieldVerificationMessageRecord,
   OriginationAuditEvent,
+  OriginationDacMessageRecord,
+  OriginationDacRecord,
+  OriginationDacStatus,
   ProducerFieldRecord,
   VerifiedFieldSnapshotRecord,
 } from "./types";
@@ -47,6 +50,29 @@ export type RejectionBundle = {
   verificationCase: FieldVerificationCaseRecord;
   message: FieldVerificationMessageRecord;
   event: OriginationAuditEvent;
+};
+
+export type DacTransitionKind =
+  | "update_draft"
+  | "send_to_producer"
+  | "producer_confirm"
+  | "producer_return"
+  | "issuer_confirm"
+  | "issuer_return"
+  | "submit_to_registrar"
+  | "start_review"
+  | "accept"
+  | "return_intake";
+
+export type DacTransitionBundle = {
+  kind: DacTransitionKind;
+  expectedStatuses: OriginationDacStatus[];
+  expectedProducerOrganizationId?: string | null;
+  expectedIssuerOrganizationId?: string | null;
+  expectedTermsHash?: string | null;
+  dac: OriginationDacRecord;
+  event: OriginationAuditEvent;
+  message?: OriginationDacMessageRecord | null;
 };
 
 export type { FieldUploadIntentRecord };
