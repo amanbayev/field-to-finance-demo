@@ -1030,3 +1030,47 @@ describe("origination create idempotency", () => {
     expect(first.publicId).not.toBe(second.publicId);
   });
 });
+
+describe("origination desk curation", () => {
+  it("archives a draft and hides it from the active producer list", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const actor = producer();
+    const reviewer = scas();
+    const live = await draft(service, actor);
+    await service.uploadDocument(actor, {
+      fieldId: live.id,
+      documentType: "LAND_OWNERSHIP",
+      ...pdf("title.pdf"),
+    });
+    const submitted = await service.submitToScas(actor, live.id);
+    const retry = await service.createDraft(actor, { ...sample, name: "Retry draft" });
+
+    await service.archiveField(actor, retry.id);
+
+    const active = await service.listProducerFields(actor, "all");
+    expect(active.map((field) => field.publicId)).toEqual([submitted.field.publicId]);
+    expect(active.every((field) => field.status !== "ARCHIVED")).toBe(true);
+
+    const archived = await service.listProducerFields(actor, "archived");
+    expect(archived.map((field) => field.id)).toEqual([retry.id]);
+
+    const queue = await service.listVerificationQueue(reviewer, "all");
+    expect(queue.map((item) => item.publicId)).toEqual([submitted.verificationCase.publicId]);
+  });
+
+  it("does not archive a submitted field", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const actor = producer();
+    const field = await draft(service, actor);
+    await service.uploadDocument(actor, {
+      fieldId: field.id,
+      documentType: "LAND_OWNERSHIP",
+      ...pdf("title.pdf"),
+    });
+    await service.submitToScas(actor, field.id);
+    await expect(service.archiveField(actor, field.id)).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+  });
+});

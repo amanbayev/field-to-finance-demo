@@ -1,7 +1,8 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import type { ActorContext, PlatformRoleId } from "@/domain/identity";
-import { listContractsForActor } from "@/services/access-service";
+import { OriginationError, producerNextActionMessageKey, type ProducerFieldRecord } from "@/domain/origination";
+import { originationService } from "@/services/origination-service";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
 import { getInvestorPortfolio } from "@/services/portfolio-service";
 import { loadAdminOverview } from "@/services/admin-service";
@@ -22,9 +23,11 @@ import { DeskStage } from "@/components/surface/desk-stage-hero";
 import { EmptyState } from "@/components/shared/page-section";
 import { buttonVariants } from "@/components/ui/button";
 import { lookupMessage } from "@/i18n/t-dynamic";
-import { formatInteger } from "@/lib/format";
+import { formatInteger, formatNumber } from "@/lib/format";
+import { originationFieldPath } from "@/lib/origination/paths";
 import { cn } from "@/lib/utils";
 import type { AppLocale } from "@/i18n/config";
+import { StatusBadge } from "@/components/shared/status-badge";
 
 async function overviewStage(role: PlatformRoleId) {
   const t = await getTranslations();
@@ -324,12 +327,21 @@ async function RegistrarHome() {
 
 async function ProducerHome({ actor }: { actor: ActorContext }) {
   const t = await getTranslations();
+  const tOrig = await getTranslations("origination");
+  const tCatalog = await getTranslations("catalog");
   const locale = (await getLocale()) as AppLocale;
-  const contracts = listContractsForActor(actor);
-  const volume = contracts.reduce(
-    (sum, item) => sum + item.contract.production.expectedProductionTonnes,
-    0,
-  );
+  let fields: ProducerFieldRecord[] = [];
+  let storageDown = false;
+  try {
+    fields = await originationService().listProducerFields(actor, "all");
+  } catch (error) {
+    if (error instanceof OriginationError && error.code === "storage") {
+      storageDown = true;
+    } else {
+      throw error;
+    }
+  }
+  const hectares = fields.reduce((sum, field) => sum + (field.declared.declaredAreaHa ?? 0), 0);
   const stage = await overviewStage("PRODUCER_ADMIN");
   return (
     <>
@@ -340,22 +352,16 @@ async function ProducerHome({ actor }: { actor: ActorContext }) {
         lead={t("dashboard.producerIntro")}
         figure={
           <DeskFigure
-            label={t("dashboard.ownVolume")}
-            value={
-              contracts.length
-                ? t("units.tonnes", { value: formatInteger(volume, locale) })
-                : "—"
-            }
+            label={tOrig("filterAll")}
+            value={fields.length ? formatNumber(fields.length, locale) : "—"}
             meta={
-              contracts.length
+              fields.length
                 ? [
                     {
-                      label: t("dashboard.ownContracts"),
-                      value: formatInteger(contracts.length, locale),
-                    },
-                    {
-                      label: t("dashboard.ownStatus"),
-                      value: contracts[0]?.contract.status ?? "—",
+                      label: t("workspace.area"),
+                      value: t("units.hectaresShort", {
+                        value: formatNumber(hectares, locale, 1),
+                      }),
                     },
                   ]
                 : undefined
@@ -363,30 +369,30 @@ async function ProducerHome({ actor }: { actor: ActorContext }) {
           />
         }
       />
-      {contracts.length === 0 ? (
+      {fields.length === 0 ? (
         <EmptyState
           kicker={t("nav.myFields")}
-          title={t("desk.noFieldsTitle")}
-          body={t("desk.noFieldsBody")}
+          title={storageDown ? tOrig("storageUnavailable") : t("desk.noFieldsTitle")}
+          body={storageDown ? tOrig("storageUnavailable") : t("desk.noFieldsBody")}
           action={
-            <Link href="/fields" className={cn(buttonVariants())}>
-              {t("desk.openContracts")}
-            </Link>
+            storageDown ? undefined : (
+              <Link href="/fields/new" className={cn(buttonVariants())}>
+                {tOrig("addField")}
+              </Link>
+            )
           }
         />
       ) : (
         <DeskLedger>
-          {contracts.map((item, index) => (
+          {fields.map((field, index) => (
             <DeskRow
-              key={item.contract.id}
-              href={`/fields/${item.contract.id}`}
+              key={field.id}
+              href={originationFieldPath(field.publicId)}
               index={deskIndex(index)}
-              kicker={lookupMessage(t, `catalog.regions.${item.contract.field.region}`)}
-              title={item.contract.field.cadastralRef}
-              value={t("units.hectaresShort", {
-                value: formatInteger(item.contract.field.areaHectares, locale),
-              })}
-              hint={item.contract.status}
+              kicker={field.publicId}
+              title={field.declared.name}
+              hint={`${field.declared.cadastreNumber} · ${lookupMessage(tCatalog, `crops.${field.declared.crop}`)} · ${field.declared.season} · ${tOrig(producerNextActionMessageKey(field.status))}`}
+              value={<StatusBadge value={field.status} />}
             />
           ))}
         </DeskLedger>

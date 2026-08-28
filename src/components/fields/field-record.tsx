@@ -13,9 +13,10 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import type { ContractListItem } from "@/services/contract-service";
+import { demonstratorContractPath } from "@/lib/origination/paths";
 
 export function fieldHref(contractId: string): string {
-  return `/fields/${contractId}`;
+  return demonstratorContractPath(contractId);
 }
 
 export async function FieldPlotsLedger({

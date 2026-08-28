@@ -1,24 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, forbidden } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { DeskFigure, DeskBackLink } from "@/components/surface/desk-stage";
 import { DataList } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
-import {
-  FieldDetailRecord,
-  FieldSiblings,
-} from "@/components/fields/field-record";
 import { DocumentPanel, MessageForm, ActionError } from "@/components/origination/document-panel";
 import type { AppLocale } from "@/i18n/config";
-import { formatInteger, formatNumber, formatTimestamp } from "@/lib/format";
+import { formatNumber, formatTimestamp } from "@/lib/format";
 import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
-import { getContractForActor, listContractsForActor } from "@/services/access-service";
 import { originationService } from "@/services/origination-service";
 import { OriginationError, producerNextActionMessageKey } from "@/domain/origination";
 import { lookupMessage } from "@/i18n/t-dynamic";
+import {
+  demonstratorContractPath,
+  isDemonstratorContractId,
+} from "@/lib/origination/paths";
 import {
   resubmitFieldAction,
   sendFieldMessageAction,
@@ -38,13 +37,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const actor = await requireOwnProducerWorkspace({ manage: true });
   const { fieldId } = await params;
-  if (fieldId.startsWith("DAC-")) {
-    const item = getContractForActor(actor, fieldId);
-    if (!item || item === "forbidden") {
-      const t = await getTranslations("workspace");
-      return { title: t("fieldsTitle") };
-    }
-    return { title: item.contract.field.cadastralRef };
+  if (isDemonstratorContractId(fieldId)) {
+    redirect(demonstratorContractPath(fieldId));
   }
   try {
     const bundle = await originationService().getFieldBundle(actor, fieldId);
@@ -66,41 +60,8 @@ export default async function FieldDetailPage({
   const { fieldId } = await params;
   const query = await searchParams;
 
-  if (fieldId.startsWith("DAC-")) {
-    const item = getContractForActor(actor, fieldId);
-    if (item === "forbidden") {
-      forbidden();
-    }
-    if (!item) {
-      notFound();
-    }
-    const t = await getTranslations("workspace");
-    const tDesk = await getTranslations("desk");
-    const tUnits = await getTranslations("units");
-    const locale = (await getLocale()) as AppLocale;
-    const plots = listContractsForActor(actor);
-    return (
-      <div>
-        <PageHeader
-          eyebrow={t("fieldsEyebrow")}
-          title={item.contract.field.cadastralRef}
-          description={item.producer.legalName}
-          photo="/media/hero-harvest-dusk.png"
-          figure={
-            <DeskFigure
-              label={t("area")}
-              value={tUnits("hectaresShort", {
-                value: formatInteger(item.contract.field.areaHectares, locale),
-              })}
-              meta={[{ label: t("season"), value: String(item.contract.production.season) }]}
-            />
-          }
-        />
-        <DeskBackLink href="/fields" label={tDesk("backToFields")} />
-        <FieldDetailRecord item={item} />
-        <FieldSiblings items={plots} activeId={item.contract.id} />
-      </div>
-    );
+  if (isDemonstratorContractId(fieldId)) {
+    redirect(demonstratorContractPath(fieldId));
   }
 
   let bundle;

@@ -18,6 +18,7 @@ import {
 } from "@/domain/origination";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { buttonVariants } from "@/components/ui/button";
+import { originationFieldPath } from "@/lib/origination/paths";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -126,7 +127,7 @@ export default async function FieldsPage({
           {fields.map((field, index) => (
             <DeskRow
               key={field.id}
-              href={`/fields/${field.publicId}`}
+              href={originationFieldPath(field.publicId)}
               index={deskIndex(index)}
               kicker={field.publicId}
               title={field.declared.name}
