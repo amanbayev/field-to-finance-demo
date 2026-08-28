@@ -7,10 +7,13 @@ import {
 
 const sample: DacContractTerms = {
   cadastreNumber: "03:041:0123456:12",
+  contractedVolumeTonnes: 280,
   crop: "Wheat",
   declaredAreaHectares: 1240,
+  deliveryEndDate: "2027-09-30",
+  deliveryLocation: "Astana elevator",
+  deliveryStartDate: "2027-08-01",
   district: "Astrakhan",
-  expectedVolumeTonnes: 280,
   fieldId: "field-1",
   harvestYear: 2027,
   issuerOrganizationId: "issuer-1",
@@ -38,10 +41,13 @@ describe("DAC terms hash", () => {
       issuerOrganizationId: sample.issuerOrganizationId,
       harvestYear: sample.harvestYear,
       fieldId: sample.fieldId,
-      expectedVolumeTonnes: sample.expectedVolumeTonnes,
       district: sample.district,
+      deliveryStartDate: sample.deliveryStartDate,
+      deliveryLocation: sample.deliveryLocation,
+      deliveryEndDate: sample.deliveryEndDate,
       declaredAreaHectares: sample.declaredAreaHectares,
       crop: sample.crop,
+      contractedVolumeTonnes: sample.contractedVolumeTonnes,
       cadastreNumber: sample.cadastreNumber,
     };
     expect(canonicalizeDacTerms(reversed)).toBe(canonicalizeDacTerms(sample));
@@ -49,7 +55,12 @@ describe("DAC terms hash", () => {
     expect(hashDacTerms(sample)).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("changes when a commercial term changes", () => {
-    expect(hashDacTerms({ ...sample, expectedVolumeTonnes: 275 })).not.toBe(hashDacTerms(sample));
+  it("changes when contracted volume or a delivery term changes", () => {
+    expect(hashDacTerms({ ...sample, contractedVolumeTonnes: 275 })).not.toBe(hashDacTerms(sample));
+    expect(hashDacTerms({ ...sample, deliveryStartDate: "2027-08-15" })).not.toBe(hashDacTerms(sample));
+    expect(hashDacTerms({ ...sample, deliveryEndDate: "2027-10-01" })).not.toBe(hashDacTerms(sample));
+    expect(hashDacTerms({ ...sample, deliveryLocation: "Kostanay elevator" })).not.toBe(
+      hashDacTerms(sample),
+    );
   });
 });

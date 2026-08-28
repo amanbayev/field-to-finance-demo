@@ -12,7 +12,6 @@ import { originationService } from "@/services/origination-service";
 import { OriginationError, allowsScasDacEdit, allowsScasDacSubmit, allowsScasSendToProducer } from "@/domain/origination";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { stageMediaForRole } from "@/lib/surface/role-media";
-import { listPermittedIssuerOrganizations } from "@/domain/origination/issuers";
 import { DacPartiesPanel, DacStageLegend } from "@/components/origination/dac-parties";
 import {
   sendDacMessageAction,
@@ -58,7 +57,7 @@ export default async function ScasDacDeskPage({
   const canEdit = allowsScasDacEdit(dac.status);
   const canSendProducer = allowsScasSendToProducer(dac.status);
   const canSubmit = allowsScasDacSubmit(dac.status);
-  const issuers = listPermittedIssuerOrganizations();
+  const issuers = await originationService().listActiveIssuerOrganizations(actor);
 
   return (
     <div>
@@ -128,12 +127,38 @@ export default async function ScasDacDeskPage({
               />
             </label>
             <label className="grid gap-2">
-              <span className="label-caps">{t("expectedVolume")}</span>
+              <span className="label-caps">{t("contractedVolume")}</span>
               <input
-                name="expectedVolumeTonnes"
+                name="contractedVolumeTonnes"
                 type="number"
                 step="0.01"
-                defaultValue={dac.expectedVolumeTonnes ?? ""}
+                defaultValue={dac.contractedVolumeTonnes ?? ""}
+                className="desk-control w-full py-2"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="label-caps">{t("deliveryStartDate")}</span>
+              <input
+                name="deliveryStartDate"
+                type="date"
+                defaultValue={dac.deliveryStartDate ?? ""}
+                className="desk-control w-full py-2"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="label-caps">{t("deliveryEndDate")}</span>
+              <input
+                name="deliveryEndDate"
+                type="date"
+                defaultValue={dac.deliveryEndDate ?? ""}
+                className="desk-control w-full py-2"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="label-caps">{t("deliveryLocation")}</span>
+              <input
+                name="deliveryLocation"
+                defaultValue={dac.deliveryLocation ?? ""}
                 className="desk-control w-full py-2"
               />
             </label>
@@ -171,8 +196,20 @@ export default async function ScasDacDeskPage({
               <dd className="mt-1">{lookupMessage(tCatalog, `crops.${dac.crop}`)}</dd>
             </div>
             <div>
-              <dt className="label-caps text-straw">{t("expectedVolume")}</dt>
-              <dd className="mt-1 font-tabular">{dac.expectedVolumeTonnes ?? "—"}</dd>
+              <dt className="label-caps text-straw">{t("contractedVolume")}</dt>
+              <dd className="mt-1 font-tabular">{dac.contractedVolumeTonnes ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="label-caps text-straw">{t("deliveryStartDate")}</dt>
+              <dd className="mt-1 font-tabular">{dac.deliveryStartDate ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="label-caps text-straw">{t("deliveryEndDate")}</dt>
+              <dd className="mt-1 font-tabular">{dac.deliveryEndDate ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="label-caps text-straw">{t("deliveryLocation")}</dt>
+              <dd className="mt-1">{dac.deliveryLocation ?? "—"}</dd>
             </div>
             <div>
               <dt className="label-caps text-straw">{t("scasNotes")}</dt>

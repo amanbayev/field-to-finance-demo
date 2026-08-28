@@ -3,10 +3,13 @@ import type { OriginationDacRecord } from "./types";
 
 export interface DacContractTerms {
   cadastreNumber: string;
+  contractedVolumeTonnes: number | null;
   crop: string;
   declaredAreaHectares: number | null;
+  deliveryEndDate: string | null;
+  deliveryLocation: string | null;
+  deliveryStartDate: string | null;
   district: string | null;
-  expectedVolumeTonnes: number | null;
   fieldId: string;
   harvestYear: number;
   issuerOrganizationId: string | null;
@@ -20,13 +23,28 @@ export interface DacContractTerms {
   verifiedSnapshotId: string;
 }
 
+export const DAC_FROZEN_TERM_KEYS = [
+  "issuerOrganizationId",
+  "crop",
+  "harvestYear",
+  "contractedVolumeTonnes",
+  "qualityClass",
+  "producerReference",
+  "deliveryStartDate",
+  "deliveryEndDate",
+  "deliveryLocation",
+] as const satisfies readonly (keyof OriginationDacRecord)[];
+
 export function termsFromDac(dac: OriginationDacRecord): DacContractTerms {
   return {
     cadastreNumber: dac.cadastreNumber,
+    contractedVolumeTonnes: dac.contractedVolumeTonnes,
     crop: dac.crop,
     declaredAreaHectares: dac.declaredAreaHectares,
+    deliveryEndDate: dac.deliveryEndDate,
+    deliveryLocation: dac.deliveryLocation,
+    deliveryStartDate: dac.deliveryStartDate,
     district: dac.district,
-    expectedVolumeTonnes: dac.expectedVolumeTonnes,
     fieldId: dac.fieldId,
     harvestYear: dac.harvestYear,
     issuerOrganizationId: dac.issuerOrganizationId,
@@ -41,6 +59,26 @@ export function termsFromDac(dac: OriginationDacRecord): DacContractTerms {
   };
 }
 
+export function executedTermsSnapshotFromDac(dac: OriginationDacRecord): Record<string, unknown> {
+  return { ...termsFromDac(dac) };
+}
+
+export function frozenContractTermsFrom(
+  dac: OriginationDacRecord,
+): Pick<OriginationDacRecord, (typeof DAC_FROZEN_TERM_KEYS)[number]> {
+  return {
+    issuerOrganizationId: dac.issuerOrganizationId,
+    crop: dac.crop,
+    harvestYear: dac.harvestYear,
+    contractedVolumeTonnes: dac.contractedVolumeTonnes,
+    qualityClass: dac.qualityClass,
+    producerReference: dac.producerReference,
+    deliveryStartDate: dac.deliveryStartDate,
+    deliveryEndDate: dac.deliveryEndDate,
+    deliveryLocation: dac.deliveryLocation,
+  };
+}
+
 export function canonicalizeDacTerms(terms: DacContractTerms): string {
   return stableStringify(terms);
 }
@@ -51,6 +89,40 @@ export function hashDacTerms(terms: DacContractTerms): string {
 
 export function hashCurrentDacTerms(dac: OriginationDacRecord): string {
   return hashDacTerms(termsFromDac(dac));
+}
+
+export function normalizeIsoDate(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) {
+    return null;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  return trimmed;
+}
+
+export function deliveryEndPrecedesStart(start: string | null, end: string | null): boolean {
+  if (!start || !end) {
+    return false;
+  }
+  return end < start;
+}
+
+export function hasSendableDeliveryTerms(dac: Pick<
+  OriginationDacRecord,
+  "deliveryStartDate" | "deliveryEndDate" | "deliveryLocation"
+>): boolean {
+  return Boolean(
+    dac.deliveryStartDate &&
+      dac.deliveryEndDate &&
+      !deliveryEndPrecedesStart(dac.deliveryStartDate, dac.deliveryEndDate) &&
+      dac.deliveryLocation?.trim(),
+  );
+}
+
+export function hasSendableContractedVolume(volume: number | null | undefined): boolean {
+  return volume != null && volume > 0;
 }
 
 export function clearedDacConfirmations(): Pick<

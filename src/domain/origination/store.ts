@@ -1,3 +1,4 @@
+import type { OrganizationRecord } from "@/domain/identity";
 import type {
   ApprovalBundle,
   ChangeRequestBundle,
@@ -94,4 +95,6 @@ export interface OriginationStore {
   listDacMessages(dacId: string): Promise<OriginationDacMessageRecord[]>;
   insertDacEvent(record: OriginationAuditEvent): Promise<OriginationAuditEvent>;
   listDacEvents(dacId: string): Promise<OriginationAuditEvent[]>;
+  listActiveIssuerOrganizations(): Promise<OrganizationRecord[]>;
+  getOrganization(id: string): Promise<OrganizationRecord | null>;
 }

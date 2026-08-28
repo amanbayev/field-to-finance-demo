@@ -1,5 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { DEMO_ORGANIZATIONS } from "@/data/identity/demo-catalog";
+import type { OrganizationRecord } from "@/domain/identity";
 import type {
   FieldCadastreVerificationRecord,
   FieldDocumentRecord,
@@ -20,7 +22,15 @@ import {
   LIVE_ORIGINATION_DAC_SEQUENCE_START,
   OriginationError,
 } from "./types";
-import { hashCurrentDacTerms } from "./terms";
+import { isActiveIssuerOrganization } from "./issuers";
+import {
+  clearedDacConfirmations,
+  executedTermsSnapshotFromDac,
+  frozenContractTermsFrom,
+  hasSendableContractedVolume,
+  hasSendableDeliveryTerms,
+  hashCurrentDacTerms,
+} from "./terms";
 import type {
   ApprovalBundle,
   ChangeRequestBundle,
@@ -30,6 +40,7 @@ import type {
   SubmissionBundle,
 } from "./tx";
 import {
+  DAC_EXACT_TRANSITIONS,
   allowsApproval,
   allowsChangeRequest,
   allowsProducerUpload,
@@ -88,12 +99,21 @@ export class MemoryOriginationStore implements OriginationStore {
   private dacMessages: OriginationDacMessageRecord[] = [];
   private dacEvents: OriginationAuditEvent[] = [];
   private blobs = new Map<string, OriginationBlob>();
+  private organizations = new Map<string, OrganizationRecord>();
 
   constructor(
     private readonly persistPath?: string,
     private readonly now: () => number = Date.now,
+    organizations: readonly OrganizationRecord[] = DEMO_ORGANIZATIONS,
   ) {
+    for (const organization of organizations) {
+      this.organizations.set(organization.id, clone(organization));
+    }
     this.hydrate();
+  }
+
+  seedOrganization(organization: OrganizationRecord) {
+    this.organizations.set(organization.id, clone(organization));
   }
 
   private hydrate() {
@@ -845,8 +865,19 @@ export class MemoryOriginationStore implements OriginationStore {
       if (!current) {
         throw new OriginationError("not_found", "origination DAC not found");
       }
-      if (!input.expectedStatuses.includes(current.status)) {
+      const transition = DAC_EXACT_TRANSITIONS[input.kind];
+      if (!transition.from.includes(current.status)) {
         throw new OriginationError("invalid_state", "Not in an allowed source state.");
+      }
+      if (input.kind === "update_draft" || input.kind === "send_to_producer") {
+        const issuerId =
+          input.kind === "update_draft" ? input.dac.issuerOrganizationId : current.issuerOrganizationId;
+        if (issuerId) {
+          const issuer = this.organizations.get(issuerId);
+          if (!isActiveIssuerOrganization(issuer ?? null)) {
+            throw new OriginationError("validation", "Issuer organization is not permitted.");
+          }
+        }
       }
       if (
         input.expectedProducerOrganizationId &&
@@ -860,24 +891,7 @@ export class MemoryOriginationStore implements OriginationStore {
       ) {
         throw new OriginationError("invalid_state", "Issuer organization does not match.");
       }
-      if (input.expectedTermsHash && current.currentTermsHash !== input.expectedTermsHash) {
-        throw new OriginationError("invalid_state", "terms hash mismatch");
-      }
-      if (input.kind === "issuer_confirm") {
-        if (
-          !current.producerConfirmedTermsHash ||
-          current.producerConfirmedTermsHash !== current.currentTermsHash
-        ) {
-          throw new OriginationError("invalid_state", "Issuer confirmation requires the same terms hash.");
-        }
-        if (
-          input.dac.issuerConfirmedTermsHash &&
-          input.dac.issuerConfirmedTermsHash !== current.currentTermsHash
-        ) {
-          throw new OriginationError("invalid_state", "terms hash mismatch");
-        }
-      }
-      const next = clone(input.dac);
+      const next = applyExactDacTransition(current, input);
       this.dacs.set(next.id, next);
       this.dacEvents.push(clone(input.event));
       this.events.push(
@@ -972,14 +986,156 @@ export class MemoryOriginationStore implements OriginationStore {
         .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
     );
   }
+
+  async listActiveIssuerOrganizations() {
+    return this.read(() =>
+      [...this.organizations.values()]
+        .filter(isActiveIssuerOrganization)
+        .map(clone)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    );
+  }
+
+  async getOrganization(id: string) {
+    return this.read(() => {
+      const organization = this.organizations.get(id);
+      return organization ? clone(organization) : null;
+    });
+  }
+}
+
+function applyExactDacTransition(
+  current: OriginationDacRecord,
+  input: DacTransitionBundle,
+): OriginationDacRecord {
+  const target = DAC_EXACT_TRANSITIONS[input.kind].to;
+  const frozen = frozenContractTermsFrom(current);
+  const next: OriginationDacRecord = {
+    ...clone(current),
+    ...frozen,
+    status: target,
+    updatedByUserId: input.dac.updatedByUserId,
+    updatedAt: input.dac.updatedAt,
+  };
+
+  if (input.kind === "update_draft") {
+    const commercial = frozenContractTermsFrom(input.dac);
+    const drafted: OriginationDacRecord = {
+      ...next,
+      ...commercial,
+      scasNotes: input.dac.scasNotes,
+      termsVersion: input.dac.termsVersion,
+      ...clearedDacConfirmations(),
+    };
+    drafted.currentTermsHash = hashCurrentDacTerms(drafted);
+    return drafted;
+  }
+
+  if (input.kind === "send_to_producer") {
+    if (!current.issuerOrganizationId) {
+      throw new OriginationError("validation", "A permitted issuer must be selected before confirmation.");
+    }
+    if (!hasSendableContractedVolume(current.contractedVolumeTonnes)) {
+      throw new OriginationError("validation", "Contracted volume is required before producer confirmation.");
+    }
+    if (!hasSendableDeliveryTerms(current)) {
+      throw new OriginationError("validation", "Delivery terms are required before producer confirmation.");
+    }
+    return {
+      ...next,
+      currentTermsHash: hashCurrentDacTerms(current),
+      ...clearedDacConfirmations(),
+    };
+  }
+
+  if (input.kind === "producer_confirm") {
+    return {
+      ...next,
+      producerConfirmedTermsHash: current.currentTermsHash,
+      producerConfirmedByUserId: input.dac.producerConfirmedByUserId,
+      producerConfirmedByRole: input.dac.producerConfirmedByRole,
+      producerConfirmedAt: input.dac.producerConfirmedAt,
+    };
+  }
+
+  if (input.kind === "producer_return" || input.kind === "issuer_return") {
+    return {
+      ...next,
+      ...clearedDacConfirmations(),
+    };
+  }
+
+  if (input.kind === "issuer_confirm") {
+    if (
+      !current.producerConfirmedTermsHash ||
+      current.producerConfirmedTermsHash !== current.currentTermsHash
+    ) {
+      throw new OriginationError("invalid_state", "Issuer confirmation requires the same terms hash.");
+    }
+    const hash = current.currentTermsHash;
+    return {
+      ...next,
+      issuerConfirmedTermsHash: hash,
+      issuerConfirmedByUserId: input.dac.issuerConfirmedByUserId,
+      issuerConfirmedByRole: input.dac.issuerConfirmedByRole,
+      issuerConfirmedAt: input.dac.issuerConfirmedAt,
+      executedTermsSnapshot: executedTermsSnapshotFromDac(current),
+      executedTermsHash: hash,
+      executedAt: input.dac.executedAt,
+    };
+  }
+
+  if (input.kind === "submit_to_registrar") {
+    if (!current.executedTermsHash || !current.executedAt) {
+      throw new OriginationError(
+        "invalid_state",
+        "Registrar intake requires an executed Producer-Issuer contract.",
+      );
+    }
+    return {
+      ...next,
+      submittedToRegistrarAt: input.dac.submittedToRegistrarAt ?? current.submittedToRegistrarAt,
+    };
+  }
+
+  if (input.kind === "start_review") {
+    return {
+      ...next,
+      registrarReviewedByUserId: input.dac.registrarReviewedByUserId,
+    };
+  }
+
+  if (input.kind === "accept") {
+    return {
+      ...next,
+      registrarNotes: input.dac.registrarNotes || current.registrarNotes,
+      registrarReviewedByUserId: input.dac.registrarReviewedByUserId,
+      acceptedAt: input.dac.acceptedAt,
+    };
+  }
+
+  return {
+    ...next,
+    registrarNotes: input.dac.registrarNotes,
+    registrarReviewedByUserId: input.dac.registrarReviewedByUserId,
+    returnedAt: input.dac.returnedAt,
+  };
 }
 
 function normalizePersistedDac(
-  record: OriginationDacRecord & { rightHolder?: string; rightType?: string },
+  record: OriginationDacRecord & {
+    rightHolder?: string;
+    rightType?: string;
+    expectedVolumeTonnes?: number | null;
+  },
 ): OriginationDacRecord {
   const next: OriginationDacRecord = {
     ...record,
     issuerOrganizationId: record.issuerOrganizationId ?? null,
+    contractedVolumeTonnes: record.contractedVolumeTonnes ?? record.expectedVolumeTonnes ?? null,
+    deliveryStartDate: record.deliveryStartDate ?? null,
+    deliveryEndDate: record.deliveryEndDate ?? null,
+    deliveryLocation: record.deliveryLocation ?? null,
     landRightHolder: record.landRightHolder ?? record.rightHolder ?? "",
     landRightType: record.landRightType ?? record.rightType ?? "",
     termsVersion: record.termsVersion ?? 1,

@@ -4,7 +4,7 @@ import { DataList } from "@/components/shared/data-list";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { PageSection } from "@/components/shared/page-section";
 import { MessageForm } from "@/components/origination/document-panel";
-import { organizationById } from "@/data/identity/demo-catalog";
+import { organizationLabel } from "@/components/origination/dac-parties";
 import type { OriginationService } from "@/domain/origination";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
@@ -34,7 +34,10 @@ export async function DacDesk({
   const tCatalog = await getTranslations("catalog");
   const locale = (await getLocale()) as AppLocale;
   const { dac, field, snapshot, documents, cadastre, events, messages } = bundle;
-  const producerName = organizationById(dac.producerOrganizationId)?.name ?? dac.producerOrganizationId;
+  const producerName = await organizationLabel(dac.producerOrganizationId, dac.producerOrganizationId);
+  const issuerName = dac.issuerOrganizationId
+    ? await organizationLabel(dac.issuerOrganizationId, dac.issuerOrganizationId)
+    : t("issuerNotSelected");
   const accepted = documents.filter(
     (document) => document.current && snapshot?.payload.acceptedDocumentIds.includes(document.id),
   );
@@ -70,7 +73,7 @@ export async function DacDesk({
             <DataList
               items={[
                 { label: t("producer"), value: producerName },
-                { label: t("issuer"), value: organizationById(dac.issuerOrganizationId ?? "")?.name ?? t("issuerNotSelected") },
+                { label: t("issuer"), value: issuerName },
                 { label: t("fieldId"), value: field.publicId },
                 { label: t("cadastre"), value: dac.cadastreNumber },
                 { label: t("landRightHolder"), value: dac.landRightHolder },

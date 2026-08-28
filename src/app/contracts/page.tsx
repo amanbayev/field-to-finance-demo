@@ -34,7 +34,7 @@ import { poolMembershipForContract } from "@/services/pool-service";
 import { isVerificationComplete } from "@/services/workspace-view";
 import { originationService } from "@/services/origination-service";
 import { OriginationError } from "@/domain/origination";
-import { organizationById } from "@/data/identity/demo-catalog";
+import { organizationLabels } from "@/components/origination/dac-parties";
 import { liveOriginatedDacHref } from "@/lib/origination/paths";
 import { PageSection } from "@/components/shared/page-section";
 
@@ -72,6 +72,7 @@ export default async function ContractsPage() {
       throw error;
     }
   }
+  const liveProducerNames = await organizationLabels(liveRows.map(({ dac }) => dac.producerOrganizationId));
   const proofEntries = await Promise.all(
     ON_CHAIN_DEMO_CONTRACT_IDS.map(
       async (id) =>
@@ -101,7 +102,7 @@ export default async function ContractsPage() {
                 href={liveOriginatedDacHref(actor, dac.publicId, fieldPublicId)}
                 index={deskIndex(index)}
                 kicker={dac.publicId}
-                title={organizationById(dac.producerOrganizationId)?.name ?? dac.producerOrganizationId}
+                title={liveProducerNames[dac.producerOrganizationId] ?? dac.producerOrganizationId}
                 hint={[
                   lookupMessage(tCatalog, `crops.${dac.crop}`),
                   String(dac.harvestYear),

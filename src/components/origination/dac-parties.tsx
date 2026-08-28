@@ -1,16 +1,31 @@
 import { getTranslations } from "next-intl/server";
 import { DataList } from "@/components/shared/data-list";
-import { organizationById } from "@/data/identity/demo-catalog";
 import type { OriginationDacRecord } from "@/domain/origination";
 import { isDacExecutedOrLater } from "@/domain/origination";
 import { shortenTermsHash } from "@/domain/origination/terms";
+import { originationService } from "@/services/origination-service";
+
+export async function organizationLabel(id: string | null | undefined, fallback = "—") {
+  if (!id) {
+    return fallback;
+  }
+  const organization = await originationService().getOrganization(id);
+  return organization?.name ?? id;
+}
+
+export async function organizationLabels(ids: Array<string | null | undefined>) {
+  const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  const entries = await Promise.all(
+    unique.map(async (id) => [id, await organizationLabel(id, id)] as const),
+  );
+  return Object.fromEntries(entries);
+}
 
 export async function DacPartiesPanel({ dac }: { dac: OriginationDacRecord }) {
   const t = await getTranslations("origination");
-  const producerName =
-    organizationById(dac.producerOrganizationId)?.name ?? dac.producerOrganizationId;
+  const producerName = await organizationLabel(dac.producerOrganizationId, dac.producerOrganizationId);
   const issuerName = dac.issuerOrganizationId
-    ? (organizationById(dac.issuerOrganizationId)?.name ?? dac.issuerOrganizationId)
+    ? await organizationLabel(dac.issuerOrganizationId, dac.issuerOrganizationId)
     : t("issuerNotSelected");
   const producerState = dac.producerConfirmedAt ? t("partyConfirmed") : t("partyPending");
   const issuerState = dac.issuerConfirmedAt ? t("partyConfirmed") : t("partyPending");

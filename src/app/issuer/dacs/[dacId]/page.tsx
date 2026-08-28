@@ -13,7 +13,7 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import { requireIssuerOperator } from "@/lib/auth/guard";
 import { OriginationError, allowsIssuerDacConfirm } from "@/domain/origination";
 import { originationService } from "@/services/origination-service";
-import { organizationById } from "@/data/identity/demo-catalog";
+import { organizationLabel } from "@/components/origination/dac-parties";
 import { stageMediaForRole } from "@/lib/surface/role-media";
 import {
   confirmIssuerDacAction,
@@ -55,8 +55,7 @@ export default async function IssuerDacDeskPage({
   const tCatalog = await getTranslations("catalog");
   const media = stageMediaForRole("ISSUER_OPERATOR");
   const { dac } = bundle;
-  const producerName =
-    organizationById(dac.producerOrganizationId)?.name ?? dac.producerOrganizationId;
+  const producerName = await organizationLabel(dac.producerOrganizationId, dac.producerOrganizationId);
   const canConfirm = allowsIssuerDacConfirm(dac.status);
 
   return (
@@ -92,12 +91,15 @@ export default async function IssuerDacDeskPage({
               { label: t("crop"), value: lookupMessage(tCatalog, `crops.${dac.crop}`) },
               { label: t("harvestYear"), value: String(dac.harvestYear) },
               {
-                label: t("expectedVolume"),
+                label: t("contractedVolume"),
                 value:
-                  dac.expectedVolumeTonnes != null
-                    ? tUnits("tonnes", { value: String(dac.expectedVolumeTonnes) })
+                  dac.contractedVolumeTonnes != null
+                    ? tUnits("tonnes", { value: String(dac.contractedVolumeTonnes) })
                     : "—",
               },
+              { label: t("deliveryStartDate"), value: dac.deliveryStartDate ?? "—" },
+              { label: t("deliveryEndDate"), value: dac.deliveryEndDate ?? "—" },
+              { label: t("deliveryLocation"), value: dac.deliveryLocation ?? "—" },
               { label: t("qualityClass"), value: dac.qualityClass ?? "—" },
               { label: t("termsVersion"), value: String(dac.termsVersion) },
             ]}

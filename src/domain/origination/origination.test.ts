@@ -22,6 +22,8 @@ import {
   type ProducerDeclaredData,
 } from "@/domain/origination";
 import { MemoryOriginationStore } from "@/domain/origination/memory-store";
+import { DAC_EXACT_TRANSITIONS } from "@/domain/origination/state-guards";
+import { executedTermsSnapshotFromDac, hashCurrentDacTerms } from "@/domain/origination/terms";
 import { isDemonstratorContractId } from "@/lib/origination/paths";
 import { listContracts } from "@/services/contract-service";
 
@@ -1124,9 +1126,12 @@ describe("origination Slice B off-chain DAC", () => {
     const dac = await service.updateDacDraft(opened.reviewer, opened.dac.id, {
       crop: "Wheat",
       harvestYear: 2027,
-      expectedVolumeTonnes: 280,
+      contractedVolumeTonnes: 280,
       qualityClass: "Class 3",
       producerReference: opened.field.publicId,
+      deliveryStartDate: "2027-08-01",
+      deliveryEndDate: "2027-09-30",
+      deliveryLocation: "Astana elevator",
       scasNotes: "Prepare the Producer-Issuer contract.",
       issuerOrganizationId: issuerOrg.id,
     });
@@ -1227,9 +1232,12 @@ describe("origination Slice B off-chain DAC", () => {
       service.updateDacDraft(opened.reviewer, opened.dac.id, {
         crop: "Wheat",
         harvestYear: 2027,
-        expectedVolumeTonnes: 280,
+        contractedVolumeTonnes: 280,
         qualityClass: "Class 3",
         producerReference: opened.field.publicId,
+        deliveryStartDate: "2027-08-01",
+        deliveryEndDate: "2027-09-30",
+        deliveryLocation: "Astana elevator",
         scasNotes: "",
         issuerOrganizationId: farm1.id,
       }),
@@ -1243,9 +1251,12 @@ describe("origination Slice B off-chain DAC", () => {
       service.updateDacDraft(opened.reviewer, opened.dac.id, {
         crop: "Wheat",
         harvestYear: 2027,
-        expectedVolumeTonnes: 280,
+        contractedVolumeTonnes: 280,
         qualityClass: "Class 3",
         producerReference: opened.field.publicId,
+        deliveryStartDate: "2027-08-01",
+        deliveryEndDate: "2027-09-30",
+        deliveryLocation: "Astana elevator",
         scasNotes: "",
         issuerOrganizationId: registrarOrg.id,
       }),
@@ -1288,9 +1299,12 @@ describe("origination Slice B off-chain DAC", () => {
       service.updateDacDraft(pending.reviewer, pending.dac.id, {
         crop: "Wheat",
         harvestYear: 2027,
-        expectedVolumeTonnes: 275,
+        contractedVolumeTonnes: 275,
         qualityClass: "Class 3",
         producerReference: pending.field.publicId,
+        deliveryStartDate: "2027-08-01",
+        deliveryEndDate: "2027-09-30",
+        deliveryLocation: "Astana elevator",
         scasNotes: "",
         issuerOrganizationId: issuerOrg.id,
       }),
@@ -1310,8 +1324,15 @@ describe("origination Slice B off-chain DAC", () => {
       issuerOrganizationId: issuerOrg.id,
       crop: "Wheat",
       harvestYear: 2027,
-      expectedVolumeTonnes: 280,
+      contractedVolumeTonnes: 280,
+      deliveryStartDate: "2027-08-01",
+      deliveryEndDate: "2027-09-30",
+      deliveryLocation: "Astana elevator",
     });
+    expect(executed.executedTermsHash).toBe(executed.currentTermsHash);
+    expect(executed.producerConfirmedTermsHash).toBe(executed.currentTermsHash);
+    expect(executed.issuerConfirmedTermsHash).toBe(executed.currentTermsHash);
+    expect(executed.executedTermsSnapshot).toEqual(executedTermsSnapshotFromDac(executed));
   });
 
   it("clears confirmations when a returned draft is edited", async () => {
@@ -1323,9 +1344,12 @@ describe("origination Slice B off-chain DAC", () => {
     const edited = await service.updateDacDraft(pending.reviewer, returned.id, {
       crop: "Wheat",
       harvestYear: 2027,
-      expectedVolumeTonnes: 270,
+      contractedVolumeTonnes: 270,
       qualityClass: "Class 3",
       producerReference: pending.field.publicId,
+      deliveryStartDate: "2027-08-01",
+      deliveryEndDate: "2027-09-30",
+      deliveryLocation: "Astana elevator",
       scasNotes: "Revised after producer return.",
       issuerOrganizationId: issuerOrg.id,
     });
@@ -1376,9 +1400,12 @@ describe("origination Slice B off-chain DAC", () => {
       service.updateDacDraft(executed.reviewer, returned.id, {
         crop: "Wheat",
         harvestYear: 2027,
-        expectedVolumeTonnes: 250,
+        contractedVolumeTonnes: 250,
         qualityClass: "Class 3",
         producerReference: executed.field.publicId,
+        deliveryStartDate: "2027-08-01",
+        deliveryEndDate: "2027-09-30",
+        deliveryLocation: "Astana elevator",
         scasNotes: "silent term change",
         issuerOrganizationId: issuerOrg.id,
       }),
@@ -1386,7 +1413,8 @@ describe("origination Slice B off-chain DAC", () => {
     const resubmitted = await service.submitDacToRegistrar(executed.reviewer, returned.id);
     expect(resubmitted.status).toBe("READY_FOR_REGISTRAR");
     expect(resubmitted.executedTermsHash).toBe(executed.dac.executedTermsHash);
-    const accepted = await service.acceptDacIntake(clerk, resubmitted.id, "Intake complete.");
+    const reviewingAgain = await service.startRegistrarReview(clerk, resubmitted.id);
+    const accepted = await service.acceptDacIntake(clerk, reviewingAgain.id, "Intake complete.");
     expect(accepted.status).toBe("REGISTRAR_ACCEPTED");
     expect(accepted).not.toHaveProperty("poolId");
     expect(accepted).not.toHaveProperty("tokenId");
@@ -1475,13 +1503,318 @@ describe("origination Slice B off-chain DAC", () => {
     const executed = await executedContract(service);
     const submitted = await service.submitDacToRegistrar(executed.reviewer, executed.dac.id);
     const clerk = registrar();
+    const reviewing = await service.startRegistrarReview(clerk, submitted.id);
     const results = await Promise.allSettled([
-      service.acceptDacIntake(clerk, submitted.id, "Accept."),
-      service.returnDacIntake(clerk, submitted.id, "Return."),
+      service.acceptDacIntake(clerk, reviewing.id, "Accept."),
+      service.returnDacIntake(clerk, reviewing.id, "Return."),
     ]);
     const fulfilled = results.filter((item) => item.status === "fulfilled");
     const rejected = results.filter((item) => item.status === "rejected");
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
+  });
+
+  it("lists issuers from the organization source rather than a hardcoded production catalog", async () => {
+    const store = new MemoryOriginationStore();
+    const extra: OrganizationRecord = {
+      id: "11111111-1111-4111-8111-111111111198",
+      slug: "steppe-issuer",
+      name: "Steppe Issuer",
+      type: "ISSUER",
+      status: "ACTIVE",
+    };
+    store.seedOrganization(extra);
+    const service = new OriginationService(store);
+    const listed = await service.listActiveIssuerOrganizations(scas());
+    expect(listed.some((item) => item.id === extra.id)).toBe(true);
+    expect(listed.some((item) => item.id === issuerOrg.id)).toBe(true);
+    expect(listed.every((item) => item.type === "ISSUER" && item.status === "ACTIVE")).toBe(true);
+  });
+
+  it("rejects an inactive issuer and a non-issuer organization", async () => {
+    const store = new MemoryOriginationStore();
+    const inactive: OrganizationRecord = {
+      id: "11111111-1111-4111-8111-111111111197",
+      slug: "inactive-issuer",
+      name: "Inactive Issuer",
+      type: "ISSUER",
+      status: "SUSPENDED",
+    };
+    store.seedOrganization(inactive);
+    const service = new OriginationService(store);
+    const opened = await draftDac(service);
+    const base = {
+      crop: "Wheat",
+      harvestYear: 2027,
+      contractedVolumeTonnes: 280,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      deliveryStartDate: "2027-08-01",
+      deliveryEndDate: "2027-09-30",
+      deliveryLocation: "Astana elevator",
+      scasNotes: "",
+    };
+    await expect(
+      service.updateDacDraft(opened.reviewer, opened.dac.id, {
+        ...base,
+        issuerOrganizationId: inactive.id,
+      }),
+    ).rejects.toMatchObject({ code: "validation" });
+    await expect(
+      service.updateDacDraft(opened.reviewer, opened.dac.id, {
+        ...base,
+        issuerOrganizationId: farm1.id,
+      }),
+    ).rejects.toMatchObject({ code: "validation" });
+  });
+
+  it("requires contracted volume and delivery terms before sending to the producer", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+      code: "validation",
+    });
+    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      contractedVolumeTonnes: null,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      deliveryStartDate: "2027-08-01",
+      deliveryEndDate: "2027-09-30",
+      deliveryLocation: "Astana elevator",
+      scasNotes: "",
+      issuerOrganizationId: issuerOrg.id,
+    });
+    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+      code: "validation",
+    });
+    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      contractedVolumeTonnes: 280,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      deliveryStartDate: null,
+      deliveryEndDate: "2027-09-30",
+      deliveryLocation: "Astana elevator",
+      scasNotes: "",
+      issuerOrganizationId: issuerOrg.id,
+    });
+    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+      code: "validation",
+    });
+    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      contractedVolumeTonnes: 280,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      deliveryStartDate: "2027-08-01",
+      deliveryEndDate: null,
+      deliveryLocation: "Astana elevator",
+      scasNotes: "",
+      issuerOrganizationId: issuerOrg.id,
+    });
+    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+      code: "validation",
+    });
+    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
+      crop: "Wheat",
+      harvestYear: 2027,
+      contractedVolumeTonnes: 280,
+      qualityClass: "Class 3",
+      producerReference: opened.field.publicId,
+      deliveryStartDate: "2027-08-01",
+      deliveryEndDate: "2027-09-30",
+      deliveryLocation: null,
+      scasNotes: "",
+      issuerOrganizationId: issuerOrg.id,
+    });
+    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+      code: "validation",
+    });
+    await expect(
+      service.updateDacDraft(opened.reviewer, opened.dac.id, {
+        crop: "Wheat",
+        harvestYear: 2027,
+        contractedVolumeTonnes: 280,
+        qualityClass: "Class 3",
+        producerReference: opened.field.publicId,
+        deliveryStartDate: "2027-09-30",
+        deliveryEndDate: "2027-08-01",
+        deliveryLocation: "Astana elevator",
+        scasNotes: "",
+        issuerOrganizationId: issuerOrg.id,
+      }),
+    ).rejects.toMatchObject({ code: "validation" });
+  });
+
+  it("rejects the wrong exact state transition", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    await expect(service.confirmDacAsProducer(opened.farm, opened.dac.id)).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+    await expect(service.confirmDacAsIssuer(issuer(), opened.dac.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(service.startRegistrarReview(registrar(), opened.dac.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    const pending = await pendingProducer(service);
+    await expect(service.submitDacToRegistrar(pending.reviewer, pending.dac.id)).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+    await expect(service.acceptDacIntake(registrar(), pending.dac.id, "Accept.")).rejects.toMatchObject({
+      code: "not_found",
+    });
+    const executed = await executedContract(service);
+    await expect(service.acceptDacIntake(registrar(), executed.dac.id, "Accept.")).rejects.toMatchObject({
+      code: "not_found",
+    });
+    const submitted = await service.submitDacToRegistrar(executed.reviewer, executed.dac.id);
+    await expect(service.acceptDacIntake(registrar(), submitted.id, "Accept.")).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+    expect(DAC_EXACT_TRANSITIONS.submit_to_registrar.from).toEqual([
+      "EXECUTED",
+      "RETURNED_BY_REGISTRAR",
+    ]);
+    expect(DAC_EXACT_TRANSITIONS.accept.from).toEqual(["UNDER_REGISTRAR_REVIEW"]);
+  });
+
+  it("ignores contract-term mutations on confirmation, execution and registrar RPCs", async () => {
+    const store = new MemoryOriginationStore();
+    const service = new OriginationService(store);
+    const pending = await pendingProducer(service);
+    const frozen = pending.dac.contractedVolumeTonnes;
+    const producerResult = await store.applyDacTransition({
+      kind: "producer_confirm",
+      expectedStatuses: ["PENDING_PRODUCER_CONFIRMATION"],
+      expectedProducerOrganizationId: farm1.id,
+      dac: {
+        ...pending.dac,
+        status: "EXECUTED",
+        contractedVolumeTonnes: 1,
+        deliveryLocation: "mutated",
+        issuerOrganizationId: farm1.id,
+        crop: "Barley",
+        producerConfirmedTermsHash: "deadbeef",
+        producerConfirmedByUserId: "issuer-1",
+        producerConfirmedByRole: "PRODUCER_ADMIN",
+        producerConfirmedAt: "2027-01-01T00:00:00.000Z",
+        updatedByUserId: "issuer-1",
+        updatedAt: "2027-01-01T00:00:00.000Z",
+      },
+      event: {
+        id: randomUUID(),
+        occurredAt: "2027-01-01T00:00:00.000Z",
+        actorUserId: "user-1",
+        effectiveRole: "PRODUCER_ADMIN",
+        personaId: null,
+        organizationId: farm1.id,
+        eventType: "dac_producer_confirmed",
+        objectType: "dac",
+        objectId: pending.dac.id,
+        result: "ok",
+        metadata: {},
+      },
+    });
+    expect(producerResult.status).toBe("PENDING_ISSUER_CONFIRMATION");
+    expect(producerResult.contractedVolumeTonnes).toBe(frozen);
+    expect(producerResult.deliveryLocation).toBe("Astana elevator");
+    expect(producerResult.issuerOrganizationId).toBe(issuerOrg.id);
+    expect(producerResult.crop).toBe("Wheat");
+    expect(producerResult.producerConfirmedTermsHash).toBe(pending.dac.currentTermsHash);
+
+    const issuerResult = await store.applyDacTransition({
+      kind: "issuer_confirm",
+      expectedStatuses: ["PENDING_ISSUER_CONFIRMATION"],
+      expectedIssuerOrganizationId: issuerOrg.id,
+      dac: {
+        ...producerResult,
+        status: "REGISTRAR_ACCEPTED",
+        contractedVolumeTonnes: 9,
+        deliveryStartDate: "2028-01-01",
+        executedTermsSnapshot: { crop: "mutated" },
+        executedTermsHash: "ffff",
+        issuerConfirmedTermsHash: "deadbeef",
+        issuerConfirmedByUserId: "issuer-1",
+        issuerConfirmedByRole: "ISSUER_OPERATOR",
+        issuerConfirmedAt: "2027-01-02T00:00:00.000Z",
+        executedAt: "2027-01-02T00:00:00.000Z",
+        updatedByUserId: "issuer-1",
+        updatedAt: "2027-01-02T00:00:00.000Z",
+      },
+      event: {
+        id: randomUUID(),
+        occurredAt: "2027-01-02T00:00:00.000Z",
+        actorUserId: "issuer-1",
+        effectiveRole: "ISSUER_OPERATOR",
+        personaId: null,
+        organizationId: issuerOrg.id,
+        eventType: "dac_issuer_confirmed",
+        objectType: "dac",
+        objectId: producerResult.id,
+        result: "ok",
+        metadata: {},
+      },
+    });
+    expect(issuerResult.status).toBe("EXECUTED");
+    expect(issuerResult.contractedVolumeTonnes).toBe(frozen);
+    expect(issuerResult.deliveryStartDate).toBe("2027-08-01");
+    expect(issuerResult.executedTermsHash).toBe(issuerResult.currentTermsHash);
+    expect(issuerResult.issuerConfirmedTermsHash).toBe(issuerResult.currentTermsHash);
+    expect(issuerResult.producerConfirmedTermsHash).toBe(issuerResult.currentTermsHash);
+    expect(issuerResult.executedTermsSnapshot).toEqual(executedTermsSnapshotFromDac(issuerResult));
+    expect(hashCurrentDacTerms(issuerResult)).toBe(issuerResult.currentTermsHash);
+
+    const submitted = await service.submitDacToRegistrar(pending.reviewer, issuerResult.id);
+    const reviewing = await service.startRegistrarReview(registrar(), submitted.id);
+    const returned = await store.applyDacTransition({
+      kind: "return_intake",
+      expectedStatuses: ["UNDER_REGISTRAR_REVIEW"],
+      dac: {
+        ...reviewing,
+        status: "DRAFT",
+        contractedVolumeTonnes: 3,
+        executedTermsHash: null,
+        executedAt: null,
+        registrarNotes: "Need the harvest-note dossier.",
+        registrarReviewedByUserId: "registrar-1",
+        returnedAt: "2027-01-03T00:00:00.000Z",
+        updatedByUserId: "registrar-1",
+        updatedAt: "2027-01-03T00:00:00.000Z",
+      },
+      message: {
+        id: randomUUID(),
+        dacId: reviewing.id,
+        senderUserId: "registrar-1",
+        senderRole: "REGISTRAR_OPERATOR",
+        senderPersonaId: null,
+        body: "Need the harvest-note dossier.",
+        messageType: "DECISION",
+        createdAt: "2027-01-03T00:00:00.000Z",
+      },
+      event: {
+        id: randomUUID(),
+        occurredAt: "2027-01-03T00:00:00.000Z",
+        actorUserId: "registrar-1",
+        effectiveRole: "REGISTRAR_OPERATOR",
+        personaId: null,
+        organizationId: registrarOrg.id,
+        eventType: "dac_returned",
+        objectType: "dac",
+        objectId: reviewing.id,
+        result: "ok",
+        metadata: {},
+      },
+    });
+    expect(returned.status).toBe("RETURNED_BY_REGISTRAR");
+    expect(returned.executedTermsHash).toBe(issuerResult.executedTermsHash);
+    expect(returned.executedAt).toBe(issuerResult.executedAt);
+    expect(returned.contractedVolumeTonnes).toBe(frozen);
+    expect(returned.deliveryLocation).toBe("Astana elevator");
   });
 });

@@ -9,10 +9,9 @@ import { FormSubmitButton } from "@/components/identity/form-submit-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DataList } from "@/components/shared/data-list";
 import { lookupMessage } from "@/i18n/t-dynamic";
-import { organizationById } from "@/data/identity/demo-catalog";
-import { DacPartiesPanel } from "@/components/origination/dac-parties";
-import { requireRegistrarIntake } from "@/lib/auth/guard";
 import { originationService } from "@/services/origination-service";
+import { DacPartiesPanel, organizationLabel } from "@/components/origination/dac-parties";
+import { requireRegistrarIntake } from "@/lib/auth/guard";
 import {
   OriginationError,
   allowsRegistrarDecision,
@@ -90,18 +89,21 @@ export default async function RegistrarIntakeDeskPage({
             { label: t("crop"), value: lookupMessage(tCatalog, `crops.${dac.crop}`) },
             { label: t("harvestYear"), value: String(dac.harvestYear) },
             {
-              label: t("expectedVolume"),
+              label: t("contractedVolume"),
               value:
-                dac.expectedVolumeTonnes != null
-                  ? tUnits("tonnes", { value: String(dac.expectedVolumeTonnes) })
+                dac.contractedVolumeTonnes != null
+                  ? tUnits("tonnes", { value: String(dac.contractedVolumeTonnes) })
                   : "—",
             },
+            { label: t("deliveryStartDate"), value: dac.deliveryStartDate ?? "—" },
+            { label: t("deliveryEndDate"), value: dac.deliveryEndDate ?? "—" },
+            { label: t("deliveryLocation"), value: dac.deliveryLocation ?? "—" },
             { label: t("qualityClass"), value: dac.qualityClass ?? "—" },
-            { label: t("producer"), value: organizationById(dac.producerOrganizationId)?.name ?? dac.producerOrganizationId },
+            { label: t("producer"), value: await organizationLabel(dac.producerOrganizationId, dac.producerOrganizationId) },
             {
               label: t("issuer"),
               value: dac.issuerOrganizationId
-                ? (organizationById(dac.issuerOrganizationId)?.name ?? dac.issuerOrganizationId)
+                ? await organizationLabel(dac.issuerOrganizationId, dac.issuerOrganizationId)
                 : "—",
             },
             { label: t("termsVersion"), value: String(dac.termsVersion) },

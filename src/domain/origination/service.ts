@@ -37,11 +37,14 @@ import {
   allowsScasDacSubmit,
   allowsScasSendToProducer,
 } from "./state-guards";
-import { isPermittedIssuerOrganizationId } from "./issuers";
+import { isActiveIssuerOrganization } from "./issuers";
 import {
   clearedDacConfirmations,
+  deliveryEndPrecedesStart,
+  executedTermsSnapshotFromDac,
+  hasSendableContractedVolume,
   hashCurrentDacTerms,
-  termsFromDac,
+  normalizeIsoDate,
 } from "./terms";
 import type { OriginationStore } from "./store";
 import {
@@ -972,9 +975,12 @@ export class OriginationService {
       status: "DRAFT",
       crop: declared.crop,
       harvestYear: declared.season,
-      expectedVolumeTonnes: null,
+      contractedVolumeTonnes: null,
       qualityClass: null,
       producerReference: field.publicId,
+      deliveryStartDate: null,
+      deliveryEndDate: null,
+      deliveryLocation: null,
       cadastreNumber: cadastre.cadastreNumber,
       declaredAreaHectares: declared.declaredAreaHa,
       verifiedAreaHectares: cadastre.registeredAreaHa,
@@ -1016,7 +1022,7 @@ export class OriginationService {
     if (!allowsScasDacEdit(dac.status)) {
       throw new OriginationError("invalid_state", "SCAS can edit DAC commercial terms only while the DAC is a draft.");
     }
-    const commercial = this.requireCommercial(input);
+    const commercial = await this.requireCommercial(input);
     const stamp = actorStamp(actor);
     const at = this.clock();
     const next: OriginationDacRecord = {
@@ -1046,11 +1052,23 @@ export class OriginationService {
     if (!allowsScasSendToProducer(dac.status)) {
       throw new OriginationError("invalid_state", "Send to producer is allowed only from a draft.");
     }
-    if (!dac.issuerOrganizationId || !isPermittedIssuerOrganizationId(dac.issuerOrganizationId)) {
+    if (!dac.issuerOrganizationId || !(await this.isPermittedIssuer(dac.issuerOrganizationId))) {
       throw new OriginationError("validation", "A permitted issuer must be selected before confirmation.");
     }
-    if (dac.expectedVolumeTonnes == null || !(dac.expectedVolumeTonnes > 0)) {
-      throw new OriginationError("validation", "Expected volume is required before producer confirmation.");
+    if (!hasSendableContractedVolume(dac.contractedVolumeTonnes)) {
+      throw new OriginationError("validation", "Contracted volume is required before producer confirmation.");
+    }
+    if (!dac.deliveryStartDate) {
+      throw new OriginationError("validation", "Delivery start date is required.");
+    }
+    if (!dac.deliveryEndDate) {
+      throw new OriginationError("validation", "Delivery end date is required.");
+    }
+    if (deliveryEndPrecedesStart(dac.deliveryStartDate, dac.deliveryEndDate)) {
+      throw new OriginationError("validation", "Delivery end date cannot precede start.");
+    }
+    if (!dac.deliveryLocation?.trim()) {
+      throw new OriginationError("validation", "Delivery location is required.");
     }
     const stamp = actorStamp(actor);
     const at = this.clock();
@@ -1173,7 +1191,6 @@ export class OriginationService {
     const stamp = actorStamp(actor);
     const at = this.clock();
     const hash = dac.currentTermsHash;
-    const snapshot = termsFromDac(dac) as unknown as Record<string, unknown>;
     const next: OriginationDacRecord = {
       ...dac,
       status: "EXECUTED",
@@ -1181,7 +1198,7 @@ export class OriginationService {
       issuerConfirmedByUserId: stamp.userId,
       issuerConfirmedByRole: stamp.role,
       issuerConfirmedAt: at,
-      executedTermsSnapshot: snapshot,
+      executedTermsSnapshot: executedTermsSnapshotFromDac(dac),
       executedTermsHash: hash,
       executedAt: at,
       updatedByUserId: stamp.userId,
@@ -1498,6 +1515,15 @@ export class OriginationService {
     };
   }
 
+  async listActiveIssuerOrganizations(actor: ActorContext) {
+    this.requireVerifier(actor);
+    return this.store.listActiveIssuerOrganizations();
+  }
+
+  async getOrganization(id: string) {
+    return this.store.getOrganization(id);
+  }
+
   async tryHardDeleteVerified(actor: ActorContext, fieldId: string) {
     const field = await this.resolveField(fieldId);
     if (!field) {
@@ -1783,7 +1809,7 @@ export class OriginationService {
     return dac;
   }
 
-  private requireCommercial(input: OriginationDacCommercialInput): OriginationDacCommercialInput {
+  private async requireCommercial(input: OriginationDacCommercialInput): Promise<OriginationDacCommercialInput> {
     const crop = input.crop.trim();
     if (!crop) {
       throw new OriginationError("validation", "Crop is required.");
@@ -1791,22 +1817,34 @@ export class OriginationService {
     if (!Number.isInteger(input.harvestYear) || input.harvestYear < 2020 || input.harvestYear > 2100) {
       throw new OriginationError("validation", "Harvest year is required.");
     }
-    if (input.expectedVolumeTonnes != null && !(input.expectedVolumeTonnes > 0)) {
-      throw new OriginationError("validation", "Expected volume must be positive.");
+    if (input.contractedVolumeTonnes != null && !(input.contractedVolumeTonnes > 0)) {
+      throw new OriginationError("validation", "Contracted volume must be positive.");
+    }
+    const deliveryStartDate = normalizeIsoDate(input.deliveryStartDate);
+    const deliveryEndDate = normalizeIsoDate(input.deliveryEndDate);
+    if (deliveryEndPrecedesStart(deliveryStartDate, deliveryEndDate)) {
+      throw new OriginationError("validation", "Delivery end date cannot precede start.");
     }
     const issuerOrganizationId = input.issuerOrganizationId?.trim() || null;
-    if (issuerOrganizationId && !isPermittedIssuerOrganizationId(issuerOrganizationId)) {
+    if (issuerOrganizationId && !(await this.isPermittedIssuer(issuerOrganizationId))) {
       throw new OriginationError("validation", "Issuer organization is not permitted.");
     }
     return {
       crop,
       harvestYear: input.harvestYear,
-      expectedVolumeTonnes: input.expectedVolumeTonnes,
+      contractedVolumeTonnes: input.contractedVolumeTonnes,
       qualityClass: input.qualityClass?.trim() || null,
       producerReference: input.producerReference?.trim() || null,
+      deliveryStartDate,
+      deliveryEndDate,
+      deliveryLocation: input.deliveryLocation?.trim() || null,
       scasNotes: input.scasNotes.trim(),
       issuerOrganizationId,
     };
+  }
+
+  private async isPermittedIssuer(id: string) {
+    return isActiveIssuerOrganization(await this.store.getOrganization(id));
   }
 
   private async requireWritableCase(actor: ActorContext, caseRef: string) {

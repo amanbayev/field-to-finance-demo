@@ -15,7 +15,7 @@ import {
   type OriginationDacRecord,
   type RegistrarDacFilter,
 } from "@/domain/origination";
-import { organizationById } from "@/data/identity/demo-catalog";
+import { organizationLabels } from "@/components/origination/dac-parties";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { stageMediaForRole } from "@/lib/surface/role-media";
 
@@ -49,6 +49,7 @@ export default async function RegistrarIntakePage({
       throw error;
     }
   }
+  const producerNames = await organizationLabels(dacs.map((dac) => dac.producerOrganizationId));
   const media = stageMediaForRole("REGISTRAR_OPERATOR");
   const filterLabel = (item: RegistrarDacFilter) => {
     if (item === "all") return t("filterAll");
@@ -98,7 +99,7 @@ export default async function RegistrarIntakePage({
               href={`/registrar/intake/${dac.publicId}`}
               index={deskIndex(index)}
               kicker={dac.publicId}
-              title={organizationById(dac.producerOrganizationId)?.name ?? dac.producerOrganizationId}
+              title={producerNames[dac.producerOrganizationId] ?? dac.producerOrganizationId}
               hint={`${lookupMessage(tCatalog, `crops.${dac.crop}`)} · ${dac.harvestYear}`}
               value={<StatusBadge value={dac.status} />}
             />

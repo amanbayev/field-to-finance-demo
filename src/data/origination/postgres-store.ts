@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import type { OrganizationRecord } from "@/domain/identity";
 import { OriginationError } from "@/domain/origination/types";
 import type {
   FieldCadastreVerificationRecord,
@@ -33,7 +34,7 @@ function fail(error: { message?: string; code?: string } | null, fallback = "sto
   if (
     error?.code === "23505" ||
     error?.code === "P0001" ||
-    /already verified|duplicate|expected state|not usable|current version|already in progress|upload window|not allowed source|approval requires|terminal state|not bound|does not belong|case is not in the expected|terms hash|issuer organization|producer organization|not permitted/i.test(
+    /already verified|duplicate|expected state|not usable|current version|already in progress|upload window|not allowed source|approval requires|terminal state|not bound|does not belong|case is not in the expected|terms hash|issuer organization|producer organization|not permitted|contracted volume|delivery/i.test(
       message,
     )
   ) {
@@ -43,6 +44,25 @@ function fail(error: { message?: string; code?: string } | null, fallback = "sto
     throw new OriginationError("not_found", message);
   }
   throw new OriginationError("storage", message);
+}
+
+function dateOnly(value: unknown): string | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  return String(value).slice(0, 10);
+}
+
+function organizationFrom(row: Row): OrganizationRecord {
+  return {
+    id: String(row.id),
+    slug: String(row.slug ?? ""),
+    name: String(row.name ?? ""),
+    type: row.type as OrganizationRecord["type"],
+    status: row.status as OrganizationRecord["status"],
+    externalProducerRef: (row.external_producer_ref as string | null) ?? null,
+    externalInvestorRef: (row.external_investor_ref as string | null) ?? null,
+  };
 }
 
 function num(value: unknown): number | null {
@@ -919,6 +939,31 @@ export class PostgresOriginationStore implements OriginationStore {
     }
     return ((data ?? []) as Row[]).map(eventFrom);
   }
+
+  async listActiveIssuerOrganizations() {
+    const { data, error } = await this.client
+      .from("organizations")
+      .select("id, slug, name, type, status, external_producer_ref, external_investor_ref")
+      .eq("type", "ISSUER")
+      .eq("status", "ACTIVE")
+      .order("name");
+    if (error) {
+      fail(error);
+    }
+    return ((data ?? []) as Row[]).map(organizationFrom);
+  }
+
+  async getOrganization(id: string) {
+    const { data, error } = await this.client
+      .from("organizations")
+      .select("id, slug, name, type, status, external_producer_ref, external_investor_ref")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      fail(error);
+    }
+    return data ? organizationFrom(data as Row) : null;
+  }
 }
 
 function submissionFrom(row: Row): FieldSubmissionRecord {
@@ -1207,9 +1252,12 @@ function dacToRow(record: OriginationDacRecord): Row {
     status: record.status,
     crop: record.crop,
     harvest_year: record.harvestYear,
-    expected_volume_tonnes: record.expectedVolumeTonnes,
+    contracted_volume_tonnes: record.contractedVolumeTonnes,
     quality_class: record.qualityClass,
     producer_reference: record.producerReference,
+    delivery_start_date: record.deliveryStartDate,
+    delivery_end_date: record.deliveryEndDate,
+    delivery_location: record.deliveryLocation,
     cadastre_number: record.cadastreNumber,
     declared_area_hectares: record.declaredAreaHectares,
     verified_area_hectares: record.verifiedAreaHectares,
@@ -1255,9 +1303,12 @@ function dacFrom(row: Row): OriginationDacRecord {
     status: row.status as OriginationDacRecord["status"],
     crop: String(row.crop ?? ""),
     harvestYear: Number(row.harvest_year ?? 0),
-    expectedVolumeTonnes: num(row.expected_volume_tonnes),
+    contractedVolumeTonnes: num(row.contracted_volume_tonnes ?? row.expected_volume_tonnes),
     qualityClass: (row.quality_class as string | null) ?? null,
     producerReference: (row.producer_reference as string | null) ?? null,
+    deliveryStartDate: dateOnly(row.delivery_start_date),
+    deliveryEndDate: dateOnly(row.delivery_end_date),
+    deliveryLocation: (row.delivery_location as string | null) ?? null,
     cadastreNumber: String(row.cadastre_number ?? ""),
     declaredAreaHectares: num(row.declared_area_hectares),
     verifiedAreaHectares: num(row.verified_area_hectares),

@@ -424,9 +424,12 @@ export interface OriginationDacRecord {
   status: OriginationDacStatus;
   crop: string;
   harvestYear: number;
-  expectedVolumeTonnes: number | null;
+  contractedVolumeTonnes: number | null;
   qualityClass: string | null;
   producerReference: string | null;
+  deliveryStartDate: string | null;
+  deliveryEndDate: string | null;
+  deliveryLocation: string | null;
   cadastreNumber: string;
   declaredAreaHectares: number | null;
   verifiedAreaHectares: number | null;
@@ -462,9 +465,12 @@ export interface OriginationDacRecord {
 export interface OriginationDacCommercialInput {
   crop: string;
   harvestYear: number;
-  expectedVolumeTonnes: number | null;
+  contractedVolumeTonnes: number | null;
   qualityClass: string | null;
   producerReference: string | null;
+  deliveryStartDate: string | null;
+  deliveryEndDate: string | null;
+  deliveryLocation: string | null;
   scasNotes: string;
   issuerOrganizationId: string | null;
 }

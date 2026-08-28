@@ -27,8 +27,7 @@ import {
   updateFieldAction,
 } from "@/app/fields/actions";
 import { FormSubmitButton } from "@/components/identity/form-submit-button";
-import { DacPartiesPanel, DacStageLegend } from "@/components/origination/dac-parties";
-import { organizationById } from "@/data/identity/demo-catalog";
+import { DacPartiesPanel, DacStageLegend, organizationLabel } from "@/components/origination/dac-parties";
 import { shortenTermsHash } from "@/domain/origination/terms";
 
 export const dynamic = "force-dynamic";
@@ -304,15 +303,18 @@ export default async function FieldDetailPage({
                   {
                     label: tOrig("issuer"),
                     value: dac.issuerOrganizationId
-                      ? (organizationById(dac.issuerOrganizationId)?.name ?? dac.issuerOrganizationId)
+                      ? await organizationLabel(dac.issuerOrganizationId, dac.issuerOrganizationId)
                       : tOrig("issuerNotSelected"),
                   },
                   { label: tOrig("crop"), value: lookupMessage(tCatalog, `crops.${dac.crop}`) },
                   { label: tOrig("harvestYear"), value: String(dac.harvestYear) },
                   {
-                    label: tOrig("expectedVolume"),
-                    value: dac.expectedVolumeTonnes != null ? String(dac.expectedVolumeTonnes) : "—",
+                    label: tOrig("contractedVolume"),
+                    value: dac.contractedVolumeTonnes != null ? String(dac.contractedVolumeTonnes) : "—",
                   },
+                  { label: tOrig("deliveryStartDate"), value: dac.deliveryStartDate ?? "—" },
+                  { label: tOrig("deliveryEndDate"), value: dac.deliveryEndDate ?? "—" },
+                  { label: tOrig("deliveryLocation"), value: dac.deliveryLocation ?? "—" },
                   { label: tOrig("qualityClass"), value: dac.qualityClass ?? "—" },
                   { label: tOrig("termsVersion"), value: String(dac.termsVersion) },
                   { label: tOrig("termsHash"), value: shortenTermsHash(dac.currentTermsHash) },

@@ -1,3 +1,4 @@
+import type { DacTransitionKind } from "./tx";
 import {
   DAC_CONFIRMATION_PENDING_STATUSES,
   DAC_EXECUTED_OR_LATER_STATUSES,
@@ -7,6 +8,22 @@ import {
   type FieldLifecycleStatus,
   type OriginationDacStatus,
 } from "./types";
+
+export const DAC_EXACT_TRANSITIONS: Record<
+  DacTransitionKind,
+  { from: readonly OriginationDacStatus[]; to: OriginationDacStatus }
+> = {
+  update_draft: { from: ["DRAFT"], to: "DRAFT" },
+  send_to_producer: { from: ["DRAFT"], to: "PENDING_PRODUCER_CONFIRMATION" },
+  producer_confirm: { from: ["PENDING_PRODUCER_CONFIRMATION"], to: "PENDING_ISSUER_CONFIRMATION" },
+  producer_return: { from: ["PENDING_PRODUCER_CONFIRMATION"], to: "DRAFT" },
+  issuer_confirm: { from: ["PENDING_ISSUER_CONFIRMATION"], to: "EXECUTED" },
+  issuer_return: { from: ["PENDING_ISSUER_CONFIRMATION"], to: "DRAFT" },
+  submit_to_registrar: { from: ["EXECUTED", "RETURNED_BY_REGISTRAR"], to: "READY_FOR_REGISTRAR" },
+  start_review: { from: ["READY_FOR_REGISTRAR"], to: "UNDER_REGISTRAR_REVIEW" },
+  accept: { from: ["UNDER_REGISTRAR_REVIEW"], to: "REGISTRAR_ACCEPTED" },
+  return_intake: { from: ["UNDER_REGISTRAR_REVIEW"], to: "RETURNED_BY_REGISTRAR" },
+};
 
 export const PRODUCER_UPLOAD_FIELD_STATUSES: readonly FieldLifecycleStatus[] = [
   "DRAFT",
@@ -89,7 +106,7 @@ export function allowsRegistrarReviewStart(status: OriginationDacStatus) {
 }
 
 export function allowsRegistrarDecision(status: OriginationDacStatus) {
-  return status === "READY_FOR_REGISTRAR" || status === "UNDER_REGISTRAR_REVIEW";
+  return status === "UNDER_REGISTRAR_REVIEW";
 }
 
 export function isDacConfirmationPending(status: OriginationDacStatus) {
