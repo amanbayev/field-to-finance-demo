@@ -90,6 +90,7 @@ export default async function ScasDacDeskPage({
         {canEdit ? (
           <form action={updateDacAction} className="mt-8 grid gap-4">
             <input type="hidden" name="dacId" value={dac.publicId} />
+            <input type="hidden" name="expectedTermsHash" value={dac.currentTermsHash} />
             <label className="grid gap-2">
               <span className="label-caps">{t("issuer")}</span>
               <select
@@ -220,6 +221,7 @@ export default async function ScasDacDeskPage({
         {canSendProducer ? (
           <form action={sendDacToProducerAction} className="mt-8">
             <input type="hidden" name="dacId" value={dac.publicId} />
+            <input type="hidden" name="expectedTermsHash" value={dac.currentTermsHash} />
             <FormSubmitButton pendingLabel={t("sendToProducer")}>{t("sendToProducer")}</FormSubmitButton>
           </form>
         ) : null}

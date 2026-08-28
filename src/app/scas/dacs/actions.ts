@@ -35,18 +35,23 @@ export async function updateDacAction(formData: FormData) {
   const dacId = String(formData.get("dacId") ?? "");
   const volume = String(formData.get("contractedVolumeTonnes") ?? "").trim();
   try {
-    await originationService().updateDacDraft(actor, dacId, {
-      crop: String(formData.get("crop") ?? ""),
-      harvestYear: Number(formData.get("harvestYear") ?? 0),
-      contractedVolumeTonnes: volume ? Number(volume) : null,
-      qualityClass: String(formData.get("qualityClass") ?? "") || null,
-      producerReference: String(formData.get("producerReference") ?? "") || null,
-      deliveryStartDate: String(formData.get("deliveryStartDate") ?? "") || null,
-      deliveryEndDate: String(formData.get("deliveryEndDate") ?? "") || null,
-      deliveryLocation: String(formData.get("deliveryLocation") ?? "") || null,
-      scasNotes: String(formData.get("scasNotes") ?? ""),
-      issuerOrganizationId: String(formData.get("issuerOrganizationId") ?? "") || null,
-    });
+    await originationService().updateDacDraft(
+      actor,
+      dacId,
+      {
+        crop: String(formData.get("crop") ?? ""),
+        harvestYear: Number(formData.get("harvestYear") ?? 0),
+        contractedVolumeTonnes: volume ? Number(volume) : null,
+        qualityClass: String(formData.get("qualityClass") ?? "") || null,
+        producerReference: String(formData.get("producerReference") ?? "") || null,
+        deliveryStartDate: String(formData.get("deliveryStartDate") ?? "") || null,
+        deliveryEndDate: String(formData.get("deliveryEndDate") ?? "") || null,
+        deliveryLocation: String(formData.get("deliveryLocation") ?? "") || null,
+        scasNotes: String(formData.get("scasNotes") ?? ""),
+        issuerOrganizationId: String(formData.get("issuerOrganizationId") ?? "") || null,
+      },
+      String(formData.get("expectedTermsHash") ?? ""),
+    );
     revalidatePath(`/scas/dacs/${dacId}`);
     revalidatePath("/contracts");
   } catch (error) {
@@ -58,7 +63,11 @@ export async function sendDacToProducerAction(formData: FormData) {
   const actor = await requireScasVerifier();
   const dacId = String(formData.get("dacId") ?? "");
   try {
-    await originationService().sendDacToProducer(actor, dacId);
+    await originationService().sendDacToProducer(
+      actor,
+      dacId,
+      String(formData.get("expectedTermsHash") ?? ""),
+    );
     revalidatePath("/scas/dacs");
     revalidatePath("/issuer/dacs");
     revalidatePath("/contracts");

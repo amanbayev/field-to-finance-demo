@@ -477,6 +477,10 @@ begin
   if current.status <> 'DRAFT' then
     raise exception 'Not in an allowed source state.' using errcode = 'P0001';
   end if;
+  if nullif(payload->>'expected_terms_hash', '') is null
+     or current.current_terms_hash is distinct from payload->>'expected_terms_hash' then
+    raise exception 'Terms hash mismatch; stale draft.' using errcode = 'P0001';
+  end if;
   if issuer_id is not null then
     perform public.origination_assert_issuer_org(issuer_id);
   end if;
@@ -530,6 +534,10 @@ begin
   current := public.origination_dac_lock((payload#>>'{dac,id}')::uuid);
   if current.status <> 'DRAFT' then
     raise exception 'Not in an allowed source state.' using errcode = 'P0001';
+  end if;
+  if nullif(payload->>'expected_terms_hash', '') is null
+     or current.current_terms_hash is distinct from payload->>'expected_terms_hash' then
+    raise exception 'Terms hash mismatch; stale draft.' using errcode = 'P0001';
   end if;
   perform public.origination_assert_sendable_dac(current);
 

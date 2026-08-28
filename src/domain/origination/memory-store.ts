@@ -870,6 +870,9 @@ export class MemoryOriginationStore implements OriginationStore {
         throw new OriginationError("invalid_state", "Not in an allowed source state.");
       }
       if (input.kind === "update_draft" || input.kind === "send_to_producer") {
+        if (!input.expectedTermsHash || current.currentTermsHash !== input.expectedTermsHash) {
+          throw new OriginationError("invalid_state", "Terms hash mismatch; stale draft.");
+        }
         const issuerId =
           input.kind === "update_draft" ? input.dac.issuerOrganizationId : current.issuerOrganizationId;
         if (issuerId) {

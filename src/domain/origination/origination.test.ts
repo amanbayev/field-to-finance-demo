@@ -19,6 +19,7 @@ import {
   UPLOAD_INTENT_TTL_MS,
   defaultCadastreProvider,
   isUuid,
+  type OriginationDacCommercialInput,
   type ProducerDeclaredData,
 } from "@/domain/origination";
 import { MemoryOriginationStore } from "@/domain/origination/memory-store";
@@ -1115,6 +1116,25 @@ describe("origination Slice B off-chain DAC", () => {
     };
   }
 
+  function wheatTerms(
+    fieldPublicId: string,
+    extra: Partial<OriginationDacCommercialInput> = {},
+  ): OriginationDacCommercialInput {
+    return {
+      crop: "Wheat",
+      harvestYear: 2027,
+      contractedVolumeTonnes: 280,
+      qualityClass: "Class 3",
+      producerReference: fieldPublicId,
+      deliveryStartDate: "2027-08-01",
+      deliveryEndDate: "2027-09-30",
+      deliveryLocation: "Astana elevator",
+      scasNotes: "",
+      issuerOrganizationId: issuerOrg.id,
+      ...extra,
+    };
+  }
+
   async function draftDac(service: OriginationService) {
     const ready = await verifiedField(service);
     const dac = await service.createDacFromVerifiedCase(ready.reviewer, ready.verificationCase.id);
@@ -1123,24 +1143,25 @@ describe("origination Slice B off-chain DAC", () => {
 
   async function preparedDraft(service: OriginationService) {
     const opened = await draftDac(service);
-    const dac = await service.updateDacDraft(opened.reviewer, opened.dac.id, {
-      crop: "Wheat",
-      harvestYear: 2027,
-      contractedVolumeTonnes: 280,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      deliveryStartDate: "2027-08-01",
-      deliveryEndDate: "2027-09-30",
-      deliveryLocation: "Astana elevator",
-      scasNotes: "Prepare the Producer-Issuer contract.",
-      issuerOrganizationId: issuerOrg.id,
-    });
+    const dac = await service.updateDacDraft(
+      opened.reviewer,
+      opened.dac.id,
+      {
+        ...wheatTerms(opened.field.publicId),
+        scasNotes: "Prepare the Producer-Issuer contract.",
+      },
+      opened.dac.currentTermsHash,
+    );
     return { ...opened, dac };
   }
 
   async function pendingProducer(service: OriginationService) {
     const prepared = await preparedDraft(service);
-    const dac = await service.sendDacToProducer(prepared.reviewer, prepared.dac.id);
+    const dac = await service.sendDacToProducer(
+      prepared.reviewer,
+      prepared.dac.id,
+      prepared.dac.currentTermsHash,
+    );
     return { ...prepared, dac };
   }
 
@@ -1166,6 +1187,58 @@ describe("origination Slice B off-chain DAC", () => {
 
   function issuerTwo() {
     return actorFor(otherIssuerOrg, ["ISSUER_OPERATOR"], "issuer-2");
+  }
+
+  async function assignedIssuerSnapshotDesk(service: OriginationService) {
+    const farm = producer();
+    const reviewer = scas();
+    const field = await draft(service, farm);
+    const v1 = await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      ...pdf("extract-v1.pdf"),
+    });
+    await service.submitToScas(farm, field.id);
+    const queue = await service.listVerificationQueue(reviewer, "new");
+    await service.requestChanges(reviewer, queue[0]!.id, "Please replace the extract.");
+    const v2 = await service.uploadDocument(farm, {
+      fieldId: field.id,
+      documentType: "CADASTRE_EXTRACT",
+      replacesDocumentId: v1.id,
+      ...pdf("extract-v2.pdf"),
+    });
+    await service.resubmit(farm, field.id);
+    await service.acceptDocument(reviewer, v2.id);
+    const bundle = await service.getFieldBundle(farm, field.id);
+    await service.recordCadastreVerification(reviewer, bundle.verificationCase!.id, {
+      cadastreNumber: sample.cadastreNumber,
+      rightHolder: "Akmola Agro LLP",
+      rightType: "lease",
+      registeredAreaHa: 1238.6,
+      region: "Akmola",
+      district: "Astrakhan",
+      validityStatus: "active",
+      sourceReference: "manual",
+      notes: "",
+    });
+    const snapshot = await service.approveField(reviewer, bundle.verificationCase!.id);
+    const dac = await service.createDacFromVerifiedCase(reviewer, bundle.verificationCase!.id);
+    const drafted = await service.updateDacDraft(
+      reviewer,
+      dac.id,
+      wheatTerms(bundle.field.publicId),
+      dac.currentTermsHash,
+    );
+    await service.sendDacToProducer(reviewer, drafted.id, drafted.currentTermsHash);
+    return {
+      farm,
+      reviewer,
+      field: bundle.field,
+      v1,
+      v2,
+      snapshot,
+      assigned: issuer(),
+    };
   }
 
   it("lets SCAS create a DAC only from a verified field snapshot", async () => {
@@ -1225,22 +1298,18 @@ describe("origination Slice B off-chain DAC", () => {
   it("requires a permitted issuer before the confirmation flow", async () => {
     const service = new OriginationService(new MemoryOriginationStore());
     const opened = await draftDac(service);
-    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+    await expect(
+      service.sendDacToProducer(opened.reviewer, opened.dac.id, opened.dac.currentTermsHash),
+    ).rejects.toMatchObject({
       code: "validation",
     });
     await expect(
-      service.updateDacDraft(opened.reviewer, opened.dac.id, {
-        crop: "Wheat",
-        harvestYear: 2027,
-        contractedVolumeTonnes: 280,
-        qualityClass: "Class 3",
-        producerReference: opened.field.publicId,
-        deliveryStartDate: "2027-08-01",
-        deliveryEndDate: "2027-09-30",
-        deliveryLocation: "Astana elevator",
-        scasNotes: "",
-        issuerOrganizationId: farm1.id,
-      }),
+      service.updateDacDraft(
+        opened.reviewer,
+        opened.dac.id,
+        wheatTerms(opened.field.publicId, { issuerOrganizationId: farm1.id }),
+        opened.dac.currentTermsHash,
+      ),
     ).rejects.toMatchObject({ code: "validation" });
   });
 
@@ -1248,18 +1317,12 @@ describe("origination Slice B off-chain DAC", () => {
     const service = new OriginationService(new MemoryOriginationStore());
     const opened = await draftDac(service);
     await expect(
-      service.updateDacDraft(opened.reviewer, opened.dac.id, {
-        crop: "Wheat",
-        harvestYear: 2027,
-        contractedVolumeTonnes: 280,
-        qualityClass: "Class 3",
-        producerReference: opened.field.publicId,
-        deliveryStartDate: "2027-08-01",
-        deliveryEndDate: "2027-09-30",
-        deliveryLocation: "Astana elevator",
-        scasNotes: "",
-        issuerOrganizationId: registrarOrg.id,
-      }),
+      service.updateDacDraft(
+        opened.reviewer,
+        opened.dac.id,
+        wheatTerms(opened.field.publicId, { issuerOrganizationId: registrarOrg.id }),
+        opened.dac.currentTermsHash,
+      ),
     ).rejects.toMatchObject({ code: "validation" });
   });
 
@@ -1296,18 +1359,12 @@ describe("origination Slice B off-chain DAC", () => {
     expect(pending.dac.status).toBe("PENDING_PRODUCER_CONFIRMATION");
     const frozenHash = pending.dac.currentTermsHash;
     await expect(
-      service.updateDacDraft(pending.reviewer, pending.dac.id, {
-        crop: "Wheat",
-        harvestYear: 2027,
-        contractedVolumeTonnes: 275,
-        qualityClass: "Class 3",
-        producerReference: pending.field.publicId,
-        deliveryStartDate: "2027-08-01",
-        deliveryEndDate: "2027-09-30",
-        deliveryLocation: "Astana elevator",
-        scasNotes: "",
-        issuerOrganizationId: issuerOrg.id,
-      }),
+      service.updateDacDraft(
+        pending.reviewer,
+        pending.dac.id,
+        wheatTerms(pending.field.publicId, { contractedVolumeTonnes: 275 }),
+        pending.dac.currentTermsHash,
+      ),
     ).rejects.toMatchObject({ code: "invalid_state" });
     const producerConfirmed = await service.confirmDacAsProducer(pending.farm, pending.dac.id);
     expect(producerConfirmed.status).toBe("PENDING_ISSUER_CONFIRMATION");
@@ -1341,18 +1398,15 @@ describe("origination Slice B off-chain DAC", () => {
     const returned = await service.returnDacAsProducer(pending.farm, pending.dac.id, "Volume is too high.");
     expect(returned.status).toBe("DRAFT");
     expect(returned.producerConfirmedTermsHash).toBeNull();
-    const edited = await service.updateDacDraft(pending.reviewer, returned.id, {
-      crop: "Wheat",
-      harvestYear: 2027,
-      contractedVolumeTonnes: 270,
-      qualityClass: "Class 3",
-      producerReference: pending.field.publicId,
-      deliveryStartDate: "2027-08-01",
-      deliveryEndDate: "2027-09-30",
-      deliveryLocation: "Astana elevator",
-      scasNotes: "Revised after producer return.",
-      issuerOrganizationId: issuerOrg.id,
-    });
+    const edited = await service.updateDacDraft(
+      pending.reviewer,
+      returned.id,
+      wheatTerms(pending.field.publicId, {
+        contractedVolumeTonnes: 270,
+        scasNotes: "Revised after producer return.",
+      }),
+      returned.currentTermsHash,
+    );
     expect(edited.termsVersion).toBeGreaterThan(pending.dac.termsVersion);
     expect(edited.currentTermsHash).not.toBe(pending.dac.currentTermsHash);
     expect(edited.producerConfirmedTermsHash).toBeNull();
@@ -1397,18 +1451,15 @@ describe("origination Slice B off-chain DAC", () => {
     expect(returned.producerConfirmedTermsHash).toBe(executed.dac.producerConfirmedTermsHash);
     expect(returned.issuerConfirmedTermsHash).toBe(executed.dac.issuerConfirmedTermsHash);
     await expect(
-      service.updateDacDraft(executed.reviewer, returned.id, {
-        crop: "Wheat",
-        harvestYear: 2027,
-        contractedVolumeTonnes: 250,
-        qualityClass: "Class 3",
-        producerReference: executed.field.publicId,
-        deliveryStartDate: "2027-08-01",
-        deliveryEndDate: "2027-09-30",
-        deliveryLocation: "Astana elevator",
-        scasNotes: "silent term change",
-        issuerOrganizationId: issuerOrg.id,
-      }),
+      service.updateDacDraft(
+        executed.reviewer,
+        returned.id,
+        wheatTerms(executed.field.publicId, {
+          contractedVolumeTonnes: 250,
+          scasNotes: "silent term change",
+        }),
+        returned.currentTermsHash,
+      ),
     ).rejects.toMatchObject({ code: "invalid_state" });
     const resubmitted = await service.submitDacToRegistrar(executed.reviewer, returned.id);
     expect(resubmitted.status).toBe("READY_FOR_REGISTRAR");
@@ -1543,110 +1594,85 @@ describe("origination Slice B off-chain DAC", () => {
     store.seedOrganization(inactive);
     const service = new OriginationService(store);
     const opened = await draftDac(service);
-    const base = {
-      crop: "Wheat",
-      harvestYear: 2027,
-      contractedVolumeTonnes: 280,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      deliveryStartDate: "2027-08-01",
-      deliveryEndDate: "2027-09-30",
-      deliveryLocation: "Astana elevator",
-      scasNotes: "",
-    };
+    const hash = opened.dac.currentTermsHash;
+    const base = wheatTerms(opened.field.publicId);
     await expect(
       service.updateDacDraft(opened.reviewer, opened.dac.id, {
         ...base,
         issuerOrganizationId: inactive.id,
-      }),
+      }, hash),
     ).rejects.toMatchObject({ code: "validation" });
     await expect(
       service.updateDacDraft(opened.reviewer, opened.dac.id, {
         ...base,
         issuerOrganizationId: farm1.id,
-      }),
+      }, hash),
     ).rejects.toMatchObject({ code: "validation" });
   });
 
   it("requires contracted volume and delivery terms before sending to the producer", async () => {
     const service = new OriginationService(new MemoryOriginationStore());
     const opened = await draftDac(service);
-    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+    let dac = opened.dac;
+    await expect(
+      service.sendDacToProducer(opened.reviewer, dac.id, dac.currentTermsHash),
+    ).rejects.toMatchObject({
       code: "validation",
     });
-    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
-      crop: "Wheat",
-      harvestYear: 2027,
-      contractedVolumeTonnes: null,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      deliveryStartDate: "2027-08-01",
-      deliveryEndDate: "2027-09-30",
-      deliveryLocation: "Astana elevator",
-      scasNotes: "",
-      issuerOrganizationId: issuerOrg.id,
-    });
-    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+    dac = await service.updateDacDraft(
+      opened.reviewer,
+      dac.id,
+      wheatTerms(opened.field.publicId, { contractedVolumeTonnes: null }),
+      dac.currentTermsHash,
+    );
+    await expect(
+      service.sendDacToProducer(opened.reviewer, dac.id, dac.currentTermsHash),
+    ).rejects.toMatchObject({
       code: "validation",
     });
-    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
-      crop: "Wheat",
-      harvestYear: 2027,
-      contractedVolumeTonnes: 280,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      deliveryStartDate: null,
-      deliveryEndDate: "2027-09-30",
-      deliveryLocation: "Astana elevator",
-      scasNotes: "",
-      issuerOrganizationId: issuerOrg.id,
-    });
-    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+    dac = await service.updateDacDraft(
+      opened.reviewer,
+      dac.id,
+      wheatTerms(opened.field.publicId, { deliveryStartDate: null }),
+      dac.currentTermsHash,
+    );
+    await expect(
+      service.sendDacToProducer(opened.reviewer, dac.id, dac.currentTermsHash),
+    ).rejects.toMatchObject({
       code: "validation",
     });
-    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
-      crop: "Wheat",
-      harvestYear: 2027,
-      contractedVolumeTonnes: 280,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      deliveryStartDate: "2027-08-01",
-      deliveryEndDate: null,
-      deliveryLocation: "Astana elevator",
-      scasNotes: "",
-      issuerOrganizationId: issuerOrg.id,
-    });
-    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+    dac = await service.updateDacDraft(
+      opened.reviewer,
+      dac.id,
+      wheatTerms(opened.field.publicId, { deliveryEndDate: null }),
+      dac.currentTermsHash,
+    );
+    await expect(
+      service.sendDacToProducer(opened.reviewer, dac.id, dac.currentTermsHash),
+    ).rejects.toMatchObject({
       code: "validation",
     });
-    await service.updateDacDraft(opened.reviewer, opened.dac.id, {
-      crop: "Wheat",
-      harvestYear: 2027,
-      contractedVolumeTonnes: 280,
-      qualityClass: "Class 3",
-      producerReference: opened.field.publicId,
-      deliveryStartDate: "2027-08-01",
-      deliveryEndDate: "2027-09-30",
-      deliveryLocation: null,
-      scasNotes: "",
-      issuerOrganizationId: issuerOrg.id,
-    });
-    await expect(service.sendDacToProducer(opened.reviewer, opened.dac.id)).rejects.toMatchObject({
+    dac = await service.updateDacDraft(
+      opened.reviewer,
+      dac.id,
+      wheatTerms(opened.field.publicId, { deliveryLocation: null }),
+      dac.currentTermsHash,
+    );
+    await expect(
+      service.sendDacToProducer(opened.reviewer, dac.id, dac.currentTermsHash),
+    ).rejects.toMatchObject({
       code: "validation",
     });
     await expect(
-      service.updateDacDraft(opened.reviewer, opened.dac.id, {
-        crop: "Wheat",
-        harvestYear: 2027,
-        contractedVolumeTonnes: 280,
-        qualityClass: "Class 3",
-        producerReference: opened.field.publicId,
-        deliveryStartDate: "2027-09-30",
-        deliveryEndDate: "2027-08-01",
-        deliveryLocation: "Astana elevator",
-        scasNotes: "",
-        issuerOrganizationId: issuerOrg.id,
-      }),
+      service.updateDacDraft(
+        opened.reviewer,
+        dac.id,
+        wheatTerms(opened.field.publicId, {
+          deliveryStartDate: "2027-09-30",
+          deliveryEndDate: "2027-08-01",
+        }),
+        dac.currentTermsHash,
+      ),
     ).rejects.toMatchObject({ code: "validation" });
   });
 
@@ -1816,5 +1842,104 @@ describe("origination Slice B off-chain DAC", () => {
     expect(returned.executedAt).toBe(issuerResult.executedAt);
     expect(returned.contractedVolumeTonnes).toBe(frozen);
     expect(returned.deliveryLocation).toBe("Astana elevator");
+  });
+
+  it("lets an assigned issuer read an accepted verified-snapshot document", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const desk = await assignedIssuerSnapshotDesk(service);
+    expect(desk.snapshot.payload.acceptedDocumentIds).toEqual([desk.v2.id]);
+    const blob = await service.authorizedBlob(desk.assigned, desk.v2.bucket, desk.v2.objectPath);
+    expect(blob?.bytes.byteLength).toBeGreaterThan(0);
+    await expect(
+      service.authorizedBlob(desk.farm, desk.v2.bucket, desk.v2.objectPath),
+    ).resolves.toMatchObject({ contentType: "application/pdf" });
+    await expect(
+      service.authorizedBlob(desk.reviewer, desk.v2.bucket, desk.v2.objectPath),
+    ).resolves.toMatchObject({ contentType: "application/pdf" });
+    await expect(
+      service.authorizedBlob(registrar(), desk.v2.bucket, desk.v2.objectPath),
+    ).resolves.toMatchObject({ contentType: "application/pdf" });
+  });
+
+  it("does not let an assigned issuer read a document outside the verified snapshot", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const desk = await assignedIssuerSnapshotDesk(service);
+    await expect(
+      service.authorizedBlob(desk.assigned, desk.v1.bucket, desk.v1.objectPath),
+    ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("does not let a different issuer read an assigned DAC snapshot document", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const desk = await assignedIssuerSnapshotDesk(service);
+    await expect(
+      service.authorizedBlob(issuerTwo(), desk.v2.bucket, desk.v2.objectPath),
+    ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("does not let an assigned issuer read another field's document", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const desk = await assignedIssuerSnapshotDesk(service);
+    const other = await verifiedField(service, desk.farm, desk.reviewer);
+    const otherDoc = (await service.getFieldBundle(desk.farm, other.field.id)).documents.find(
+      (document) => document.current,
+    );
+    expect(otherDoc).toBeTruthy();
+    await expect(
+      service.authorizedBlob(desk.assigned, otherDoc!.bucket, otherDoc!.objectPath),
+    ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("rejects a second stale draft edit after another save", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const opened = await draftDac(service);
+    const staleHash = opened.dac.currentTermsHash;
+    await service.updateDacDraft(
+      opened.reviewer,
+      opened.dac.id,
+      wheatTerms(opened.field.publicId, { contractedVolumeTonnes: 275 }),
+      staleHash,
+    );
+    await expect(
+      service.updateDacDraft(
+        opened.reviewer,
+        opened.dac.id,
+        wheatTerms(opened.field.publicId, { contractedVolumeTonnes: 260 }),
+        staleHash,
+      ),
+    ).rejects.toMatchObject({
+      code: "invalid_state",
+      message: expect.stringMatching(/terms hash/i),
+    });
+  });
+
+  it("rejects a stale send after another draft edit", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const prepared = await preparedDraft(service);
+    const staleHash = prepared.dac.currentTermsHash;
+    await service.updateDacDraft(
+      prepared.reviewer,
+      prepared.dac.id,
+      wheatTerms(prepared.field.publicId, { contractedVolumeTonnes: 290 }),
+      staleHash,
+    );
+    await expect(
+      service.sendDacToProducer(prepared.reviewer, prepared.dac.id, staleHash),
+    ).rejects.toMatchObject({
+      code: "invalid_state",
+      message: expect.stringMatching(/terms hash/i),
+    });
+  });
+
+  it("sends to the producer when the expected terms hash matches the loaded draft", async () => {
+    const service = new OriginationService(new MemoryOriginationStore());
+    const prepared = await preparedDraft(service);
+    const sent = await service.sendDacToProducer(
+      prepared.reviewer,
+      prepared.dac.id,
+      prepared.dac.currentTermsHash,
+    );
+    expect(sent.status).toBe("PENDING_PRODUCER_CONFIRMATION");
+    expect(sent.currentTermsHash).toBe(prepared.dac.currentTermsHash);
   });
 });

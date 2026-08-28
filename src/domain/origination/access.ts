@@ -3,15 +3,18 @@ import {
   type ActorContext,
 } from "@/domain/identity";
 import { isDacExecutedOrLater, isRegistrarVisibleDac } from "./state-guards";
-import type {
-  FieldLifecycleStatus,
-  OriginationDacRecord,
-  OriginationDacStatus,
-  ProducerFieldFilter,
-  RegistrarDacFilter,
-  ScasCaseFilter,
-  ScasDacFilter,
-  IssuerDacFilter,
+import {
+  ACTIVE_ORIGINATION_DAC_STATUSES,
+  type FieldDocumentRecord,
+  type FieldLifecycleStatus,
+  type OriginationDacRecord,
+  type OriginationDacStatus,
+  type ProducerFieldFilter,
+  type RegistrarDacFilter,
+  type ScasCaseFilter,
+  type ScasDacFilter,
+  type IssuerDacFilter,
+  type VerifiedFieldSnapshotRecord,
 } from "./types";
 
 export function actorStamp(actor: ActorContext) {
@@ -70,6 +73,33 @@ export function canReadProducerOrgFields(
     return true;
   }
   return isProducerOperator(actor) && actor.effective.organization?.id === organizationId;
+}
+
+export function canReadVerifiedDacDocument(
+  actor: ActorContext,
+  dac: OriginationDacRecord | null,
+  document: FieldDocumentRecord,
+  snapshot: VerifiedFieldSnapshotRecord | null,
+): boolean {
+  if (!dac || !snapshot) {
+    return false;
+  }
+  if (!isIssuerOperator(actor)) {
+    return false;
+  }
+  if (!(ACTIVE_ORIGINATION_DAC_STATUSES as readonly string[]).includes(dac.status)) {
+    return false;
+  }
+  if (!dac.issuerOrganizationId || actor.effective.organization?.id !== dac.issuerOrganizationId) {
+    return false;
+  }
+  if (document.fieldId !== dac.fieldId || snapshot.fieldId !== dac.fieldId) {
+    return false;
+  }
+  if (snapshot.id !== dac.verifiedSnapshotId) {
+    return false;
+  }
+  return snapshot.payload.acceptedDocumentIds.includes(document.id);
 }
 
 export function canManageProducerOrgFields(

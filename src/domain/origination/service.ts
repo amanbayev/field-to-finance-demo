@@ -7,6 +7,7 @@ import {
   canReadOrigination,
   canReadOriginationDac,
   canReadProducerOrgFields,
+  canReadVerifiedDacDocument,
   isIssuerOperator,
   isProducerOperator,
   isRegistrarIntakeOperator,
@@ -36,6 +37,7 @@ import {
   allowsScasDacEdit,
   allowsScasDacSubmit,
   allowsScasSendToProducer,
+  DAC_EXACT_TRANSITIONS,
 } from "./state-guards";
 import { isActiveIssuerOrganization } from "./issuers";
 import {
@@ -1016,9 +1018,15 @@ export class OriginationService {
     );
   }
 
-  async updateDacDraft(actor: ActorContext, dacRef: string, input: OriginationDacCommercialInput) {
+  async updateDacDraft(
+    actor: ActorContext,
+    dacRef: string,
+    input: OriginationDacCommercialInput,
+    expectedTermsHash: string,
+  ) {
     this.requireVerifier(actor);
     const dac = await this.requireReadableDac(actor, dacRef);
+    this.assertExpectedDraftTermsHash(dac.currentTermsHash, expectedTermsHash);
     if (!allowsScasDacEdit(dac.status)) {
       throw new OriginationError("invalid_state", "SCAS can edit DAC commercial terms only while the DAC is a draft.");
     }
@@ -1036,7 +1044,8 @@ export class OriginationService {
     next.currentTermsHash = hashCurrentDacTerms(next);
     return this.store.applyDacTransition({
       kind: "update_draft",
-      expectedStatuses: ["DRAFT"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.update_draft.from],
+      expectedTermsHash,
       dac: next,
       event: this.makeEvent(actor, "dac_updated", "dac", next.id, {
         fieldId: next.fieldId,
@@ -1046,9 +1055,10 @@ export class OriginationService {
     });
   }
 
-  async sendDacToProducer(actor: ActorContext, dacRef: string) {
+  async sendDacToProducer(actor: ActorContext, dacRef: string, expectedTermsHash: string) {
     this.requireVerifier(actor);
     const dac = await this.requireReadableDac(actor, dacRef);
+    this.assertExpectedDraftTermsHash(dac.currentTermsHash, expectedTermsHash);
     if (!allowsScasSendToProducer(dac.status)) {
       throw new OriginationError("invalid_state", "Send to producer is allowed only from a draft.");
     }
@@ -1082,8 +1092,8 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "send_to_producer",
-      expectedStatuses: ["DRAFT"],
-      expectedTermsHash: next.currentTermsHash,
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.send_to_producer.from],
+      expectedTermsHash,
       dac: next,
       event: this.makeEvent(actor, "dac_sent_to_producer", "dac", next.id, {
         fieldId: next.fieldId,
@@ -1118,7 +1128,7 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "producer_confirm",
-      expectedStatuses: ["PENDING_PRODUCER_CONFIRMATION"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.producer_confirm.from],
       expectedProducerOrganizationId: orgId,
       expectedTermsHash: hash,
       dac: next,
@@ -1155,7 +1165,7 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "producer_return",
-      expectedStatuses: ["PENDING_PRODUCER_CONFIRMATION"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.producer_return.from],
       expectedProducerOrganizationId: orgId,
       dac: next,
       message: {
@@ -1206,7 +1216,7 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "issuer_confirm",
-      expectedStatuses: ["PENDING_ISSUER_CONFIRMATION"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.issuer_confirm.from],
       expectedIssuerOrganizationId: orgId,
       expectedTermsHash: hash,
       dac: next,
@@ -1244,7 +1254,7 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "issuer_return",
-      expectedStatuses: ["PENDING_ISSUER_CONFIRMATION"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.issuer_return.from],
       expectedIssuerOrganizationId: orgId,
       dac: next,
       message: {
@@ -1284,7 +1294,7 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "submit_to_registrar",
-      expectedStatuses: ["EXECUTED", "RETURNED_BY_REGISTRAR"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.submit_to_registrar.from],
       dac: next,
       event: this.makeEvent(actor, "dac_submitted_to_registrar", "dac", next.id, {
         fieldId: next.fieldId,
@@ -1311,7 +1321,7 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "start_review",
-      expectedStatuses: ["READY_FOR_REGISTRAR"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.start_review.from],
       dac: next,
       event: this.makeEvent(actor, "dac_review_started", "dac", next.id, { fieldId: next.fieldId }),
     });
@@ -1337,7 +1347,7 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "accept",
-      expectedStatuses: ["READY_FOR_REGISTRAR", "UNDER_REGISTRAR_REVIEW"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.accept.from],
       dac: next,
       message: note
         ? {
@@ -1386,7 +1396,7 @@ export class OriginationService {
     };
     return this.store.applyDacTransition({
       kind: "return_intake",
-      expectedStatuses: ["READY_FOR_REGISTRAR", "UNDER_REGISTRAR_REVIEW"],
+      expectedStatuses: [...DAC_EXACT_TRANSITIONS.return_intake.from],
       dac: next,
       message: {
         id: randomUUID(),
@@ -1551,10 +1561,15 @@ export class OriginationService {
           (document) => document.bucket === bucket && document.objectPath === objectPath,
         );
         if (match) {
-          if (!canReadProducerOrgFields(actor, field.organizationId)) {
-            throw new OriginationError("forbidden");
+          if (canReadProducerOrgFields(actor, field.organizationId)) {
+            return this.store.getBlob(bucket, objectPath);
           }
-          return this.store.getBlob(bucket, objectPath);
+          const dac = await this.store.getActiveDacByField(field.id);
+          const snapshot = dac ? await this.store.getSnapshotByField(field.id) : null;
+          if (canReadVerifiedDacDocument(actor, dac, match, snapshot)) {
+            return this.store.getBlob(bucket, objectPath);
+          }
+          throw new OriginationError("forbidden");
         }
       }
     }
@@ -1569,6 +1584,12 @@ export class OriginationService {
 
   async isObjectPublic(bucket: string, objectPath: string) {
     return this.store.hasPublicObjectUrl(bucket, objectPath);
+  }
+
+  private assertExpectedDraftTermsHash(storedHash: string, expectedTermsHash: string) {
+    if (!expectedTermsHash.trim() || storedHash !== expectedTermsHash) {
+      throw new OriginationError("invalid_state", "Terms hash mismatch; stale draft.");
+    }
   }
 
   private assertUploadWindow(field: ProducerFieldRecord, _replacesDocumentId?: string | null) {
