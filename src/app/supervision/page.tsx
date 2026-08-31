@@ -29,7 +29,7 @@ import { listParticipantCompliance } from "@/services/compliance-service";
 import { listAuditEvents } from "@/services/regulator-service";
 import {
   listAssetInstruments,
-  listAssetProtocols,
+  listAssetProtocolsWithCurrentVersion,
   listHoldings,
   listProtocolInvestments,
 } from "@/services/market-core-service";
@@ -49,7 +49,7 @@ export default async function SupervisionPage() {
   const t = await getTranslations("marketCore");
   const tSec = await getTranslations("secondary");
   const locale = (await getLocale()) as AppLocale;
-  const protocols = listAssetProtocols();
+  const protocols = listAssetProtocolsWithCurrentVersion();
   const issued = listAssetInstruments().filter((item) => item.status === "ISSUED");
   const concepts = [
     ...listAssetInstruments().filter((item) => item.status !== "ISSUED"),
@@ -271,14 +271,16 @@ export default async function SupervisionPage() {
 
       <PageSection title={t("verification")} description={t("differentModels")}>
         <DeskLedger>
-          {protocols.map((protocol, index) => (
+          {protocols.map(({ protocol, currentVersion }, index) => (
             <DeskRow
               key={protocol.id}
               href={`/protocols/${protocol.id}`}
               index={deskIndex(index)}
               kicker={lookupMessage(t, ASSET_CLASS_KEYS[protocol.assetClass])}
               title={protocol.name}
-              hint={`${t("verification")}: ${protocol.verificationModel}`}
+              hint={`${t("verification")}: ${
+                currentVersion?.rules.verificationModel ?? t("noActiveProtocolVersion")
+              }`}
               value={
                 <MarketStatusChip
                   label={lookupMessage(t, protocolStatusKey(protocol.status))}

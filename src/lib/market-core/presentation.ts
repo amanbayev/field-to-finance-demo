@@ -5,6 +5,7 @@ import {
   type InstrumentSection,
   type ProtocolInvestmentModel,
   type ProtocolStatus,
+  type ProtocolVersionState,
 } from "@/domain/market-core";
 
 export const INSTRUMENT_SECTION_KEYS: Record<InstrumentSection, string> = {
@@ -50,6 +51,23 @@ export const PROTOCOL_INVESTMENT_MODEL_KEYS: Record<
   DEBT_LIKE: "debt",
   CONVERTIBLE: "convertible",
   STRUCTURED_INVESTMENT_RIGHT: "structured",
+};
+
+/**
+ * Localized explanation shown for a protocol version. `ProtocolVersion.governanceNote`
+ * remains the canonical internal record and stays in English; this map supplies the
+ * translated copy actually rendered to a user. A version with no entry here falls back
+ * to its canonical note rather than showing a missing-message key.
+ */
+export const PROTOCOL_VERSION_GOVERNANCE_KEYS: Record<string, string> = {
+  "F2F-V1.1": "governanceNoteF2FV1_1",
+};
+
+export const PROTOCOL_VERSION_STATE_KEYS: Record<ProtocolVersionState, string> = {
+  DRAFT: "versionStateDRAFT",
+  ACTIVE: "versionStateACTIVE",
+  SUPERSEDED: "versionStateSUPERSEDED",
+  RETIRED: "versionStateRETIRED",
 };
 
 export const ASSET_CLASS_KEYS: Record<AssetClass, string> = {

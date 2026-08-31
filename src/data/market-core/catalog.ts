@@ -10,6 +10,7 @@ import {
   type MarketInstrument,
   type ParticipantInstrumentEligibility,
   type ProtocolInvestmentVehicle,
+  type ProtocolVersion,
   type Settlement,
   type SettlementProviderAdapter,
   type Trade,
@@ -47,6 +48,49 @@ export const F2F_MODULES = [
   "monitoring",
 ] as const;
 
+/**
+ * The first recorded immutable version of the Field to Finance demonstrator
+ * protocol.
+ *
+ * This is a protocol version identifier, not an engineering phase label. No
+ * earlier F2F version is recorded in this registry, so this version supersedes
+ * nothing.
+ *
+ * `activatedAt` and `frozenAt` are null: no formal legal or governance
+ * activation date has been established for this version, and none is claimed.
+ * Immutability is asserted by the `frozen` marker, not by a date.
+ */
+export const F2F_V1_1_VERSION_ID = "F2F-V1.1";
+
+export const protocolVersions: ProtocolVersion[] = [
+  {
+    id: F2F_V1_1_VERSION_ID,
+    protocolId: F2F_PROTOCOL_ID,
+    displayVersion: "1.1",
+    state: "ACTIVE",
+    frozen: true,
+    activatedAt: null,
+    frozenAt: null,
+    supersedesVersionId: null,
+    supersededByVersionId: null,
+    governanceNote:
+      "First recorded version of the Field to Finance demonstrator protocol. No formal legal or governance activation date has been established, and none is claimed: activation and freeze dates are deliberately unset rather than assumed. Immutability is asserted by the frozen marker — instruments issued under this version keep this exact reference and do not follow later versions.",
+    rules: {
+      verificationModel: "SCAS / fields / DAC / coverage",
+      riskModel: "Off-chain risk haircut on pooled contracts",
+      coverageModel: "Eligible coverage as issuance capacity, not a legal pledge",
+      issuanceModel: "Token-2022 ASSET_TOKEN against issuer claim",
+      redemptionModel: "Working hypothesis · grain delivery window",
+      lifecycle: F2F_LIFECYCLE,
+      modules: F2F_MODULES,
+    },
+  },
+];
+
+/**
+ * Water, Music Rights and Gaming Assets have no protocol version. They are
+ * STRUCTURING / CONCEPT and no version is invented for them.
+ */
 export const assetProtocols: AssetProtocol[] = [
   {
     id: F2F_PROTOCOL_ID,
@@ -54,16 +98,9 @@ export const assetProtocols: AssetProtocol[] = [
     assetClass: "AGRICULTURE",
     protocolOwner: "Field to Finance",
     operator: LEGAL_OPERATOR,
-    version: "5B",
     status: "ACTIVE",
-    verificationModel: "SCAS / fields / DAC / coverage",
-    riskModel: "Off-chain risk haircut on pooled contracts",
-    coverageModel: "Eligible coverage as issuance capacity, not a legal pledge",
-    issuanceModel: "Token-2022 ASSET_TOKEN against issuer claim",
-    redemptionModel: "Working hypothesis · grain delivery window",
     regulatoryStatus: "DEMONSTRATOR_ONLY",
-    lifecycle: F2F_LIFECYCLE,
-    modules: F2F_MODULES,
+    currentVersionId: F2F_V1_1_VERSION_ID,
   },
   {
     id: WATER_PROTOCOL_ID,
@@ -71,16 +108,9 @@ export const assetProtocols: AssetProtocol[] = [
     assetClass: "WATER",
     protocolOwner: "Not appointed",
     operator: LEGAL_OPERATOR,
-    version: "—",
     status: "STRUCTURING",
-    verificationModel: "Structuring",
-    riskModel: "Structuring",
-    coverageModel: "Structuring",
-    issuanceModel: "Structuring",
-    redemptionModel: "Structuring",
     regulatoryStatus: "NOT_SUBMITTED",
-    lifecycle: [],
-    modules: [],
+    currentVersionId: null,
   },
   {
     id: MUSIC_PROTOCOL_ID,
@@ -88,16 +118,9 @@ export const assetProtocols: AssetProtocol[] = [
     assetClass: "MUSIC_RIGHTS",
     protocolOwner: "Not appointed",
     operator: LEGAL_OPERATOR,
-    version: "—",
     status: "STRUCTURING",
-    verificationModel: "Structuring",
-    riskModel: "Structuring",
-    coverageModel: "Structuring",
-    issuanceModel: "Structuring",
-    redemptionModel: "Structuring",
     regulatoryStatus: "NOT_SUBMITTED",
-    lifecycle: [],
-    modules: [],
+    currentVersionId: null,
   },
   {
     id: GAMING_PROTOCOL_ID,
@@ -105,16 +128,9 @@ export const assetProtocols: AssetProtocol[] = [
     assetClass: "GAMING_ASSETS",
     protocolOwner: "Not appointed",
     operator: LEGAL_OPERATOR,
-    version: "—",
     status: "CONCEPT",
-    verificationModel: "Concept",
-    riskModel: "Concept",
-    coverageModel: "Concept",
-    issuanceModel: "Concept",
-    redemptionModel: "Concept",
     regulatoryStatus: "NOT_SUBMITTED",
-    lifecycle: [],
-    modules: [],
+    currentVersionId: null,
   },
 ];
 
@@ -125,6 +141,7 @@ export const marketInstruments: MarketInstrument[] = [
     name: "2027 Wheat Commodity Agricultural Token",
     instrumentType: "ASSET_TOKEN",
     assetProtocolId: F2F_PROTOCOL_ID,
+    protocolVersionId: F2F_V1_1_VERSION_ID,
     assetClass: "AGRICULTURE",
     issuerId: wheat.issuerId,
     issuerName: wheat.issuerName,
@@ -147,6 +164,8 @@ export const marketInstruments: MarketInstrument[] = [
     name: "Field to Finance Protocol Investment",
     instrumentType: "PROTOCOL_INVESTMENT",
     assetProtocolId: F2F_PROTOCOL_ID,
+    // CONCEPT / STRUCTURING: no offering, not issued, so no version to bind.
+    protocolVersionId: null,
     assetClass: "AGRICULTURE",
     issuerId: "future-f2f-spv",
     issuerName: "F2F Issuer / SPV (future structuring)",
@@ -344,6 +363,14 @@ export const wheatAdmissionProgress: Record<AdmissionStage, boolean> = {
 
 export function protocolById(id: string): AssetProtocol | undefined {
   return assetProtocols.find((protocol) => protocol.id === id);
+}
+
+export function versionById(id: string): ProtocolVersion | undefined {
+  return protocolVersions.find((version) => version.id === id);
+}
+
+export function versionsForProtocol(protocolId: string): ProtocolVersion[] {
+  return protocolVersions.filter((version) => version.protocolId === protocolId);
 }
 
 export function instrumentById(id: string): MarketInstrument | undefined {

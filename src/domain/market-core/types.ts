@@ -148,6 +148,15 @@ export const ELIGIBILITY_STATES = [
 
 export type InstrumentEligibilityState = (typeof ELIGIBILITY_STATES)[number];
 
+export const PROTOCOL_VERSION_STATES = [
+  "DRAFT",
+  "ACTIVE",
+  "SUPERSEDED",
+  "RETIRED",
+] as const;
+
+export type ProtocolVersionState = (typeof PROTOCOL_VERSION_STATES)[number];
+
 export const PROTOCOL_INVESTMENT_MODELS = [
   "EQUITY_LIKE",
   "REVENUE_PARTICIPATION",
@@ -158,22 +167,69 @@ export const PROTOCOL_INVESTMENT_MODELS = [
 
 export type ProtocolInvestmentModel = (typeof PROTOCOL_INVESTMENT_MODELS)[number];
 
+/**
+ * The versioned rule set of an AssetProtocol. Immutable once the owning
+ * ProtocolVersion is frozen. Rules live here and nowhere else: AssetProtocol
+ * must not carry a second, mutable copy of them.
+ */
+export interface ProtocolRuleSnapshot {
+  verificationModel: string;
+  riskModel: string;
+  coverageModel: string;
+  issuanceModel: string;
+  redemptionModel: string;
+  lifecycle: readonly string[];
+  modules: readonly string[];
+}
+
+/**
+ * An approved, immutable version of an AssetProtocol. Issued instruments hold a
+ * permanent reference to the exact version they were created under, so a later
+ * version can never silently rewrite the rules governing an existing instrument.
+ */
+export interface ProtocolVersion {
+  /** Stable permanent identifier referenced by instruments, e.g. "F2F-V1.1". */
+  id: string;
+  /** Owning protocol, e.g. "F2F". */
+  protocolId: string;
+  /** Human-facing version label, e.g. "1.1". Never an engineering phase label. */
+  displayVersion: string;
+  state: ProtocolVersionState;
+  /**
+   * The technical immutability marker. A frozen version's rules must never
+   * change. This is the authoritative marker — it does not depend on a date.
+   */
+  frozen: boolean;
+  /**
+   * Formal legal / governance activation date, when one has been established.
+   * Null means no such date is claimed. Never backfill a plausible date.
+   */
+  activatedAt: string | null;
+  /**
+   * Date the rules were frozen, when one has been established. Null means no
+   * such date is claimed; immutability is asserted by `frozen`, not by this.
+   */
+  frozenAt: string | null;
+  supersedesVersionId: string | null;
+  supersededByVersionId: string | null;
+  governanceNote: string;
+  rules: ProtocolRuleSnapshot;
+}
+
 export interface AssetProtocol {
   id: string;
   name: string;
   assetClass: AssetClass;
   protocolOwner: string;
   operator: string;
-  version: string;
   status: ProtocolStatus;
-  verificationModel: string;
-  riskModel: string;
-  coverageModel: string;
-  issuanceModel: string;
-  redemptionModel: string;
   regulatoryStatus: RegulatoryStatus;
-  lifecycle: readonly string[];
-  modules: readonly string[];
+  /**
+   * Mutable pointer to the version new instruments would be created under.
+   * Discovery only. Never resolve an already-issued instrument's rules through
+   * this field — use the instrument's own `protocolVersionId`.
+   */
+  currentVersionId: string | null;
 }
 
 export interface MarketInstrument {
@@ -182,6 +238,12 @@ export interface MarketInstrument {
   name: string;
   instrumentType: InstrumentType;
   assetProtocolId: string;
+  /**
+   * Permanent binding to the exact ProtocolVersion this instrument was created
+   * under. Required for an ISSUED instrument; null only while an instrument has
+   * no issuance to bind (FUTURE / STRUCTURING).
+   */
+  protocolVersionId: string | null;
   assetClass: AssetClass;
   issuerId: string;
   issuerName: string;

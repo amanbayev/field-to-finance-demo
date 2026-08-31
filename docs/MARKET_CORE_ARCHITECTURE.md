@@ -22,6 +22,7 @@ ISS-001 is an issuance of WHEAT-2027, not a token type. POOL-WHEAT-2027-01 is ba
 | --- | --- |
 | Generic Instrument, Market, Order, Trade, Settlement, Holding, eligibility matrix | **IMPLEMENTED**. |
 | WHEAT-2027 as first instance of those types | **IMPLEMENTED**. Live supply proof remains 1,000 minted / Registrar 990 / Steppe Capital 10. |
+| Immutable `ProtocolVersion` and `Instrument → ProtocolVersion` binding (Phase 5C.1) | **IMPLEMENTED**. `ProtocolVersion` owns the versioned rule snapshot; `AssetProtocol` no longer carries a mutable copy. WHEAT-2027 binds permanently to `F2F-V1.1` (display version `1.1`). `AssetProtocol.currentVersionId` is a discovery pointer and is never used to resolve an issued instrument. `F2F-V1.1` is the first recorded version of the **demonstrator** protocol: `activatedAt` and `frozenAt` are `null` because **no formal legal or governance activation date is claimed**. Immutability is asserted by the `frozen` marker, not by a date. Water / Music Rights / Gaming Assets and the F2F Protocol Investment have **no** version. Version data and validation helpers only — a protocol rules engine and supersession workflow are Phase 8. See `docs/PHASE_5C_PLAN.md`. |
 | WheatOrder / WheatTrade / WheatMarket types | **Not created** (forbidden). |
 | Secondary matching / transacting market | **IMPLEMENTED (Preview)**. Market `MKT-WHEAT-2027-DEMO-KZT`, `phase: SECONDARY_OPEN`, `transacting: true`, LIMIT only. Stops at `AWAITING_DEVNET_SETTLEMENT`. |
 

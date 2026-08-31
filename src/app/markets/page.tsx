@@ -88,7 +88,8 @@ export default async function MarketsPage() {
                 hint={
                   symbol
                     ? t("issuedDemonstratorInstrument")
-                    : protocol.verificationModel
+                    : (context?.currentVersion?.rules.verificationModel ??
+                      t("noActiveProtocolVersion"))
                 }
               />
             );

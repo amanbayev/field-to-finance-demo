@@ -87,7 +87,7 @@ export default async function InstrumentDetailPage({
   const t = await getTranslations("marketCore");
   const locale = (await getLocale()) as AppLocale;
   const section = parseInstrumentSection(sectionParam);
-  const { instrument, protocol, market } = context;
+  const { instrument, protocol, market, protocolVersion } = context;
   const protocolContext = getProtocolContext(instrument.assetProtocolId);
   const wheat = instrument.id === "WHEAT-2027";
   const protocolInvestment = instrument.instrumentType === "PROTOCOL_INVESTMENT";
@@ -188,11 +188,20 @@ export default async function InstrumentDetailPage({
                   instrument.assetProtocolId
                 ),
               },
+              {
+                label: t("boundProtocolVersion"),
+                value: protocolVersion
+                  ? `${protocolVersion.id} · ${protocolVersion.displayVersion}`
+                  : t("notBoundToProtocolVersion"),
+              },
               { label: t("rowSpv"), value: instrument.issuerName },
               { label: t("issuance"), value: instrument.issuanceId ?? "—" },
               { label: t("regulatory"), value: t("demonstratorOnly") },
             ]}
           />
+          <p className="text-xs text-straw">
+            {protocolVersion ? t("boundAtIssuance") : t("notBoundToProtocolVersion")}
+          </p>
           <SpvStack
             title={t("spvTitle")}
             rows={[
