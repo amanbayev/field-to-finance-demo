@@ -13,6 +13,7 @@ import {
 } from "@/data/identity/demo-catalog";
 import { OriginationService, type ProducerDeclaredData } from "@/domain/origination";
 import { PostgresOriginationStore } from "@/data/origination/postgres-store";
+import { isDemonstratorContractId } from "@/lib/origination/paths";
 import { createServiceRoleClient } from "@/lib/auth/supabase/admin";
 
 function loadLocalEnv() {
@@ -126,6 +127,52 @@ function pdf(name: string) {
     filename: name,
     mimeType: "application/pdf" as const,
     bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34]),
+  };
+}
+
+async function openVerifiedQaPlot(service: OriginationService, stamp: string) {
+  const farm = actorFor(farm1, ["PRODUCER_ADMIN"], `qa-b2-prod-${stamp}`);
+  const reviewer = actorFor(scasOrg, ["SCAS_OPERATOR"], `qa-b2-scas-${stamp}`, "DEMO-SCAS-001");
+  const issuer = actorFor(issuerOrg, ["ISSUER_OPERATOR"], `qa-b2-iss-${stamp}`, "DEMO-ISSUER-001");
+  const registrar = actorFor(registrarOrg, ["REGISTRAR_OPERATOR"], `qa-b2-reg-${stamp}`, "DEMO-REGISTRAR-001");
+  const declared: ProducerDeclaredData = {
+    name: `QA B.2 Zerendi plot ${stamp}`,
+    season: 2027,
+    crop: "Wheat",
+    cadastreNumber: `KZ-QA-B2-${stamp.slice(-6)}`,
+    declaredAreaHa: 1240,
+    region: "Akmola",
+    district: "Zerendi",
+  };
+  const created = await service.createDraft(farm, declared);
+  const extract = await service.uploadDocument(farm, {
+    fieldId: created.id,
+    documentType: "CADASTRE_EXTRACT",
+    ...pdf(`qa-b2-cadastre-${stamp}.pdf`),
+  });
+  const submitted = await service.submitToScas(farm, created.id);
+  await service.recordCadastreVerification(reviewer, submitted.verificationCase.id, {
+    cadastreNumber: declared.cadastreNumber,
+    rightHolder: "Akmola Agro LLP",
+    rightType: "lease",
+    registeredAreaHa: 1238.6,
+    region: "Akmola",
+    district: "Zerendi",
+    validityStatus: "active",
+    sourceReference: "QA B.2 SCAS desk extract",
+    notes: "Declared 1,240 ha; register 1,238.6 ha.",
+  });
+  await service.acceptDocument(reviewer, extract.id);
+  await service.approveField(reviewer, submitted.verificationCase.id);
+  const field = (await service.getFieldBundle(farm, created.id)).field;
+  return {
+    farm,
+    reviewer,
+    issuer,
+    registrar,
+    field,
+    verificationCase: submitted.verificationCase,
+    extract,
   };
 }
 
@@ -273,4 +320,112 @@ describe.skipIf(!live)("origination live postgres (explicit RUN_LIVE_ORIGINATION
     const source = readFileSync("src/domain/origination/service.ts", "utf8");
     expect(source).not.toMatch(/solana|blockchain|recordedPlacement/i);
   }, 60_000);
+
+  it("persists a Producer-Issuer DAC through registrar intake without pool, token, or chain write", async () => {
+    const client = createServiceRoleClient();
+    expect(client).toBeTruthy();
+    const store = new PostgresOriginationStore(client!);
+    const service = new OriginationService(store);
+    const stamp = Date.now().toString(36);
+    const plot = await openVerifiedQaPlot(service, stamp);
+
+    const opened = await service.createDacFromVerifiedCase(plot.reviewer, plot.verificationCase.id);
+    const seq = Number(opened.publicId.slice(-4));
+    expect(opened.publicId).toMatch(/^DAC-2027-\d{4}$/);
+    expect(seq).toBeGreaterThanOrEqual(14);
+    expect(isDemonstratorContractId(opened.publicId)).toBe(false);
+
+    const drafted = await service.updateDacDraft(
+      plot.reviewer,
+      opened.id,
+      {
+        crop: "Wheat",
+        harvestYear: 2027,
+        contractedVolumeTonnes: 280,
+        qualityClass: "Class 3",
+        producerReference: plot.field.publicId,
+        deliveryStartDate: "2027-08-01",
+        deliveryEndDate: "2027-09-30",
+        deliveryLocation: "Astana elevator",
+        scasNotes: "QA B.2 live contract terms.",
+        issuerOrganizationId: issuerOrg.id,
+      },
+      opened.currentTermsHash,
+    );
+    const sent = await service.sendDacToProducer(plot.reviewer, drafted.id, drafted.currentTermsHash);
+    expect(sent.status).toBe("PENDING_PRODUCER_CONFIRMATION");
+    const producerConfirmed = await service.confirmDacAsProducer(plot.farm, sent.id);
+    expect(producerConfirmed.status).toBe("PENDING_ISSUER_CONFIRMATION");
+    const executed = await service.confirmDacAsIssuer(plot.issuer, producerConfirmed.id);
+    expect(executed.status).toBe("EXECUTED");
+    expect(executed.executedTermsHash).toBe(drafted.currentTermsHash);
+    expect(executed.executedTermsSnapshot).toMatchObject({
+      producerOrganizationId: farm1.id,
+      issuerOrganizationId: issuerOrg.id,
+      contractedVolumeTonnes: 280,
+      deliveryLocation: "Astana elevator",
+    });
+
+    const submitted = await service.submitDacToRegistrar(plot.reviewer, executed.id);
+    const reviewing = await service.startRegistrarReview(plot.registrar, submitted.id);
+    const accepted = await service.acceptDacIntake(plot.registrar, reviewing.id, "QA B.2 intake complete.");
+    expect(accepted.status).toBe("REGISTRAR_ACCEPTED");
+    expect(accepted).not.toHaveProperty("poolId");
+    expect(accepted).not.toHaveProperty("tokenId");
+
+    const bundle = await service.getDacBundle(plot.registrar, accepted.publicId);
+    const acceptEvent = bundle.events.find((event) => event.eventType === "dac_accepted");
+    expect(acceptEvent?.metadata).toMatchObject({
+      createdPool: false,
+      createdToken: false,
+      createdIssuance: false,
+      createdPlacement: false,
+      chainWrite: false,
+    });
+
+    const issuerBlob = await service.authorizedBlob(
+      plot.issuer,
+      plot.extract.bucket,
+      plot.extract.objectPath,
+    );
+    expect(issuerBlob?.bytes.byteLength).toBeGreaterThan(0);
+    expect(await service.isObjectPublic(plot.extract.bucket, plot.extract.objectPath)).toBe(false);
+  }, 90_000);
+
+  it("allows only one of two concurrent producer confirms on postgres", async () => {
+    const client = createServiceRoleClient();
+    expect(client).toBeTruthy();
+    const store = new PostgresOriginationStore(client!);
+    const service = new OriginationService(store);
+    const stamp = `${Date.now().toString(36)}c`;
+    const plot = await openVerifiedQaPlot(service, stamp);
+    const opened = await service.createDacFromVerifiedCase(plot.reviewer, plot.verificationCase.id);
+    const drafted = await service.updateDacDraft(
+      plot.reviewer,
+      opened.id,
+      {
+        crop: "Wheat",
+        harvestYear: 2027,
+        contractedVolumeTonnes: 260,
+        qualityClass: "Class 3",
+        producerReference: plot.field.publicId,
+        deliveryStartDate: "2027-08-01",
+        deliveryEndDate: "2027-09-30",
+        deliveryLocation: "Astana elevator",
+        scasNotes: "QA B.2 concurrent confirm.",
+        issuerOrganizationId: issuerOrg.id,
+      },
+      opened.currentTermsHash,
+    );
+    const sent = await service.sendDacToProducer(plot.reviewer, drafted.id, drafted.currentTermsHash);
+    const results = await Promise.allSettled([
+      service.confirmDacAsProducer(plot.farm, sent.id),
+      service.confirmDacAsProducer(plot.farm, sent.id),
+    ]);
+    const fulfilled = results.filter((item) => item.status === "fulfilled");
+    const rejected = results.filter((item) => item.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: "invalid_state" });
+  }, 90_000);
 });

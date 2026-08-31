@@ -2,7 +2,7 @@
 -- Additive. Does not alter market_core_*, pools, coverage, issuance, placements,
 -- Solana adapters, or demonstrator DAC-2027-0001..0013 fixtures.
 -- Live public ids start at DAC-{year}-0014 so they cannot collide with mock DACs.
--- THIS MIGRATION HAS NEVER BEEN APPLIED. Do not apply it from this change set.
+-- Applied to field-to-finance (qnzoghmqnqwfpkzgpede) as origination_dac_foundation*.
 
 create sequence if not exists public.origination_dac_id_seq start 14;
 
