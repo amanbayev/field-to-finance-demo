@@ -37,6 +37,7 @@ function testInstrument(): MarketInstrument {
     name: "Synthetic test instrument",
     instrumentType: "ASSET_TOKEN",
     assetProtocolId: "TEST-PROTOCOL",
+    protocolVersionId: "TEST-PROTOCOL-V1",
     assetClass: "WATER",
     issuerId: "test-issuer",
     issuerName: "Test Issuer",

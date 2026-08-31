@@ -27,7 +27,10 @@ export type {
   ParticipantInstrumentEligibility,
   ProtocolInvestmentModel,
   ProtocolInvestmentVehicle,
+  ProtocolRuleSnapshot,
   ProtocolStatus,
+  ProtocolVersion,
+  ProtocolVersionState,
   RegulatoryStatus,
   ReservationKind,
   ReservationStatus,
@@ -55,6 +58,7 @@ export {
   ORDER_TYPES,
   PROTOCOL_INVESTMENT_MODELS,
   PROTOCOL_STATUSES,
+  PROTOCOL_VERSION_STATES,
   REGULATORY_STATUSES,
   SETTLEMENT_STATUSES,
   TRADE_STATUSES,
@@ -66,6 +70,29 @@ export {
   eligibilityFor,
   withAvailable,
 } from "./eligibility";
+export {
+  IMMUTABLE_PROTOCOL_VERSION_BINDING_RULE,
+  PROTOCOL_CURRENT_VERSION_VIOLATIONS,
+  PROTOCOL_VERSION_BINDING_VIOLATIONS,
+  assertImmutableProtocolVersionBindings,
+  currentVersionForProtocol,
+  freezeProtocolVersion,
+  freezeProtocolVersionRegistry,
+  isFrozenProtocolVersion,
+  protocolVersionById,
+  protocolVersionsForProtocol,
+  resolveGoverningProtocolVersion,
+  validateInstrumentVersionBinding,
+  validateProtocolCurrentVersion,
+  validateProtocolVersionRegistry,
+} from "./protocol-version";
+export type {
+  ProtocolCurrentVersionResult,
+  ProtocolCurrentVersionViolation,
+  ProtocolVersionBindingResult,
+  ProtocolVersionBindingViolation,
+  ProtocolVersionRegistryReport,
+} from "./protocol-version";
 export {
   FUTURE_CHANNELS,
   assertChannelsShareMarketCore,

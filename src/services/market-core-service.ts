@@ -2,10 +2,13 @@ import {
   ADMISSION_STAGES,
   canReceive,
   canTrade,
+  currentVersionForProtocol,
   eligibilityFor,
+  resolveGoverningProtocolVersion,
   type AdmissionStage,
   type AssetProtocol,
   type MarketInstrument,
+  type ProtocolVersion,
 } from "@/domain/market-core";
 import {
   assetProtocols,
@@ -21,8 +24,11 @@ import {
   markets,
   protocolById,
   protocolVehicles,
+  protocolVersions,
   settlements,
   trades,
+  versionById,
+  versionsForProtocol,
   wheatAdmissionProgress,
 } from "@/data/market-core/catalog";
 
@@ -32,6 +38,41 @@ export function listAssetProtocols(): AssetProtocol[] {
 
 export function getAssetProtocol(id: string): AssetProtocol | undefined {
   return protocolById(id);
+}
+
+/**
+ * The canonical registry. Readonly at compile time and deeply frozen at
+ * runtime: callers can read versions but cannot mutate the registry or any
+ * record in it.
+ */
+export function listProtocolVersions(): readonly ProtocolVersion[] {
+  return protocolVersions;
+}
+
+export function getProtocolVersion(id: string): ProtocolVersion | undefined {
+  return versionById(id);
+}
+
+/**
+ * The protocol's current version, for discovery only. Never use this to resolve
+ * the rules of an already-issued instrument.
+ */
+export function getCurrentProtocolVersion(protocolId: string): ProtocolVersion | null {
+  const protocol = protocolById(protocolId);
+  if (!protocol) {
+    return null;
+  }
+  return currentVersionForProtocol(protocolVersions, protocol);
+}
+
+export function listAssetProtocolsWithCurrentVersion(): Array<{
+  protocol: AssetProtocol;
+  currentVersion: ProtocolVersion | null;
+}> {
+  return assetProtocols.map((protocol) => ({
+    protocol,
+    currentVersion: currentVersionForProtocol(protocolVersions, protocol),
+  }));
 }
 
 export function listMarketInstruments(): MarketInstrument[] {
@@ -59,6 +100,8 @@ export function getProtocolContext(protocolId: string) {
     protocol,
     instruments: instrumentsForProtocol(protocolId),
     vehicle: protocolVehicles.find((item) => item.protocolId === protocolId) ?? null,
+    currentVersion: currentVersionForProtocol(protocolVersions, protocol),
+    versions: versionsForProtocol(protocolId),
   };
 }
 
@@ -69,7 +112,10 @@ export function getInstrumentMarketContext(instrumentId: string) {
   }
   const protocol = protocolById(instrument.assetProtocolId) ?? null;
   const market = marketForInstrument(instrument.id) ?? null;
-  return { instrument, protocol, market };
+  // Resolved from the instrument's own permanent binding, never from the
+  // protocol's mutable currentVersionId.
+  const protocolVersion = resolveGoverningProtocolVersion(instrument, protocolVersions);
+  return { instrument, protocol, market, protocolVersion };
 }
 
 export function listHoldings(filters?: {
@@ -137,6 +183,7 @@ export function listAdmission(instrumentId: string): Array<{
 export function marketCoreSnapshot() {
   return {
     protocols: assetProtocols,
+    protocolVersions,
     instruments: marketInstruments,
     markets,
     trades,

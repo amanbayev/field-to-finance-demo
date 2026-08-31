@@ -28,6 +28,8 @@ import {
   LIFECYCLE_KEYS,
   MODULE_KEYS,
   PROTOCOL_INVESTMENT_MODEL_KEYS,
+  PROTOCOL_VERSION_STATE_KEYS,
+  protocolVersionGovernanceKey,
   f2fModuleHref,
   protocolStatusKey,
   protocolWorldKey,
@@ -64,7 +66,8 @@ export default async function ProtocolDetailPage({
   }
   const t = await getTranslations("marketCore");
   const locale = (await getLocale()) as AppLocale;
-  const { protocol, instruments, vehicle } = context;
+  const { protocol, instruments, vehicle, currentVersion } = context;
+  const rules = currentVersion?.rules ?? null;
   const assetInstruments = instruments.filter((item) => item.instrumentType === "ASSET_TOKEN");
   const protocolInvestments = instruments.filter(
     (item) => item.instrumentType === "PROTOCOL_INVESTMENT",
@@ -107,7 +110,16 @@ export default async function ProtocolDetailPage({
           { label: t("assetClass"), value: lookupMessage(t, ASSET_CLASS_KEYS[protocol.assetClass]) },
           { label: t("operator"), value: protocol.operator },
           { label: t("protocolOwner"), value: protocol.protocolOwner },
-          { label: t("verification"), value: protocol.verificationModel },
+          {
+            label: t("verification"),
+            value: rules ? rules.verificationModel : t("noActiveProtocolVersion"),
+          },
+          {
+            label: t("protocolVersion"),
+            value: currentVersion
+              ? `${currentVersion.id} · ${currentVersion.displayVersion}`
+              : t("noActiveProtocolVersion"),
+          },
           { label: t("regulatory"), value: t("demonstratorOnly") },
         ]}
       />
@@ -124,20 +136,71 @@ export default async function ProtocolDetailPage({
         </p>
       ) : null}
 
-      {protocol.lifecycle.length > 0 ? (
+      <PageSection title={t("protocolVersionTitle")} description={t("protocolVersionIntro")}>
+        {currentVersion && rules ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-3">
+              <MarketStatusChip
+                label={lookupMessage(t, PROTOCOL_VERSION_STATE_KEYS[currentVersion.state])}
+                tone={currentVersion.state === "ACTIVE" ? "ACTIVE" : "STRUCTURING"}
+              />
+              {currentVersion.frozen ? (
+                <MarketStatusChip label={t("immutableRules")} tone="ACTIVE" />
+              ) : null}
+            </div>
+            <DataList
+              items={[
+                { label: t("protocolVersionId"), value: currentVersion.id },
+                { label: t("protocolVersionDisplay"), value: currentVersion.displayVersion },
+                {
+                  label: t("protocolVersionState"),
+                  value: lookupMessage(t, PROTOCOL_VERSION_STATE_KEYS[currentVersion.state]),
+                },
+                {
+                  label: t("protocolVersionActivated"),
+                  value: currentVersion.activatedAt ?? t("dateNotClaimed"),
+                },
+                {
+                  label: t("protocolVersionFrozenAt"),
+                  value: currentVersion.frozenAt ?? t("dateNotClaimed"),
+                },
+              ]}
+            />
+            <div>
+              <p className="label-caps text-harvest">{t("protocolRules")}</p>
+              <DataList
+                items={[
+                  { label: t("verification"), value: rules.verificationModel },
+                  { label: t("riskModel"), value: rules.riskModel },
+                  { label: t("coverageModel"), value: rules.coverageModel },
+                  { label: t("issuanceModel"), value: rules.issuanceModel },
+                  { label: t("redemptionModel"), value: rules.redemptionModel },
+                ]}
+              />
+            </div>
+            <p className="text-xs text-straw">
+              {lookupMessage(t, protocolVersionGovernanceKey(currentVersion.id))}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-straw">{t("noActiveProtocolVersion")}</p>
+        )}
+      </PageSection>
+
+      {rules && rules.lifecycle.length > 0 ? (
         <PageSection title={t("protocolPath")}>
           <WorkflowStrip
-            steps={protocol.lifecycle.map((step) =>
+            steps={rules.lifecycle.map((step) =>
               lookupMessage(t, LIFECYCLE_KEYS[step] ?? step),
             )}
           />
         </PageSection>
       ) : null}
 
-      {protocol.id === "F2F" && protocol.modules.length > 0 ? (
+      {protocol.id === "F2F" && rules && rules.modules.length > 0 ? (
         <PageSection title={t("f2fModules")}>
         <DeskLedger>
-          {protocol.modules.map((moduleId, index) => {
+          {rules.modules.map((moduleId, index) => {
             const href = f2fModuleHref(moduleId, actor);
             const label = lookupMessage(t, MODULE_KEYS[moduleId] ?? moduleId);
             return (

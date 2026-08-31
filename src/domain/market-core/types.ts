@@ -148,6 +148,15 @@ export const ELIGIBILITY_STATES = [
 
 export type InstrumentEligibilityState = (typeof ELIGIBILITY_STATES)[number];
 
+export const PROTOCOL_VERSION_STATES = [
+  "DRAFT",
+  "ACTIVE",
+  "SUPERSEDED",
+  "RETIRED",
+] as const;
+
+export type ProtocolVersionState = (typeof PROTOCOL_VERSION_STATES)[number];
+
 export const PROTOCOL_INVESTMENT_MODELS = [
   "EQUITY_LIKE",
   "REVENUE_PARTICIPATION",
@@ -158,22 +167,85 @@ export const PROTOCOL_INVESTMENT_MODELS = [
 
 export type ProtocolInvestmentModel = (typeof PROTOCOL_INVESTMENT_MODELS)[number];
 
+/**
+ * The versioned rule set of an AssetProtocol. Immutable once the owning
+ * ProtocolVersion is frozen. Rules live here and nowhere else: AssetProtocol
+ * must not carry a second, mutable copy of them.
+ *
+ * Every property is readonly so a caller cannot rewrite the governing rules of
+ * an already-issued instrument through a returned reference.
+ */
+export interface ProtocolRuleSnapshot {
+  readonly verificationModel: string;
+  readonly riskModel: string;
+  readonly coverageModel: string;
+  readonly issuanceModel: string;
+  readonly redemptionModel: string;
+  readonly lifecycle: readonly string[];
+  readonly modules: readonly string[];
+}
+
+/**
+ * A recorded, immutable demonstrator rule version of an AssetProtocol. Issued
+ * instruments hold a permanent reference to the exact version they were created
+ * under, so a later version can never silently rewrite the rules governing an
+ * existing instrument.
+ *
+ * "Recorded" means recorded by this application. It does not imply legal,
+ * regulatory or governance approval of the version or its rules.
+ */
+export interface ProtocolVersion {
+  /** Stable permanent identifier referenced by instruments, e.g. "F2F-V1.1". */
+  readonly id: string;
+  /** Owning protocol, e.g. "F2F". */
+  readonly protocolId: string;
+  /** Human-facing version label, e.g. "1.1". Never an engineering phase label. */
+  readonly displayVersion: string;
+  /**
+   * Application / demonstrator lifecycle state of this version record. It is
+   * not evidence of legal or governance activation, and `ACTIVE` must never be
+   * presented as a formal regulatory or governance approval.
+   */
+  readonly state: ProtocolVersionState;
+  /**
+   * The technical immutability marker. A frozen version's rules must never
+   * change. This is the authoritative marker — it does not depend on a date.
+   */
+  readonly frozen: boolean;
+  /**
+   * Formal legal / governance activation date, when one has been established.
+   * Null means no such date is claimed. Never backfill a plausible date.
+   */
+  readonly activatedAt: string | null;
+  /**
+   * Date the rules were frozen, when one has been established. Null means no
+   * such date is claimed; immutability is asserted by `frozen`, not by this.
+   */
+  readonly frozenAt: string | null;
+  readonly supersedesVersionId: string | null;
+  readonly supersededByVersionId: string | null;
+  /**
+   * Canonical internal record, in English. Never render this directly to a
+   * user; the presentation layer selects a localized message instead.
+   */
+  readonly governanceNote: string;
+  readonly rules: ProtocolRuleSnapshot;
+}
+
 export interface AssetProtocol {
   id: string;
   name: string;
   assetClass: AssetClass;
   protocolOwner: string;
   operator: string;
-  version: string;
   status: ProtocolStatus;
-  verificationModel: string;
-  riskModel: string;
-  coverageModel: string;
-  issuanceModel: string;
-  redemptionModel: string;
   regulatoryStatus: RegulatoryStatus;
-  lifecycle: readonly string[];
-  modules: readonly string[];
+  /**
+   * Mutable pointer to the version new instruments would be created under.
+   * Discovery only. Never resolve an already-issued instrument's rules through
+   * this field — use the instrument's own `protocolVersionId`.
+   */
+  currentVersionId: string | null;
 }
 
 export interface MarketInstrument {
@@ -182,6 +254,13 @@ export interface MarketInstrument {
   name: string;
   instrumentType: InstrumentType;
   assetProtocolId: string;
+  /**
+   * Permanent binding to the exact ProtocolVersion this instrument was created
+   * under. Required for an ISSUED instrument; null only while an instrument has
+   * no issuance to bind (FUTURE / STRUCTURING). Readonly: a binding is never
+   * reassigned once the instrument exists.
+   */
+  readonly protocolVersionId: string | null;
   assetClass: AssetClass;
   issuerId: string;
   issuerName: string;

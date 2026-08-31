@@ -25,16 +25,20 @@ export {
 export { getScasSnapshot } from "./scas-service";
 export {
   getAssetProtocol,
+  getCurrentProtocolVersion,
   getInstrumentMarketContext,
   getMarketInstrument,
   getProtocolContext,
+  getProtocolVersion,
   listAdmission,
   listAssetInstruments,
   listAssetProtocols,
+  listAssetProtocolsWithCurrentVersion,
   listEligibility,
   listHoldings,
   listMarketInstruments,
   listProtocolInvestments,
+  listProtocolVersions,
   marketCoreSnapshot,
   tradeDecision,
 } from "./market-core-service";

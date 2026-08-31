@@ -5,6 +5,7 @@ import {
   type InstrumentSection,
   type ProtocolInvestmentModel,
   type ProtocolStatus,
+  type ProtocolVersionState,
 } from "@/domain/market-core";
 
 export const INSTRUMENT_SECTION_KEYS: Record<InstrumentSection, string> = {
@@ -50,6 +51,34 @@ export const PROTOCOL_INVESTMENT_MODEL_KEYS: Record<
   DEBT_LIKE: "debt",
   CONVERTIBLE: "convertible",
   STRUCTURED_INVESTMENT_RIGHT: "structured",
+};
+
+/**
+ * Localized explanation shown for a protocol version. `ProtocolVersion.governanceNote`
+ * remains the canonical internal record and stays in English; this map supplies the
+ * translated copy actually rendered to a user.
+ */
+export const PROTOCOL_VERSION_GOVERNANCE_KEYS: Record<string, string> = {
+  "F2F-V1.1": "governanceNoteF2FV1_1",
+};
+
+export const GOVERNANCE_NOTE_UNAVAILABLE_KEY = "governanceNoteUnavailable";
+
+/**
+ * Selects the message key for a version's governance explanation. Fails closed:
+ * a version with no localization mapping resolves to a localized "unavailable"
+ * message. The canonical English `governanceNote` is never selected for
+ * rendering, so it can never leak into the Russian or Kazakh UI.
+ */
+export function protocolVersionGovernanceKey(versionId: string): string {
+  return PROTOCOL_VERSION_GOVERNANCE_KEYS[versionId] ?? GOVERNANCE_NOTE_UNAVAILABLE_KEY;
+}
+
+export const PROTOCOL_VERSION_STATE_KEYS: Record<ProtocolVersionState, string> = {
+  DRAFT: "versionStateDRAFT",
+  ACTIVE: "versionStateACTIVE",
+  SUPERSEDED: "versionStateSUPERSEDED",
+  RETIRED: "versionStateRETIRED",
 };
 
 export const ASSET_CLASS_KEYS: Record<AssetClass, string> = {

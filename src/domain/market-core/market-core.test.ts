@@ -45,6 +45,23 @@ describe("market core boundaries", () => {
     expect(wheat.issuanceId).not.toBe(wheat.symbol);
   });
 
+  it("keeps the mutable rule snapshot off AssetProtocol", () => {
+    const protocol = protocolById(F2F_PROTOCOL_ID)!;
+    for (const field of [
+      "version",
+      "verificationModel",
+      "riskModel",
+      "coverageModel",
+      "issuanceModel",
+      "redemptionModel",
+      "lifecycle",
+      "modules",
+    ]) {
+      expect(protocol).not.toHaveProperty(field);
+    }
+    expect(protocol.currentVersionId).toBe("F2F-V1.1");
+  });
+
   it("keeps ASSET_TOKEN distinct from PROTOCOL_INVESTMENT", () => {
     const wheat = instrumentById(WHEAT_INSTRUMENT_ID)!;
     const protocolInvestment = instrumentById(F2F_PROTOCOL_INVESTMENT_ID)!;
