@@ -193,7 +193,7 @@ describe("effective navigation", () => {
     expect(hrefsOf("DEMO-FUND-001")).toContain("/secondary");
   });
 
-  it("trader nav is overview, instruments and closed secondary market", () => {
+  it("trader nav is overview, instruments and secondary market", () => {
     expect(keysOf("DEMO-TRADER-001")).toEqual([
       "dashboard",
       "markets",

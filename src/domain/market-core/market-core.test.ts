@@ -5,7 +5,6 @@ import {
   canReceive,
   canTrade,
   eligibilityFor,
-  isSecondaryTrade,
   phaseCreatesNoSecondaryTrade,
   assertChannelsShareMarketCore,
 } from "@/domain/market-core";
@@ -68,7 +67,12 @@ describe("market core boundaries", () => {
     expect(
       eligibilityFor(eligibilityMatrix, "INVESTOR-0001", F2F_PROTOCOL_INVESTMENT_ID),
     ).toBe("NOT_ASSESSED");
-    expect(eligibilityFor(eligibilityMatrix, "INVESTOR-0001", "UNKNOWN")).toBe("NOT_ASSESSED");
+    expect(eligibilityFor(eligibilityMatrix, "GRAIN-DESK", WHEAT_INSTRUMENT_ID)).toBe(
+      "ELIGIBLE",
+    );
+    expect(eligibilityFor(eligibilityMatrix, "COMMODITY-DESK", WHEAT_INSTRUMENT_ID)).toBe(
+      "NOT_ASSESSED",
+    );
   });
 
   it("computes available balance from owned minus reserved, pledged and blocked", () => {
@@ -78,6 +82,8 @@ describe("market core boundaries", () => {
         reservedForOrders: 2,
         pledged: 1,
         blocked: 0,
+        pendingIn: 0,
+        pendingOut: 0,
       }),
     ).toBe(7);
     const registrar = holdings.find((row) => row.holderReference === "REGISTRAR")!;
@@ -97,25 +103,32 @@ describe("market core boundaries", () => {
     expect(distributionChannels.filter((channel) => channel.active)).toHaveLength(1);
   });
 
-  it("creates no secondary trade in Phase 5A and blocks trading", () => {
+  it("opens WHEAT secondary LIMIT market without settling legal title", () => {
     expect(trades).toEqual([]);
     expect(phaseCreatesNoSecondaryTrade(trades)).toBe(true);
-    expect(trades.some(isSecondaryTrade)).toBe(false);
     const wheat = instrumentById(WHEAT_INSTRUMENT_ID)!;
     const market = marketForInstrument(WHEAT_INSTRUMENT_ID)!;
-    expect(market.transacting).toBe(false);
-    expect(market.phase).toBe("PRIMARY_ONLY");
+    expect(market.transacting).toBe(true);
+    expect(market.phase).toBe("SECONDARY_OPEN");
+    expect(market.id).toBe("MKT-WHEAT-2027-DEMO-KZT");
     expect(
       canTrade({
         eligibility: "ELIGIBLE",
         instrument: wheat,
         market,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(canReceive({ eligibility: "ELIGIBLE", instrument: wheat })).toBe(true);
     const protocolInvestment = instrumentById(F2F_PROTOCOL_INVESTMENT_ID)!;
     expect(
       canReceive({ eligibility: "ELIGIBLE", instrument: protocolInvestment }),
+    ).toBe(false);
+    expect(
+      canTrade({
+        eligibility: "ELIGIBLE",
+        instrument: protocolInvestment,
+        market: { ...market, instrumentId: protocolInvestment.id },
+      }),
     ).toBe(false);
   });
 

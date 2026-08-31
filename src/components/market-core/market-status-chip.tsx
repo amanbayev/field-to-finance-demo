@@ -13,7 +13,13 @@ const TONE: Record<string, string> = {
   POLICY_PENDING: "bg-muted-foreground/55",
   CLOSED: "bg-muted-foreground/55",
   PRIMARY_ONLY: "bg-muted-foreground/55",
+  SECONDARY_OPEN: "bg-primary",
+  AWAITING: "bg-muted-foreground/55",
   NOT_OPEN: "bg-muted-foreground/40",
+  FILLED: "bg-primary",
+  MATCHED: "bg-primary",
+  CLEARING_READY: "bg-muted-foreground/55",
+  AWAITING_DEVNET_SETTLEMENT: "bg-muted-foreground/55",
 };
 
 export function MarketStatusChip({

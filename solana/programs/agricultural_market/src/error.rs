@@ -42,4 +42,14 @@ pub enum MarketError {
     PoolNotActive,
     #[msg("arithmetic overflow")]
     ArithmeticOverflow,
+    #[msg("trade_id must be non-empty")]
+    TradeIdEmpty,
+    #[msg("trade_id exceeds the 32-byte PDA seed limit")]
+    TradeIdTooLong,
+    #[msg("token account is frozen or otherwise invalid")]
+    TokenAccountFrozen,
+    #[msg("seller instrument balance is insufficient")]
+    InsufficientSellerInstrument,
+    #[msg("buyer settlement balance is insufficient")]
+    InsufficientBuyerSettlement,
 }

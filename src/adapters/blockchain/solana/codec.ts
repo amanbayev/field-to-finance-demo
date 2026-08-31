@@ -6,6 +6,7 @@ import {
   MARKET_CONFIG_SEED,
   POOL_PDA_SEED,
   PRIMARY_PLACEMENT_SEED,
+  SECONDARY_SETTLEMENT_SEED,
   REGISTRY_PDA_SEED,
 } from "./config";
 
@@ -138,6 +139,16 @@ export function derivePlacementPda(
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from(PRIMARY_PLACEMENT_SEED), Buffer.from(placementId)],
+    programId,
+  )[0];
+}
+
+export function deriveSecondarySettlementPda(
+  programId: PublicKey,
+  tradeId: string,
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(SECONDARY_SETTLEMENT_SEED), Buffer.from(tradeId)],
     programId,
   )[0];
 }

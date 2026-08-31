@@ -48,4 +48,20 @@ pub mod agricultural_market {
             compliance_reference_hash,
         )
     }
+
+    pub fn settle_secondary_dvp(
+        ctx: Context<SettleSecondaryDvp>,
+        trade_id: String,
+        quantity: u64,
+        unit_price: u64,
+        notional: u64,
+    ) -> Result<()> {
+        crate::instructions::settle_secondary_dvp::handle_settle_secondary_dvp(
+            ctx,
+            trade_id,
+            quantity,
+            unit_price,
+            notional,
+        )
+    }
 }
