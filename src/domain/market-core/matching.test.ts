@@ -103,6 +103,52 @@ describe("price-time matching", () => {
     expect(fills).toHaveLength(1);
     expect(fills[0]?.quantity).toBe(2);
   });
+
+  it("does not match a CANCELLED incoming order even with remainingQuantity > 0", () => {
+    const restingSell = order({
+      id: "s1",
+      side: "SELL",
+      price: 100_000,
+      sequence: 1,
+      participantId: "seller",
+      remainingQuantity: 2,
+      originalQuantity: 2,
+    });
+    const cancelledBuy = order({
+      id: "b1",
+      side: "BUY",
+      price: 105_000,
+      sequence: 2,
+      participantId: "buyer",
+      remainingQuantity: 2,
+      originalQuantity: 2,
+      status: "CANCELLED",
+    });
+    expect(matchIncomingOrder(cancelledBuy, [restingSell, cancelledBuy])).toEqual([]);
+  });
+
+  it("does not match a REJECTED incoming order even with remainingQuantity > 0", () => {
+    const restingBuy = order({
+      id: "b1",
+      side: "BUY",
+      price: 105_000,
+      sequence: 1,
+      participantId: "buyer",
+      remainingQuantity: 2,
+      originalQuantity: 2,
+    });
+    const rejectedSell = order({
+      id: "s1",
+      side: "SELL",
+      price: 100_000,
+      sequence: 2,
+      participantId: "seller",
+      remainingQuantity: 2,
+      originalQuantity: 2,
+      status: "REJECTED",
+    });
+    expect(matchIncomingOrder(rejectedSell, [restingBuy, rejectedSell])).toEqual([]);
+  });
 });
 
 describe("asset-neutral matching source", () => {

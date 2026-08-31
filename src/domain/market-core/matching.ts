@@ -68,7 +68,7 @@ export function matchIncomingOrder(
   incoming: Order,
   book: readonly Order[],
 ): MatchFill[] {
-  if (!isLiveOrder(incoming) && incoming.remainingQuantity <= 0) {
+  if (!isLiveOrder(incoming)) {
     return [];
   }
   const remainingById = new Map<string, number>();
