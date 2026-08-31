@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "check": "npm run lint && npm run typecheck && npm test",
     "test:origination:live": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
