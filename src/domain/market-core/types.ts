@@ -171,49 +171,65 @@ export type ProtocolInvestmentModel = (typeof PROTOCOL_INVESTMENT_MODELS)[number
  * The versioned rule set of an AssetProtocol. Immutable once the owning
  * ProtocolVersion is frozen. Rules live here and nowhere else: AssetProtocol
  * must not carry a second, mutable copy of them.
+ *
+ * Every property is readonly so a caller cannot rewrite the governing rules of
+ * an already-issued instrument through a returned reference.
  */
 export interface ProtocolRuleSnapshot {
-  verificationModel: string;
-  riskModel: string;
-  coverageModel: string;
-  issuanceModel: string;
-  redemptionModel: string;
-  lifecycle: readonly string[];
-  modules: readonly string[];
+  readonly verificationModel: string;
+  readonly riskModel: string;
+  readonly coverageModel: string;
+  readonly issuanceModel: string;
+  readonly redemptionModel: string;
+  readonly lifecycle: readonly string[];
+  readonly modules: readonly string[];
 }
 
 /**
- * An approved, immutable version of an AssetProtocol. Issued instruments hold a
- * permanent reference to the exact version they were created under, so a later
- * version can never silently rewrite the rules governing an existing instrument.
+ * A recorded, immutable demonstrator rule version of an AssetProtocol. Issued
+ * instruments hold a permanent reference to the exact version they were created
+ * under, so a later version can never silently rewrite the rules governing an
+ * existing instrument.
+ *
+ * "Recorded" means recorded by this application. It does not imply legal,
+ * regulatory or governance approval of the version or its rules.
  */
 export interface ProtocolVersion {
   /** Stable permanent identifier referenced by instruments, e.g. "F2F-V1.1". */
-  id: string;
+  readonly id: string;
   /** Owning protocol, e.g. "F2F". */
-  protocolId: string;
+  readonly protocolId: string;
   /** Human-facing version label, e.g. "1.1". Never an engineering phase label. */
-  displayVersion: string;
-  state: ProtocolVersionState;
+  readonly displayVersion: string;
+  /**
+   * Application / demonstrator lifecycle state of this version record. It is
+   * not evidence of legal or governance activation, and `ACTIVE` must never be
+   * presented as a formal regulatory or governance approval.
+   */
+  readonly state: ProtocolVersionState;
   /**
    * The technical immutability marker. A frozen version's rules must never
    * change. This is the authoritative marker — it does not depend on a date.
    */
-  frozen: boolean;
+  readonly frozen: boolean;
   /**
    * Formal legal / governance activation date, when one has been established.
    * Null means no such date is claimed. Never backfill a plausible date.
    */
-  activatedAt: string | null;
+  readonly activatedAt: string | null;
   /**
    * Date the rules were frozen, when one has been established. Null means no
    * such date is claimed; immutability is asserted by `frozen`, not by this.
    */
-  frozenAt: string | null;
-  supersedesVersionId: string | null;
-  supersededByVersionId: string | null;
-  governanceNote: string;
-  rules: ProtocolRuleSnapshot;
+  readonly frozenAt: string | null;
+  readonly supersedesVersionId: string | null;
+  readonly supersededByVersionId: string | null;
+  /**
+   * Canonical internal record, in English. Never render this directly to a
+   * user; the presentation layer selects a localized message instead.
+   */
+  readonly governanceNote: string;
+  readonly rules: ProtocolRuleSnapshot;
 }
 
 export interface AssetProtocol {
@@ -241,9 +257,10 @@ export interface MarketInstrument {
   /**
    * Permanent binding to the exact ProtocolVersion this instrument was created
    * under. Required for an ISSUED instrument; null only while an instrument has
-   * no issuance to bind (FUTURE / STRUCTURING).
+   * no issuance to bind (FUTURE / STRUCTURING). Readonly: a binding is never
+   * reassigned once the instrument exists.
    */
-  protocolVersionId: string | null;
+  readonly protocolVersionId: string | null;
   assetClass: AssetClass;
   issuerId: string;
   issuerName: string;

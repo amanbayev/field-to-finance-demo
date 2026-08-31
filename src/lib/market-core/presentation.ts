@@ -56,12 +56,23 @@ export const PROTOCOL_INVESTMENT_MODEL_KEYS: Record<
 /**
  * Localized explanation shown for a protocol version. `ProtocolVersion.governanceNote`
  * remains the canonical internal record and stays in English; this map supplies the
- * translated copy actually rendered to a user. A version with no entry here falls back
- * to its canonical note rather than showing a missing-message key.
+ * translated copy actually rendered to a user.
  */
 export const PROTOCOL_VERSION_GOVERNANCE_KEYS: Record<string, string> = {
   "F2F-V1.1": "governanceNoteF2FV1_1",
 };
+
+export const GOVERNANCE_NOTE_UNAVAILABLE_KEY = "governanceNoteUnavailable";
+
+/**
+ * Selects the message key for a version's governance explanation. Fails closed:
+ * a version with no localization mapping resolves to a localized "unavailable"
+ * message. The canonical English `governanceNote` is never selected for
+ * rendering, so it can never leak into the Russian or Kazakh UI.
+ */
+export function protocolVersionGovernanceKey(versionId: string): string {
+  return PROTOCOL_VERSION_GOVERNANCE_KEYS[versionId] ?? GOVERNANCE_NOTE_UNAVAILABLE_KEY;
+}
 
 export const PROTOCOL_VERSION_STATE_KEYS: Record<ProtocolVersionState, string> = {
   DRAFT: "versionStateDRAFT",

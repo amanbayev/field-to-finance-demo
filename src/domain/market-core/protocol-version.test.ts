@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   assertImmutableProtocolVersionBindings,
   currentVersionForProtocol,
+  freezeProtocolVersion,
   isFrozenProtocolVersion,
   protocolVersionsForProtocol,
   resolveGoverningProtocolVersion,
   validateInstrumentVersionBinding,
+  validateProtocolCurrentVersion,
   validateProtocolVersionRegistry,
+  type AssetProtocol,
   type MarketInstrument,
   type ProtocolVersion,
 } from "@/domain/market-core";
@@ -24,7 +27,12 @@ import {
   protocolById,
   protocolVersions,
 } from "@/data/market-core/catalog";
-import { PROTOCOL_VERSION_GOVERNANCE_KEYS } from "@/lib/market-core/presentation";
+import {
+  GOVERNANCE_NOTE_UNAVAILABLE_KEY,
+  PROTOCOL_VERSION_GOVERNANCE_KEYS,
+  protocolVersionGovernanceKey,
+} from "@/lib/market-core/presentation";
+import { listProtocolVersions } from "@/services/market-core-service";
 import en from "../../../messages/en.json";
 import ru from "../../../messages/ru.json";
 import kk from "../../../messages/kk.json";
@@ -193,9 +201,13 @@ describe("immutable protocol version binding", () => {
   });
 
   it("keeps the shipped catalog free of binding violations", () => {
-    expect(
-      validateProtocolVersionRegistry(assetProtocols, protocolVersions, marketInstruments),
-    ).toEqual([]);
+    const report = validateProtocolVersionRegistry(
+      assetProtocols,
+      protocolVersions,
+      marketInstruments,
+    );
+    expect(report.instrumentBindings).toEqual([]);
+    expect(report.protocolPointers).toEqual([]);
     expect(
       assertImmutableProtocolVersionBindings(assetProtocols, protocolVersions, marketInstruments),
     ).toBe(true);
@@ -220,10 +232,171 @@ describe("immutable protocol version binding", () => {
     }
   });
 
-  it("flags a protocol whose current version pointer does not resolve", () => {
+  it("reports a dangling current-version pointer as a protocol, not an instrument", () => {
     const dangling = [{ ...protocolById(F2F_PROTOCOL_ID)!, currentVersionId: "F2F-V9.9" }];
-    const results = validateProtocolVersionRegistry(dangling, protocolVersions, []);
-    expect(results).toHaveLength(1);
-    expect(results[0]!.violations).toEqual(["PROTOCOL_VERSION_NOT_FOUND"]);
+    const report = validateProtocolVersionRegistry(dangling, protocolVersions, []);
+    expect(report.instrumentBindings).toEqual([]);
+    expect(report.protocolPointers).toHaveLength(1);
+    const pointer = report.protocolPointers[0]!;
+    // Keyed by protocol id — a protocol is never misreported as an instrument.
+    expect(pointer.protocolId).toBe(F2F_PROTOCOL_ID);
+    expect(pointer).not.toHaveProperty("instrumentId");
+    expect(pointer.currentVersionId).toBe("F2F-V9.9");
+    expect(pointer.violations).toEqual(["CURRENT_VERSION_NOT_FOUND"]);
+  });
+});
+
+describe("protocol version immutability at runtime", () => {
+  it("deeply freezes the canonical registry, versions, rules, lifecycle and modules", () => {
+    expect(Object.isFrozen(protocolVersions)).toBe(true);
+    for (const version of protocolVersions) {
+      expect(Object.isFrozen(version)).toBe(true);
+      expect(Object.isFrozen(version.rules)).toBe(true);
+      expect(Object.isFrozen(version.rules.lifecycle)).toBe(true);
+      expect(Object.isFrozen(version.rules.modules)).toBe(true);
+    }
+  });
+
+  it("rejects runtime mutation of a version and its rules", () => {
+    const version = protocolVersions.find((item) => item.id === F2F_V1_1_VERSION_ID)!;
+    // Test-only casts: readonly already blocks these at compile time, so a cast
+    // is the only way to prove the runtime freeze also holds.
+    const mutableVersion = version as unknown as Record<string, unknown>;
+    const mutableRules = version.rules as unknown as Record<string, unknown>;
+
+    expect(() => {
+      mutableVersion.displayVersion = "9.9";
+    }).toThrow(TypeError);
+    expect(() => {
+      mutableRules.riskModel = "Different rules";
+    }).toThrow(TypeError);
+    expect(() => {
+      (version.rules.lifecycle as string[]).push("tampered");
+    }).toThrow(TypeError);
+    expect(() => {
+      (version.rules.modules as string[]).push("tampered");
+    }).toThrow(TypeError);
+
+    expect(version.displayVersion).toBe("1.1");
+    expect(version.rules.riskModel).toBe("Off-chain risk haircut on pooled contracts");
+    expect(version.rules.lifecycle).not.toContain("tampered");
+    expect(version.rules.modules).not.toContain("tampered");
+  });
+
+  it("does not let the public service collection mutate the canonical registry", () => {
+    const exposed = listProtocolVersions();
+    expect(Object.isFrozen(exposed)).toBe(true);
+    expect(() => {
+      (exposed as ProtocolVersion[]).push(frozenVersion({ id: "INJECTED" }));
+    }).toThrow(TypeError);
+    expect(listProtocolVersions()).toHaveLength(1);
+    expect(protocolVersions).toHaveLength(1);
+    expect(protocolVersions.some((item) => item.id === "INJECTED")).toBe(false);
+  });
+
+  it("keeps WHEAT-2027's permanent binding intact after mutation attempts", () => {
+    const wheat = instrumentById(WHEAT_INSTRUMENT_ID)!;
+    expect(wheat.protocolVersionId).toBe(F2F_V1_1_VERSION_ID);
+    const version = resolveGoverningProtocolVersion(wheat, protocolVersions)!;
+    expect(version.id).toBe("F2F-V1.1");
+    expect(version.displayVersion).toBe("1.1");
+    expect(version.rules.verificationModel).toBe("SCAS / fields / DAC / coverage");
+  });
+
+  it("freezes owned copies without freezing shared source arrays", () => {
+    const shared = ["field", "dac"];
+    const frozen = freezeProtocolVersion(
+      frozenVersion({
+        rules: {
+          verificationModel: "Test",
+          riskModel: "Test",
+          coverageModel: "Test",
+          issuanceModel: "Test",
+          redemptionModel: "Test",
+          lifecycle: shared,
+          modules: [],
+        },
+      }),
+    );
+    expect(Object.isFrozen(frozen.rules.lifecycle)).toBe(true);
+    // The caller's array must not be frozen as a side effect.
+    expect(Object.isFrozen(shared)).toBe(false);
+    expect(frozen.rules.lifecycle).not.toBe(shared);
+    expect(frozen.rules.lifecycle).toEqual(shared);
+  });
+});
+
+describe("governance note localization fails closed", () => {
+  it("never selects the canonical English governance note for an unmapped version", () => {
+    const unmapped = frozenVersion({ id: "UNMAPPED-V1" });
+    expect(PROTOCOL_VERSION_GOVERNANCE_KEYS[unmapped.id]).toBeUndefined();
+    const key = protocolVersionGovernanceKey(unmapped.id);
+    expect(key).toBe(GOVERNANCE_NOTE_UNAVAILABLE_KEY);
+    expect(key).not.toBe(unmapped.governanceNote);
+    for (const catalog of [en, ru, kk]) {
+      const messages = catalog.marketCore as unknown as Record<string, string | undefined>;
+      expect(messages[key]).toBeTruthy();
+      expect(messages[key]).not.toBe(unmapped.governanceNote);
+    }
+  });
+
+  it("selects the localized key for a mapped version", () => {
+    expect(protocolVersionGovernanceKey(F2F_V1_1_VERSION_ID)).toBe("governanceNoteF2FV1_1");
+  });
+});
+
+describe("current version pointer resolution", () => {
+  const protocol: AssetProtocol = {
+    id: "TEST-PROTOCOL",
+    name: "Test protocol",
+    assetClass: "WATER",
+    protocolOwner: "Not appointed",
+    operator: "Test operator",
+    status: "STRUCTURING",
+    regulatoryStatus: "NOT_SUBMITTED",
+    currentVersionId: "TEST-V1",
+  };
+
+  it("resolves only an ACTIVE and frozen version of the same protocol", () => {
+    expect(currentVersionForProtocol([frozenVersion()], protocol)?.id).toBe("TEST-V1");
+  });
+
+  it("returns null for DRAFT, SUPERSEDED, RETIRED or unfrozen versions", () => {
+    for (const state of ["DRAFT", "SUPERSEDED", "RETIRED"] as const) {
+      expect(currentVersionForProtocol([frozenVersion({ state })], protocol)).toBeNull();
+    }
+    expect(
+      currentVersionForProtocol([frozenVersion({ state: "ACTIVE", frozen: false })], protocol),
+    ).toBeNull();
+  });
+
+  it("returns null for a cross-protocol or missing pointer", () => {
+    expect(
+      currentVersionForProtocol([frozenVersion({ protocolId: "OTHER" })], protocol),
+    ).toBeNull();
+    expect(currentVersionForProtocol([], protocol)).toBeNull();
+    expect(
+      currentVersionForProtocol([frozenVersion()], { ...protocol, currentVersionId: null }),
+    ).toBeNull();
+  });
+
+  it("reports why an invalid pointer failed, keyed by protocol id", () => {
+    expect(
+      validateProtocolCurrentVersion(protocol, [frozenVersion({ state: "RETIRED" })]).violations,
+    ).toEqual(["CURRENT_VERSION_NOT_ACTIVE"]);
+    expect(
+      validateProtocolCurrentVersion(protocol, [frozenVersion({ frozen: false })]).violations,
+    ).toEqual(["CURRENT_VERSION_NOT_FROZEN"]);
+    expect(
+      validateProtocolCurrentVersion(protocol, [frozenVersion({ protocolId: "OTHER" })])
+        .violations,
+    ).toContain("CURRENT_VERSION_PROTOCOL_MISMATCH");
+    const missing = validateProtocolCurrentVersion(protocol, []);
+    expect(missing.protocolId).toBe("TEST-PROTOCOL");
+    expect(missing.violations).toEqual(["CURRENT_VERSION_NOT_FOUND"]);
+    // A protocol with no pointer at all is not a violation.
+    expect(
+      validateProtocolCurrentVersion({ ...protocol, currentVersionId: null }, []).violations,
+    ).toEqual([]);
   });
 });

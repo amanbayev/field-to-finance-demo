@@ -28,8 +28,8 @@ import {
   LIFECYCLE_KEYS,
   MODULE_KEYS,
   PROTOCOL_INVESTMENT_MODEL_KEYS,
-  PROTOCOL_VERSION_GOVERNANCE_KEYS,
   PROTOCOL_VERSION_STATE_KEYS,
+  protocolVersionGovernanceKey,
   f2fModuleHref,
   protocolStatusKey,
   protocolWorldKey,
@@ -179,9 +179,7 @@ export default async function ProtocolDetailPage({
               />
             </div>
             <p className="text-xs text-straw">
-              {PROTOCOL_VERSION_GOVERNANCE_KEYS[currentVersion.id]
-                ? lookupMessage(t, PROTOCOL_VERSION_GOVERNANCE_KEYS[currentVersion.id]!)
-                : currentVersion.governanceNote}
+              {lookupMessage(t, protocolVersionGovernanceKey(currentVersion.id))}
             </p>
           </div>
         ) : (

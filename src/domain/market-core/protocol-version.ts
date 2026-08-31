@@ -1,6 +1,7 @@
 import type {
   AssetProtocol,
   MarketInstrument,
+  ProtocolRuleSnapshot,
   ProtocolVersion,
 } from "./types";
 
@@ -29,6 +30,32 @@ export interface ProtocolVersionBindingResult {
   violations: ProtocolVersionBindingViolation[];
 }
 
+export const PROTOCOL_CURRENT_VERSION_VIOLATIONS = [
+  "CURRENT_VERSION_NOT_FOUND",
+  "CURRENT_VERSION_PROTOCOL_MISMATCH",
+  "CURRENT_VERSION_NOT_ACTIVE",
+  "CURRENT_VERSION_NOT_FROZEN",
+] as const;
+
+export type ProtocolCurrentVersionViolation =
+  (typeof PROTOCOL_CURRENT_VERSION_VIOLATIONS)[number];
+
+/** Protocol-level pointer result. Keyed by protocol id, never by instrument id. */
+export interface ProtocolCurrentVersionResult {
+  protocolId: string;
+  currentVersionId: string | null;
+  violations: ProtocolCurrentVersionViolation[];
+}
+
+/**
+ * Registry health, with instrument bindings and protocol pointers reported
+ * separately so neither is misrepresented as the other.
+ */
+export interface ProtocolVersionRegistryReport {
+  instrumentBindings: readonly ProtocolVersionBindingResult[];
+  protocolPointers: readonly ProtocolCurrentVersionResult[];
+}
+
 export function protocolVersionById(
   versions: readonly ProtocolVersion[],
   id: string,
@@ -39,8 +66,38 @@ export function protocolVersionById(
 export function protocolVersionsForProtocol(
   versions: readonly ProtocolVersion[],
   protocolId: string,
-): ProtocolVersion[] {
+): readonly ProtocolVersion[] {
   return versions.filter((version) => version.protocolId === protocolId);
+}
+
+/**
+ * Returns a deeply frozen copy of a protocol version.
+ *
+ * Lifecycle and modules are copied before freezing so that shared source arrays
+ * (for example protocol-module constants reused elsewhere) are never frozen as
+ * a side effect — only the copies this version owns.
+ */
+export function freezeProtocolVersion(version: ProtocolVersion): ProtocolVersion {
+  const rules: ProtocolRuleSnapshot = Object.freeze({
+    verificationModel: version.rules.verificationModel,
+    riskModel: version.rules.riskModel,
+    coverageModel: version.rules.coverageModel,
+    issuanceModel: version.rules.issuanceModel,
+    redemptionModel: version.rules.redemptionModel,
+    lifecycle: Object.freeze([...version.rules.lifecycle]),
+    modules: Object.freeze([...version.rules.modules]),
+  });
+  return Object.freeze({ ...version, rules });
+}
+
+/**
+ * Returns a frozen registry of deeply frozen versions. The array itself is
+ * frozen so callers cannot push, splice or reorder the canonical registry.
+ */
+export function freezeProtocolVersionRegistry(
+  versions: readonly ProtocolVersion[],
+): readonly ProtocolVersion[] {
+  return Object.freeze(versions.map(freezeProtocolVersion));
 }
 
 /**
@@ -53,9 +110,13 @@ export function isFrozenProtocolVersion(version: ProtocolVersion): boolean {
 }
 
 /**
- * The protocol's current version, for discovery and for structuring new
- * instruments. Returns null when a protocol has no active version; no
- * placeholder version is ever invented.
+ * The protocol's current usable demonstrator version, for discovery and for
+ * structuring new instruments.
+ *
+ * Resolves only when the pointer names an existing version of this same
+ * protocol that is both ACTIVE and frozen. A DRAFT, SUPERSEDED, RETIRED or
+ * unfrozen version is not a usable current version, so this returns null rather
+ * than presenting it as one. No placeholder version is ever invented.
  */
 export function currentVersionForProtocol(
   versions: readonly ProtocolVersion[],
@@ -68,7 +129,43 @@ export function currentVersionForProtocol(
   if (!version || version.protocolId !== protocol.id) {
     return null;
   }
+  if (version.state !== "ACTIVE" || !isFrozenProtocolVersion(version)) {
+    return null;
+  }
   return version;
+}
+
+/**
+ * Validates a protocol's `currentVersionId` discovery pointer. This is a
+ * protocol-level check and is reported separately from instrument bindings —
+ * a protocol id is not an instrument id.
+ */
+export function validateProtocolCurrentVersion(
+  protocol: AssetProtocol,
+  versions: readonly ProtocolVersion[],
+): ProtocolCurrentVersionResult {
+  const violations: ProtocolCurrentVersionViolation[] = [];
+  const currentVersionId = protocol.currentVersionId;
+
+  if (!currentVersionId) {
+    return { protocolId: protocol.id, currentVersionId: null, violations };
+  }
+
+  const version = protocolVersionById(versions, currentVersionId);
+  if (!version) {
+    violations.push("CURRENT_VERSION_NOT_FOUND");
+    return { protocolId: protocol.id, currentVersionId, violations };
+  }
+  if (version.protocolId !== protocol.id) {
+    violations.push("CURRENT_VERSION_PROTOCOL_MISMATCH");
+  }
+  if (version.state !== "ACTIVE") {
+    violations.push("CURRENT_VERSION_NOT_ACTIVE");
+  }
+  if (!isFrozenProtocolVersion(version)) {
+    violations.push("CURRENT_VERSION_NOT_FROZEN");
+  }
+  return { protocolId: protocol.id, currentVersionId, violations };
 }
 
 /**
@@ -118,27 +215,23 @@ export function validateInstrumentVersionBinding(
   return { instrumentId: instrument.id, boundVersionId, violations };
 }
 
-/** Returns only the offending rows. An empty array means the registry is valid. */
+/**
+ * Reports only the offending rows in each category. A report with both arrays
+ * empty means the registry is valid.
+ */
 export function validateProtocolVersionRegistry(
   protocols: readonly AssetProtocol[],
   versions: readonly ProtocolVersion[],
   instruments: readonly MarketInstrument[],
-): ProtocolVersionBindingResult[] {
-  const results = instruments
-    .map((instrument) => validateInstrumentVersionBinding(instrument, versions))
-    .filter((result) => result.violations.length > 0);
-
-  for (const protocol of protocols) {
-    if (protocol.currentVersionId && !currentVersionForProtocol(versions, protocol)) {
-      results.push({
-        instrumentId: protocol.id,
-        boundVersionId: protocol.currentVersionId,
-        violations: ["PROTOCOL_VERSION_NOT_FOUND"],
-      });
-    }
-  }
-
-  return results;
+): ProtocolVersionRegistryReport {
+  return {
+    instrumentBindings: instruments
+      .map((instrument) => validateInstrumentVersionBinding(instrument, versions))
+      .filter((result) => result.violations.length > 0),
+    protocolPointers: protocols
+      .map((protocol) => validateProtocolCurrentVersion(protocol, versions))
+      .filter((result) => result.violations.length > 0),
+  };
 }
 
 export function assertImmutableProtocolVersionBindings(
@@ -146,5 +239,6 @@ export function assertImmutableProtocolVersionBindings(
   versions: readonly ProtocolVersion[],
   instruments: readonly MarketInstrument[],
 ): boolean {
-  return validateProtocolVersionRegistry(protocols, versions, instruments).length === 0;
+  const report = validateProtocolVersionRegistry(protocols, versions, instruments);
+  return report.instrumentBindings.length === 0 && report.protocolPointers.length === 0;
 }

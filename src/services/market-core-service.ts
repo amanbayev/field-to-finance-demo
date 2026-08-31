@@ -40,7 +40,12 @@ export function getAssetProtocol(id: string): AssetProtocol | undefined {
   return protocolById(id);
 }
 
-export function listProtocolVersions(): ProtocolVersion[] {
+/**
+ * The canonical registry. Readonly at compile time and deeply frozen at
+ * runtime: callers can read versions but cannot mutate the registry or any
+ * record in it.
+ */
+export function listProtocolVersions(): readonly ProtocolVersion[] {
   return protocolVersions;
 }
 

@@ -72,19 +72,26 @@ export {
 } from "./eligibility";
 export {
   IMMUTABLE_PROTOCOL_VERSION_BINDING_RULE,
+  PROTOCOL_CURRENT_VERSION_VIOLATIONS,
   PROTOCOL_VERSION_BINDING_VIOLATIONS,
   assertImmutableProtocolVersionBindings,
   currentVersionForProtocol,
+  freezeProtocolVersion,
+  freezeProtocolVersionRegistry,
   isFrozenProtocolVersion,
   protocolVersionById,
   protocolVersionsForProtocol,
   resolveGoverningProtocolVersion,
   validateInstrumentVersionBinding,
+  validateProtocolCurrentVersion,
   validateProtocolVersionRegistry,
 } from "./protocol-version";
 export type {
+  ProtocolCurrentVersionResult,
+  ProtocolCurrentVersionViolation,
   ProtocolVersionBindingResult,
   ProtocolVersionBindingViolation,
+  ProtocolVersionRegistryReport,
 } from "./protocol-version";
 export {
   FUTURE_CHANNELS,

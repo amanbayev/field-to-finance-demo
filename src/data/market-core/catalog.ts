@@ -1,6 +1,7 @@
 import {
   LEGAL_OPERATOR,
   availableBalance,
+  freezeProtocolVersionRegistry,
   type AdmissionStage,
   type AssetProtocol,
   type CustodyProviderAdapter,
@@ -62,7 +63,12 @@ export const F2F_MODULES = [
  */
 export const F2F_V1_1_VERSION_ID = "F2F-V1.1";
 
-export const protocolVersions: ProtocolVersion[] = [
+/**
+ * The canonical protocol version registry. Deeply frozen at runtime and
+ * readonly at compile time: neither the array nor any version, rule snapshot,
+ * lifecycle or modules array it owns can be mutated by a caller.
+ */
+export const protocolVersions: readonly ProtocolVersion[] = freezeProtocolVersionRegistry([
   {
     id: F2F_V1_1_VERSION_ID,
     protocolId: F2F_PROTOCOL_ID,
@@ -85,7 +91,7 @@ export const protocolVersions: ProtocolVersion[] = [
       modules: F2F_MODULES,
     },
   },
-];
+]);
 
 /**
  * Water, Music Rights and Gaming Assets have no protocol version. They are
@@ -369,7 +375,7 @@ export function versionById(id: string): ProtocolVersion | undefined {
   return protocolVersions.find((version) => version.id === id);
 }
 
-export function versionsForProtocol(protocolId: string): ProtocolVersion[] {
+export function versionsForProtocol(protocolId: string): readonly ProtocolVersion[] {
   return protocolVersions.filter((version) => version.protocolId === protocolId);
 }
 
