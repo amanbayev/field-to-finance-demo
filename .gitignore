@@ -63,6 +63,10 @@ solana/scripts/phase2-evidence.json
 # supabase CLI local cache
 supabase/.temp/
 
+# personal AI-assistant settings (shared instructions live in AGENTS.md / CLAUDE.md)
+.claude/settings.local.json
+.codex/config.local.toml
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

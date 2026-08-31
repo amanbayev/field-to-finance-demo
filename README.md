@@ -2,27 +2,46 @@
 
 Public demonstration prototype for **digital agricultural finance infrastructure**.
 
-The product shows how rights to future agricultural production can be digitally verified, pooled, risk-adjusted, tokenized and financed:
+The product shows how rights to future agricultural production can be digitally verified, structured, pooled, risk-adjusted and financed:
 
-Field → Digital Agricultural Contract → Verification → Contract Pool → Risk Assessment → Eligible Contract Coverage → Agricultural Token → Primary Placement → Secondary Market → Collateral / Secured Financing → Repayment or Default
+Field → SCAS Verification → Verified Field Snapshot → DAC Rights Object → Registrar → Pool → Coverage → Investment Instrument → Primary Market → Secondary Market → Financing / Redemption
+
+A Verified Field Snapshot is evidence, not a token. A DAC is a rights object, not the
+underlying grain and not an investment instrument. Commodity Chain is the multi-protocol
+platform; Field-to-Finance is one protocol on that platform.
 
 This is **not** a production financial product. No real agricultural assets, funds, securities, contractual rights or legal obligations are created or transferred.
 
 Permanent UI badge: `PROTOTYPE · SOLANA DEVNET`
 
-## Current state
+## Current state and branches
 
-**Phase 4 primary placement is complete in Production** (`main`, `https://f2f.amanbayev.pro`).
+`main` is the production branch behind `https://f2f.amanbayev.pro`. `develop` is the
+reviewed integration baseline for the next release. Feature work starts from `develop`
+and returns to it through a pull request; reviewed releases move from `develop` to
+`main`.
 
-This branch (`cursor/phase-4-5-auth-rbac-demo-personas`) adds Phase 4.5: users, organisations, roles, server-side authorization and a Demo Persona Switcher. It must **not** mint, burn, transfer, redeploy programs, or change WHEAT-2027 / pool / DAC state.
+The production line contains the public Devnet demonstrator, authentication and the
+origination desk where a Producer submits a field and SCAS can produce a verified field
+snapshot. The current `develop` line adds the DAC rights-object and Registrar intake
+foundation plus Phase 5B secondary-market work:
 
-Do **not** merge to `main` until review.
+- the Registrar remains the legal ownership ledger;
+- matching is persisted and cannot change registered ownership;
+- clearing and settlement states are explicit;
+- `settle_secondary_dvp` is prepared but has not been executed as real settlement;
+- non-live incoming orders are rejected from matching.
+
+The next planned delivery is **Phase 5C — Platform Coherence / Multi-Protocol Product
+Foundation**. Money & Settlement, real DvP execution, and the configurable Protocol
+Engine are deliberately deferred to Phases 6, 7, and 8 respectively.
 
 | Item | Value |
 | --- | --- |
 | Public demo | https://f2f.amanbayev.pro |
-| Production branch | `main` (Phase 4) |
-| Feature branch | `cursor/phase-4-5-auth-rbac-demo-personas` |
+| Production branch | `main` |
+| Integration branch | `develop` |
+| Next phase | Phase 5C — Platform Coherence / Multi-Protocol Product Foundation |
 | Network | Solana Devnet (read-only in the public app) |
 | Registry program | `agricultural_registry` |
 | Registry Program ID | [`E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT`](https://explorer.solana.com/address/E2jeQaTo7f5m78PkNfQ47srUK3EVexN2ApjEEoBaENjT?cluster=devnet) |
@@ -306,18 +325,21 @@ Phase 0 mock providers labelled **Demo Compliance Provider**. Sumsub, TRM or ano
 ## How to run locally
 
 ```bash
-npm install
+nvm use
+npm ci
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
-npm run lint
-npm run typecheck
+npm run check
 npm run build
 npm run start
 ```
+
+See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for workstation setup, branch policy,
+AI-assistant instructions, validation, and pull-request workflow.
 
 ## Roadmap
 
@@ -332,10 +354,15 @@ This is the **executed engineering numbering**. Phase 0 of the original brief li
 | 1 | Solana Devnet + Digital Agricultural Contract registry | Complete in Production |
 | 2 | Contract pool, off-chain coverage engine, on-chain snapshot hash, double-use protection | Complete in Production |
 | 3 | Token-2022 issuance | Complete: ISS-001 minted 1,000; mint preserved |
-| 4 | Primary placement / atomic DvP | Complete on Devnet (this branch). Preview only. Do not merge to `main` until review |
-| 5 | Secondary market | Not started |
-| 6 | Secured financing | Not started (UI placeholder) |
-| 7 | Risk monitoring, coverage events, default / enforcement | Not started (risk sources are DEMO / SIMULATED) |
+| 4 | Primary placement / atomic DvP demonstrator | Complete on Devnet; production app remains read-only |
+| 4.5 | Authentication, organisations, roles and server authorization | Complete |
+| O1 | Producer Field → SCAS Verification → Verified Field Snapshot | Implemented; deployed environments persist to Postgres |
+| O2 foundation | Verified Field Snapshot → DAC Rights Object → Registrar Intake | Integrated on `develop` |
+| 5A–5B | Secondary market core, registrar-bound ownership, matching, clearing lifecycle and prepared secondary DvP | Integrated on `develop`; real settlement not executed |
+| 5C | Platform Coherence / Multi-Protocol Product Foundation | Next planned phase |
+| 6 | Money & Settlement | Planned; no fabricated client cash balances or withdrawal finality |
+| 7 | Real DvP | Planned; prepared instruction is not settlement proof |
+| 8 | Protocol Engine | Planned; configurable protocol lifecycle and governance |
 
 Parallel tracks, not a numbered gate before Phase 3:
 
@@ -353,7 +380,7 @@ The 20 Aug 2026 Phase 0 brief is still the product plan. What changed is **phasi
 | Adapter split: domain / services / blockchain / compliance | Yes; Solana provider added | Yes |
 | Phase 1 = “Solana connection”, Phase 2 = “DAC registry” | Combined into **Phase 1** | Numbering only |
 | Phase 3 = pools + coverage | Built as **Phase 2** | Numbering only |
-| Phase 4 = Token-2022 | Built as **Phase 3**. Current **Phase 4** is primary placement / atomic DvP | Numbering only |
+| Phase 4 = Token-2022 | Built as **Phase 3**. Engineering Phase 4 later demonstrated primary placement / atomic DvP | Numbering only |
 | Dashboard mock: 8,000 t already tokenized, 122% coverage ratio | Corrected: eligible **8,300 t**; minted **1,000**; placed **10** | Demo honesty; pool math unchanged |
 | Tokens page mock: Issued 8,000 | Corrected: minted 1,000 (ISS-001); placed 10; cap 8,300 t | Same |
 | Coverage engine “on-chain” as a later phase | Hybrid: off-chain integer math, hash anchored on-chain | Stronger than the original split |
@@ -402,7 +429,7 @@ Defaults live in `src/lib/public-env.ts`.
 
 Do not put private keys, seed phrases, wallet JSON, or secret API credentials in `NEXT_PUBLIC_*` variables.
 
-### Phase 4.5 — authentication (this branch)
+### Authentication and origination persistence
 
 The app uses **Supabase Auth + Postgres** on the dedicated **field-to-finance** project (`qnzoghmqnqwfpkzgpede`). Do not reuse unrelated projects (`personal-os` or similarly named accounts).
 

@@ -31,3 +31,32 @@ Preserve these invariants:
 - FUTURE / STRUCTURING / CONCEPT functionality must never be represented as implemented.
 - Never fabricate regulatory permissions, admitted instruments, live trades, client balances, custody arrangements, wallets, ATAs, or settlement finality.
 - If an implementation request conflicts with these invariants, surface the conflict before changing the core architecture.
+
+## Shared engineering workflow
+
+`AGENTS.md` is the repository-wide source of truth for coding agents. `CLAUDE.md`
+imports this file; do not maintain a second, divergent set of instructions.
+
+- `main` is the production branch. `develop` is the integration branch. Start normal
+  feature and fix branches from an up-to-date `develop`, then open a pull request back
+  to `develop`.
+- Before editing, inspect `git status`, preserve unrelated local changes, and read the
+  relevant architecture documents and nearby tests.
+- Use `npm ci` for a clean install. Run `npm run check` before handoff. Run
+  `npm run build` when changes can affect routing, server/client boundaries, environment
+  handling, or the production bundle.
+- Add or update regression tests for domain, authorization, matching, settlement, and
+  origination behavior. Do not weaken assertions merely to make a failing test pass.
+- Never run `npm audit fix --force`. Review dependency changes explicitly because the
+  current Solana dependency graph can suggest breaking downgrades.
+- Never commit `.env*` files (except `.env.example`), credentials, wallets, keypairs,
+  seed phrases, database secrets, generated ledgers, or provider tokens.
+- Treat shared Supabase, Solana Devnet, Vercel, migrations, deployments, merges, and
+  pushes as external mutations. Perform them only when the operator explicitly asks.
+- Do not present a mock, recorded proof, prepared instruction, matched trade, or pending
+  settlement as live execution or finality.
+- Personal tools and plugins such as ECC are optional workstation choices. Do not make
+  them a repository requirement or commit their user-level configuration.
+
+The complete onboarding, branch, validation, and pull-request workflow is in
+`docs/DEVELOPMENT.md`.
