@@ -1,11 +1,26 @@
 ---
 name: harvest-capital-ui
 description: >-
-  Design language for the Field to Finance / CommoChain surface on branch ui/redesign.
-  Use when building, restyling, or reviewing any UI, CSS, layout, component, empty state,
-  loader, motion, typography, or locale-facing copy. Encodes a 2026 cinematic capital-markets
-  product that must not look like generic AI UI.
+  Optional Field to Finance contextual visual layer. Use ONLY when a task explicitly requires
+  F2F-specific visual treatment inside a Field to Finance experience. This is not the global
+  Commodity Chain shell and must not be applied to Water, Music Rights, Gaming Assets, or any
+  future protocol.
 ---
+
+# Scope (authoritative)
+
+**This skill is a Field to Finance contextual layer only.**
+
+- It is **never** the global Commodity Chain platform shell. The global direction is **The Exchange
+  Desk**, defined in `DESIGN.md`.
+- It **never** applies to Water, Music Rights, Gaming Assets, or any future protocol.
+- It **does not override** `PRODUCT.md` or `DESIGN.md`. Where this brief and those documents
+  disagree, those documents win.
+- Use it only when the task explicitly requires F2F-specific visual treatment.
+- Field to Finance is one protocol on Commodity Chain, not the platform and not the product name.
+
+The brief below is retained for that contextual use. Its references to a `ui/redesign` branch and to
+"this branch is the product surface" are historical and no longer describe `develop`.
 
 # Harvest Capital UI
 

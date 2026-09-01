@@ -38,6 +38,7 @@ export {
   listHoldings,
   listMarketInstruments,
   listProtocolInvestments,
+  listProtocolVersionSummaries,
   listProtocolVersions,
   marketCoreSnapshot,
   tradeDecision,

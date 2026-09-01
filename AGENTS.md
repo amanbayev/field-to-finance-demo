@@ -10,10 +10,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Commodity Chain protocol/platform canon
 
+Before any product, UI, navigation, copy, or layout work, read:
+
+1. `PRODUCT.md` — product authority: what Commodity Chain is, the canonical hierarchy, the audiences, implemented vs future functionality, and truthfulness requirements.
+2. `DESIGN.md` — design authority: The Exchange Desk global direction, and the boundary that keeps Harvest Capital contextual to Field to Finance only.
+
 Before changing platform domain models, protocol logic, instruments, market structure, clearing, settlement, custody, registrar behavior, or asset origination, read:
 
-1. `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md`
-2. `docs/MARKET_CORE_ARCHITECTURE.md`
+3. `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md`
+4. `docs/MARKET_CORE_ARCHITECTURE.md`
 
 Preserve these invariants:
 
@@ -30,6 +35,7 @@ Preserve these invariants:
 - Settlement providers and settlement assets must be adapters; do not hardcode Binance, stablecoin, bank, or a particular rail into Market Core.
 - FUTURE / STRUCTURING / CONCEPT functionality must never be represented as implemented.
 - Never fabricate regulatory permissions, admitted instruments, live trades, client balances, custody arrangements, wallets, ATAs, or settlement finality.
+- The Exchange Desk is the global platform design direction. Harvest Capital is a Field to Finance contextual layer only; it must never define the global shell or any non-agriculture protocol.
 - If an implementation request conflicts with these invariants, surface the conflict before changing the core architecture.
 
 ## Shared engineering workflow

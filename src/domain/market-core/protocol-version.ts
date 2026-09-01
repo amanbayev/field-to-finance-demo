@@ -242,3 +242,72 @@ export function assertImmutableProtocolVersionBindings(
   const report = validateProtocolVersionRegistry(protocols, versions, instruments);
   return report.instrumentBindings.length === 0 && report.protocolPointers.length === 0;
 }
+
+/**
+ * The registries a protocol-version lookup reads. Injectable so the exact
+ * production resolution logic can be exercised against any registry, including
+ * a non-agriculture one, without a Field to Finance code path.
+ */
+export interface ProtocolVersionRegistries {
+  protocols: readonly AssetProtocol[];
+  versions: readonly ProtocolVersion[];
+  instruments: readonly MarketInstrument[];
+}
+
+export interface ProtocolVersionContext {
+  protocol: AssetProtocol;
+  version: ProtocolVersion;
+  boundInstruments: readonly MarketInstrument[];
+}
+
+/**
+ * Resolves a protocol version in the context of its owning protocol.
+ *
+ * Returns null for an unknown protocol, an unknown version, or a version that
+ * belongs to a different protocol. Pure and generic: it reads only the injected
+ * registries and contains no protocol- or asset-specific branch.
+ */
+export function resolveProtocolVersionContext(
+  registries: ProtocolVersionRegistries,
+  protocolId: string,
+  versionId: string,
+): ProtocolVersionContext | null {
+  const protocol = registries.protocols.find((item) => item.id === protocolId);
+  if (!protocol) {
+    return null;
+  }
+  const version = protocolVersionById(registries.versions, versionId);
+  if (!version || version.protocolId !== protocol.id) {
+    return null;
+  }
+  return {
+    protocol,
+    version,
+    boundInstruments: registries.instruments.filter(
+      (instrument) => instrument.protocolVersionId === version.id,
+    ),
+  };
+}
+
+/**
+ * All versions recorded for a protocol, paired with the current usable one.
+ *
+ * `versions` is every recorded version regardless of lifecycle state, so a
+ * protocol whose only versions are DRAFT, SUPERSEDED, RETIRED or unfrozen is
+ * not misreported as having no recorded version. `currentVersion` remains the
+ * strict ACTIVE-and-frozen pointer, or null.
+ */
+export function protocolVersionSummary(
+  versions: readonly ProtocolVersion[],
+  protocol: AssetProtocol,
+): {
+  protocol: AssetProtocol;
+  versions: readonly ProtocolVersion[];
+  currentVersion: ProtocolVersion | null;
+} {
+  return {
+    protocol,
+    versions: protocolVersionsForProtocol(versions, protocol.id),
+    currentVersion: currentVersionForProtocol(versions, protocol),
+  };
+}

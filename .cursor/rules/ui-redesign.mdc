@@ -1,12 +1,36 @@
 ---
-description: Harvest Capital UI direction for the ui/redesign branch
+description: Commodity Chain design authority and protocol-context boundary
 alwaysApply: true
 ---
 
-# UI redesign branch
+# Design authority
 
-This branch replaces the product surface. Before any UI, CSS, or copy change, read `.cursor/skills/harvest-capital-ui/SKILL.md`.
+`PRODUCT.md` and `DESIGN.md` at the repository root are the design and product authority. Read them
+before any UI, CSS, layout, component, copy or state-design work. This rule does not restate them.
 
-Locked world: nocturnal harvest, Unbounded + Geologica + JetBrains Mono, Ink/Bone/Harvest palette, cinematic photos in `public/media/`, kk/ru/en on every string.
+## Global platform: The Exchange Desk
 
-Do not revive olive IBM Plex or gray institutional card chrome. Do not add a parallel `/ui-v2` tree. Do not ship generic AI aesthetics (Inter, purple glow, metric-card heroes, bounce motion).
+Commodity Chain is a multi-protocol regulated-market console. The global shell direction is **The
+Exchange Desk**: dark navy navigation rail, light operational work surface, Golos Text with
+kk/ru/en support, `#0A4F8C` as the single action colour, restrained colour, minimal shadow, 4–6px
+radii, tables and ledgers over decorative card grids.
+
+Quality references are KASE, Addepar and institutional capital-markets workstations. No generic AI
+aesthetics, no crypto neon, no decorative card proliferation.
+
+## Protocol context boundary
+
+Field to Finance is one protocol on Commodity Chain, not the platform.
+
+- Harvest Capital (`.cursor/skills/harvest-capital-ui/SKILL.md`) is an **optional Field to Finance
+  contextual layer only**. Use it only when a task explicitly calls for F2F-specific visual
+  treatment.
+- Harvest Capital must never define the global Commodity Chain shell.
+- Agriculture imagery and language must never be applied to Water, Music Rights, Gaming Assets or
+  any future protocol.
+- Neither this rule nor that skill overrides `PRODUCT.md` or `DESIGN.md`.
+
+## Scope
+
+Do not perform a broad visual redesign as a side effect of a feature change. Do not add a parallel
+UI tree; the shell is restyled in place when that work is scheduled.

@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { PlatformBreadcrumb } from "@/components/market-core/platform-breadcrumb";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { IssuanceDesk } from "@/components/tokens/issuance-desk";
 import { TokenMintProofPanel } from "@/components/tokens/token-mint-proof-panel";
 import { DataList } from "@/components/shared/data-list";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
-import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import { actorCan } from "@/domain/identity";
 import type { AppLocale } from "@/i18n/config";
@@ -18,11 +17,17 @@ import {
   ON_CHAIN_DEMO_POOL_ID,
 } from "@/adapters/blockchain";
 import { requirePermission } from "@/lib/auth/guard";
+import { issuanceTrail } from "@/lib/market-core/hierarchy";
 import {
   getPlacementSnapshot,
   placementFromSnapshot,
 } from "@/services/placement-service";
 import { getIssuanceDesk } from "@/services/token-service";
+import {
+  getAssetProtocol,
+  getProtocolVersion,
+  listMarketInstruments,
+} from "@/services/market-core-service";
 
 export const dynamicParams = false;
 
@@ -63,20 +68,23 @@ export default async function IssuanceDetailPage({
     outstandingTokens: snapshot.supply.mintedSupply,
   });
   const showDesk = actorCan(actor, "issuance.manage");
+  // Trail derived from the issuance's own instrument and protocol records
+  // rather than hard-coded protocol and instrument routes.
+  const issuanceInstrument =
+    listMarketInstruments().find((item) => item.issuanceId === issuanceId) ?? null;
+  const issuanceProtocol = issuanceInstrument
+    ? (getAssetProtocol(issuanceInstrument.assetProtocolId) ?? null)
+    : null;
+  const issuanceVersion = issuanceInstrument?.protocolVersionId
+    ? (getProtocolVersion(issuanceInstrument.protocolVersionId) ?? null)
+    : null;
 
   return (
     <div>
-      <PlatformBreadcrumb
-        items={[
-          { href: "/markets", label: tCore("breadcrumbMarkets") },
-          { label: tCore("classAGRICULTURE") },
-          { href: "/protocols/F2F", label: "Field to Finance" },
-          { href: "/instruments/WHEAT-2027", label: "WHEAT-2027" },
-          { label: issuanceId },
-        ]}
-      />
-      <PageHeader
-        eyebrow={t("issuanceEyebrow")}
+      <MarketCoreContextHeader
+        level="ISSUANCE"
+        trail={issuanceTrail(issuanceId, issuanceInstrument, issuanceProtocol, issuanceVersion)}
+        translate={tCore}
         title={issuanceId}
         description={t("issuanceIntro")}
       />

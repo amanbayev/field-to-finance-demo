@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { TradeLifecycle } from "@/components/market-core/trade-lifecycle";
 import { EmptyState, PageSection } from "@/components/shared/page-section";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DeskFigure, DeskLedger, DeskNote, DeskRow, deskIndex } from "@/components/surface/desk-stage";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,12 @@ import {
 import type { AppLocale } from "@/i18n/config";
 import { formatDemoKzt, formatInteger, formatTimestamp } from "@/lib/format";
 import { requirePermission } from "@/lib/auth/guard";
+import { marketTrail } from "@/lib/market-core/hierarchy";
 import { getSecondaryMarketView } from "@/services/secondary-market-service";
+import {
+  getAssetProtocol,
+  getProtocolVersion,
+} from "@/services/market-core-service";
 import { OrderEntry } from "./order-entry";
 import { cancelSecondaryOrderAction } from "./actions";
 
@@ -37,6 +42,12 @@ export default async function SecondaryMarketPage({
   const tCore = await getTranslations("marketCore");
   const locale = (await getLocale()) as AppLocale;
   const view = await getSecondaryMarketView(actor);
+  // Market hierarchy derived from the traded instrument's own records — no
+  // hardcoded protocol or instrument identifier.
+  const marketProtocol = getAssetProtocol(view.instrument.assetProtocolId) ?? null;
+  const marketVersion = view.instrument.protocolVersionId
+    ? (getProtocolVersion(view.instrument.protocolVersionId) ?? null)
+    : null;
   const latestTrade = view.trades[view.trades.length - 1];
   const book = [
     ...view.bids.map((level) => ({ side: "bids" as const, level })),
@@ -45,8 +56,10 @@ export default async function SecondaryMarketPage({
 
   return (
     <div>
-      <PageHeader
-        eyebrow={t("eyebrow")}
+      <MarketCoreContextHeader
+        level="MARKET"
+        trail={marketTrail(view.instrument, marketProtocol, marketVersion, "title")}
+        translate={tCore}
         title={t("title")}
         description={t("intro")}
         photo="/media/empty-silo-light.png"

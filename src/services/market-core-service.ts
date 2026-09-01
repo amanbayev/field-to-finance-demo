@@ -4,11 +4,15 @@ import {
   canTrade,
   currentVersionForProtocol,
   eligibilityFor,
+  protocolVersionSummary,
   resolveGoverningProtocolVersion,
+  resolveProtocolVersionContext,
   type AdmissionStage,
   type AssetProtocol,
   type MarketInstrument,
   type ProtocolVersion,
+  type ProtocolVersionContext,
+  type ProtocolVersionRegistries,
 } from "@/domain/market-core";
 import {
   assetProtocols,
@@ -63,6 +67,44 @@ export function getCurrentProtocolVersion(protocolId: string): ProtocolVersion |
     return null;
   }
   return currentVersionForProtocol(protocolVersions, protocol);
+}
+
+/** Canonical registries for protocol-version resolution. */
+function canonicalRegistries(): ProtocolVersionRegistries {
+  return {
+    protocols: assetProtocols,
+    versions: protocolVersions,
+    instruments: marketInstruments,
+  };
+}
+
+/**
+ * Thin wrapper: the resolution rules live in the pure, injectable
+ * `resolveProtocolVersionContext`, which tests exercise directly against
+ * non-agriculture registries.
+ */
+export function getProtocolVersionContext(
+  protocolId: string,
+  versionId: string,
+): ProtocolVersionContext | null {
+  return resolveProtocolVersionContext(canonicalRegistries(), protocolId, versionId);
+}
+
+/**
+ * Every protocol with all its recorded versions and its current usable version.
+ *
+ * `versions` is separate from `currentVersion` on purpose: a protocol whose
+ * only recorded versions are DRAFT, SUPERSEDED, RETIRED or unfrozen still has
+ * recorded versions, and must not be shown as having none.
+ */
+export function listProtocolVersionSummaries(): Array<{
+  protocol: AssetProtocol;
+  versions: readonly ProtocolVersion[];
+  currentVersion: ProtocolVersion | null;
+}> {
+  return assetProtocols.map((protocol) =>
+    protocolVersionSummary(protocolVersions, protocol),
+  );
 }
 
 export function listAssetProtocolsWithCurrentVersion(): Array<{

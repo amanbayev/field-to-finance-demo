@@ -1,0 +1,378 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-01T00:00:00.000Z",
+  "title": "Design System: Commodity Chain — The Exchange Desk",
+  "extensions": {
+    "colorMeta": {
+      "exchange-navy": {
+        "role": "primary",
+        "displayName": "Exchange Navy",
+        "canonical": "#0A4F8C",
+        "tonalRamp": [
+          "#071B30",
+          "#0A2E52",
+          "#0A4F8C",
+          "#1E6BB0",
+          "#4A8FCB",
+          "#7FB0DC",
+          "#B7D2EC",
+          "#E4F0F8"
+        ]
+      },
+      "exchange-navy-hover": {
+        "role": "primary",
+        "displayName": "Exchange Navy Hover",
+        "canonical": "#083E6E",
+        "tonalRamp": [
+          "#061525",
+          "#082A4A",
+          "#083E6E",
+          "#165A93",
+          "#3E7FB4",
+          "#73A5CC",
+          "#AEC9E0",
+          "#E0EBF4"
+        ]
+      },
+      "rail-ink": {
+        "role": "neutral",
+        "displayName": "Rail Ink",
+        "canonical": "#0B1F33",
+        "tonalRamp": [
+          "#060E16",
+          "#0B1F33",
+          "#16324C",
+          "#2A4A66",
+          "#4A6780",
+          "#7A91A3",
+          "#B3C0CB",
+          "#E8EEF4"
+        ]
+      },
+      "rail-paper": {
+        "role": "neutral",
+        "displayName": "Rail Paper",
+        "canonical": "#E8EEF4",
+        "tonalRamp": [
+          "#0B1F33",
+          "#2A4A66",
+          "#4A6780",
+          "#7A91A3",
+          "#B3C0CB",
+          "#D5DDE5",
+          "#E8EEF4",
+          "#F7F9FB"
+        ]
+      },
+      "rail-muted": {
+        "role": "neutral",
+        "displayName": "Rail Muted",
+        "canonical": "#8A9AAB",
+        "tonalRamp": [
+          "#1A2430",
+          "#334050",
+          "#4D5C6C",
+          "#6A7A8A",
+          "#8A9AAB",
+          "#B0BCC8",
+          "#D4DBE2",
+          "#F2F4F6"
+        ]
+      },
+      "work-ground": {
+        "role": "neutral",
+        "displayName": "Work Ground",
+        "canonical": "#F4F6F8",
+        "tonalRamp": [
+          "#121820",
+          "#3D4650",
+          "#6B7580",
+          "#9AA3AB",
+          "#C5CBD1",
+          "#E2E5EA",
+          "#F4F6F8",
+          "#FBFCFD"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#121820",
+          "#3D4650",
+          "#6B7580",
+          "#9AA3AB",
+          "#C5CBD1",
+          "#E8EAED",
+          "#F7F8F9",
+          "#FFFFFF"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#121820",
+        "tonalRamp": [
+          "#121820",
+          "#2C333C",
+          "#4A525C",
+          "#6B7380",
+          "#8E96A0",
+          "#B8BEC4",
+          "#DEE1E4",
+          "#F4F6F8"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "#5A6572",
+        "tonalRamp": [
+          "#1C2228",
+          "#2F3842",
+          "#454F5A",
+          "#5A6572",
+          "#7C8691",
+          "#A8B0B8",
+          "#D2D6DA",
+          "#F0F2F4"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#D8DEE6",
+        "tonalRamp": [
+          "#3D4650",
+          "#6B7380",
+          "#9AA3AB",
+          "#C5CBD1",
+          "#D8DEE6",
+          "#E8EAED",
+          "#F4F6F8",
+          "#FBFCFD"
+        ]
+      },
+      "settled": {
+        "role": "primary",
+        "displayName": "Settled",
+        "canonical": "#1A5C40",
+        "tonalRamp": [
+          "#0C2A1C",
+          "#1A5C40",
+          "#2A7A56",
+          "#3D9A70",
+          "#68B592",
+          "#9AD0B4",
+          "#C9E6D6",
+          "#E8F5EE"
+        ]
+      },
+      "warning": {
+        "role": "primary",
+        "displayName": "Warning",
+        "canonical": "#8A6A12",
+        "tonalRamp": [
+          "#3D2E08",
+          "#5C470C",
+          "#8A6A12",
+          "#B08920",
+          "#C9A84A",
+          "#DCC88A",
+          "#EDE3C2",
+          "#F8F3E4"
+        ]
+      },
+      "exception": {
+        "role": "primary",
+        "displayName": "Exception",
+        "canonical": "#B42318",
+        "tonalRamp": [
+          "#4A100C",
+          "#7A1810",
+          "#B42318",
+          "#D13A2E",
+          "#E06A62",
+          "#ECA39E",
+          "#F5D0CD",
+          "#FBEAEA"
+        ]
+      },
+      "pending": {
+        "role": "primary",
+        "displayName": "Pending",
+        "canonical": "#4A5C72",
+        "tonalRamp": [
+          "#1A2430",
+          "#2F3C4A",
+          "#4A5C72",
+          "#6A7C90",
+          "#8A9AAB",
+          "#B0BCC8",
+          "#D4DBE2",
+          "#F2F4F6"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Table groups and dialogs."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default UI and table cells."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Column headers, captions, chips."
+      }
+    },
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 8px 24px rgba(18, 24, 32, 0.12)",
+        "purpose": "Dropdowns, dialogs, tablet rail overlay. Not for panels at rest."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "State changes 150–250ms. No page-load choreography."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "768px"
+      },
+      {
+        "name": "tablet",
+        "value": "1024px"
+      },
+      {
+        "name": "desktop",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single page action.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Continue verification</button>",
+      "css": ".ds-btn-primary { background: #0A4F8C; color: #FFFFFF; padding: 8px 14px; font: 500 12px/1.35 \"Golos Text\", system-ui, sans-serif; border: none; border-radius: 4px; } .ds-btn-primary:hover { background: #083E6E; } .ds-btn-primary:focus-visible { outline: 2px solid #0A4F8C; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet companion action.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">View documents</button>",
+      "css": ".ds-btn-secondary { background: #FFFFFF; color: #121820; padding: 8px 14px; font: 500 12px/1.35 \"Golos Text\", system-ui, sans-serif; border: 1px solid #D8DEE6; border-radius: 4px; } .ds-btn-secondary:hover { background: #F4F6F8; } .ds-btn-secondary:focus-visible { outline: 2px solid #0A4F8C; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Default field on the work surface.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Contract ID\" />",
+      "css": ".ds-input { background: #FFFFFF; color: #121820; padding: 8px 12px; font: 400 14px/1.5 \"Golos Text\", system-ui, sans-serif; border: 1px solid #D8DEE6; border-radius: 4px; width: 100%; } .ds-input:focus { border-color: #0A4F8C; outline: 2px solid #0A4F8C; outline-offset: 0; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "Status as a word, not a tile.",
+      "html": "<span class=\"ds-chip\">VERIFIED</span>",
+      "css": ".ds-chip { display: inline-block; background: #F4F6F8; color: #1A5C40; padding: 2px 8px; font: 500 12px/1.35 \"Golos Text\", system-ui, sans-serif; border-radius: 4px; }"
+    },
+    {
+      "name": "Nav Rail",
+      "kind": "nav",
+      "refersTo": "nav-rail",
+      "description": "Desktop shell rail. Global platform navigation only — never protocol-specific.",
+      "html": "<nav class=\"ds-rail\" aria-label=\"Primary\"><div class=\"ds-rail-brand\">Commodity Chain</div><div class=\"ds-rail-protocol\">Multi-protocol platform</div><a class=\"ds-rail-link ds-rail-link-active\" href=\"/\">Overview</a><a class=\"ds-rail-link\" href=\"/protocols\">Protocols</a><a class=\"ds-rail-link\" href=\"/instruments\">Instruments</a><a class=\"ds-rail-link\" href=\"/markets\">Markets</a></nav>",
+      "css": ".ds-rail { background: #0B1F33; color: #E8EEF4; padding: 16px 12px; width: 240px; min-height: 320px; font: 400 14px/1.4 \"Golos Text\", system-ui, sans-serif; } .ds-rail-brand { font-weight: 600; } .ds-rail-protocol { color: #8A9AAB; font-size: 12px; margin: 4px 0 16px; } .ds-rail-link { display: block; color: #8A9AAB; text-decoration: none; padding: 8px 10px; border-radius: 4px; } .ds-rail-link-active { color: #FFFFFF; background: rgba(10, 79, 140, 0.35); }"
+    },
+    {
+      "name": "Work Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Table host. Not a KPI tile.",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-panel-h\">Workflow</header><p class=\"ds-panel-p\">Field → Placement as rows.</p></section>",
+      "css": ".ds-panel { background: #FFFFFF; color: #121820; border: 1px solid #D8DEE6; border-radius: 6px; padding: 16px; box-shadow: none; font: 400 14px/1.5 \"Golos Text\", system-ui, sans-serif; } .ds-panel-h { font-weight: 600; margin: 0 0 8px; } .ds-panel-p { margin: 0; color: #5A6572; }"
+    },
+    {
+      "name": "Protocol Context Nav (Field to Finance)",
+      "kind": "nav",
+      "refersTo": "nav-protocol-context",
+      "description": "Protocol-specific sub-navigation shown INSIDE a Field to Finance protocol context. Never the global platform rail, and never applied to Water, Music Rights or Gaming Assets.",
+      "html": "<nav class=\"ds-subnav\" aria-label=\"Field to Finance\"><div class=\"ds-subnav-scope\">Field to Finance</div><a class=\"ds-subnav-link\" href=\"/protocols/F2F\">Protocol</a><a class=\"ds-subnav-link\" href=\"/fields\">Fields</a><a class=\"ds-subnav-link\" href=\"/scas\">Verification</a></nav>",
+      "css": ".ds-subnav { background: #FFFFFF; color: #121820; border: 1px solid #D8DEE6; border-radius: 6px; padding: 12px; font: 400 14px/1.4 \"Golos Text\", system-ui, sans-serif; } .ds-subnav-scope { color: #5A6572; font-size: 12px; margin-bottom: 8px; } .ds-subnav-link { display: block; color: #0A4F8C; text-decoration: none; padding: 6px 8px; border-radius: 4px; } .ds-subnav-link:focus-visible { outline: 2px solid #0A4F8C; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Exchange Desk",
+    "overview": "Commodity Chain is an Operate surface: a regulated institutional console, not a marketing site and not a farm marketplace. The visual world is the category standard — left rail, work surface, tables, one primary action — executed at the craft of a KASE operator console and an Addepar portfolio desk. Convention is the commitment. There is no rustic grain, no carbon-copy novelty, no crypto neon, and no irony.\n\nThe old frontend (warm cream, olive, IBM Plex, Source Serif, stacked shadcn cards) is anti-reference. This seed describes the target world. The shell has NOT yet been restyled: src/app/globals.css still carries the previous Harvest Capital tokens and typography. See DESIGN.md section 10 for the honest transition boundary.\n\nGolos Text is the single face because the quality bar is a Kazakhstan exchange plus an international fund desk, and the product must set Kazakh, Russian, and English without a display/body theatre pairing.",
+    "keyCharacteristics": [
+      "Dark navy rail, light work surface, solid exchange blue for actions only",
+      "Tables, workflow status, documents, and transactions outrank cards",
+      "Tight radius, hairline rules, almost no shadow",
+      "Dual literacy: plain stage names for farmers; institutional density for funds and regulators"
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "Exchange Navy appears on the current action, the current nav item, and focus. It does not paint backgrounds, icons tiles, or chart decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Theatre Status Rule",
+        "body": "Status is a word (and optional small chip). Do not encode the product as a rainbow of metric cards.",
+        "section": "colors"
+      },
+      {
+        "name": "The Farmer-Plain Type Rule",
+        "body": "Stage names are Field, Contract, Pool, Coverage, Token, Placement — not instruction codes. Domain enums (VERIFIED, IN_POOL) stay as enums; surrounding copy stays human.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Surfaces are flat at rest. Shadow is a state of overlapping UI, not a personality for panels.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Protocol-Context Rule",
+        "body": "The Exchange Desk is the global Commodity Chain shell. Harvest Capital is a Field to Finance contextual layer only and must never define the global shell or any non-agriculture protocol (Water, Music Rights, Gaming Assets).",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do put the job in a table or a document with one primary action.",
+      "Do keep the prototype badge visible on every shell.",
+      "Do use Golos Text at the sizes above; use tabular figures for tonnes and money.",
+      "Do match KASE/Addepar craft: calm density, official tone, no decoration."
+    ],
+    "donts": [
+      "Don't use cream grounds, olive accents, IBM Plex, or Source Serif (discarded frontend).",
+      "Don't use purple or blue gradients, glassmorphism, oversized radius, or decorative icon tiles.",
+      "Don't nest cards or fill Overview with statistics.",
+      "Don't invent AFSA permission, commercial prices, legal names, or on-chain figures beyond recorded proof.",
+      "Don't treat Field-to-Finance as the platform name, or WHEAT-2027 as the platform.",
+      "Don't apply agriculture imagery or Harvest Capital styling to the global shell or to a non-agriculture protocol."
+    ]
+  }
+}

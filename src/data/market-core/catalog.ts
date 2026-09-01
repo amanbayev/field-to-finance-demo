@@ -389,6 +389,15 @@ export function instrumentsForProtocol(protocolId: string): MarketInstrument[] {
   return marketInstruments.filter((instrument) => instrument.assetProtocolId === protocolId);
 }
 
+/** Instruments permanently bound to an exact protocol version. */
+export function instrumentsForProtocolVersion(
+  versionId: string,
+): readonly MarketInstrument[] {
+  return marketInstruments.filter(
+    (instrument) => instrument.protocolVersionId === versionId,
+  );
+}
+
 export function marketForInstrument(instrumentId: string): Market | undefined {
   return markets.find((market) => market.instrumentId === instrumentId);
 }
