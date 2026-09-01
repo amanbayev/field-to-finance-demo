@@ -5,6 +5,7 @@ import {
   currentVersionForProtocol,
   eligibilityFor,
   explainEligibility,
+  explainOnboardingMarketReadiness,
   protocolVersionSummary,
   resolveGoverningProtocolVersion,
   resolveProtocolVersionContext,
@@ -41,6 +42,7 @@ import {
   versionById,
   versionsForProtocol,
   wheatAdmissionProgress,
+  WHEAT_INSTRUMENT_ID,
 } from "@/data/market-core/catalog";
 
 export function listAssetProtocols(): AssetProtocol[] {
@@ -224,6 +226,67 @@ export function explainInstrumentEligibility(
     instruments: registry.instruments,
     organizations: registry.organizations,
     memberships: registry.memberships,
+  });
+}
+
+export interface InstrumentEligibilityReadModelRow {
+  readonly participantReference: string;
+  readonly participantName: string;
+  readonly instrumentId: string;
+  readonly instrumentSymbol: string | null;
+  readonly instrumentHref: string | null;
+  readonly placeholderInstrument: boolean;
+  readonly organizationName: string | null;
+  readonly explanation: EligibilityExplanation;
+  readonly canTrade: boolean;
+  readonly canReceive: boolean;
+}
+
+/**
+ * Read-only participant × instrument eligibility for operator screens.
+ * Delegates reasoning to `explainEligibility`; does not persist assessments.
+ */
+export function listInstrumentEligibilityReadModel(): readonly InstrumentEligibilityReadModelRow[] {
+  const registry = shippedEligibilityRegistryInput();
+  return listEligibility().map((row) => {
+    const explanation = explainInstrumentEligibility(
+      row.participantReference,
+      row.instrumentId,
+    );
+    const instrument = getMarketInstrument(row.instrumentId);
+    const organization = explanation.organizationId
+      ? registry.organizations.find((item) => item.id === explanation.organizationId)
+      : undefined;
+    const decision = tradeDecision(row.participantReference, row.instrumentId);
+    return {
+      participantReference: row.participantReference,
+      participantName: row.participantName,
+      instrumentId: row.instrumentId,
+      instrumentSymbol: instrument?.symbol ?? null,
+      instrumentHref: instrument ? `/instruments/${instrument.id}` : null,
+      placeholderInstrument: !instrument,
+      organizationName: organization?.name ?? null,
+      explanation,
+      canTrade: decision.canTrade,
+      canReceive: decision.canReceive,
+    };
+  });
+}
+
+export function explainOnboardingMarketReadinessForOrganization(
+  organizationId: string,
+  instrumentId: string = WHEAT_INSTRUMENT_ID,
+) {
+  const registry = shippedEligibilityRegistryInput();
+  return explainOnboardingMarketReadiness({
+    organizationId,
+    instrumentId,
+    organizations: registry.organizations,
+    memberships: registry.memberships,
+    participants: registry.participants,
+    assessments: registry.assessments,
+    eligibility: registry.eligibility,
+    instruments: registry.instruments,
   });
 }
 

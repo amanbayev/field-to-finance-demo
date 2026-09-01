@@ -1,3 +1,4 @@
+import type { OrganizationType } from "@/domain/identity";
 import {
   ELIGIBILITY_EXPLANATION_GAPS,
   ELIGIBILITY_EXPLANATION_INCONSISTENCIES,
@@ -63,6 +64,22 @@ export const NO_EVIDENCE_REFERENCES_KEY = "noEvidenceReferencesRecorded";
 export const EVIDENCE_REFERENCES_RECORDED_KEY = "evidenceReferencesRecorded";
 export const AUTHORITY_COMPLIANCE_OFFICER_KEY = "authorityComplianceOfficer";
 export const AUTHORITY_UNAVAILABLE_KEY = "authorityUnavailable";
+
+export const ORGANIZATION_TYPE_LABEL_KEYS = {
+  PLATFORM: "orgTypePlatform",
+  REGULATOR: "orgTypeRegulator",
+  REGISTRAR: "orgTypeRegistrar",
+  SCAS: "orgTypeScas",
+  PRODUCER: "orgTypeProducer",
+  ISSUER: "orgTypeIssuer",
+  INVESTMENT_FUND: "orgTypeInvestmentFund",
+  TRADING_FIRM: "orgTypeTradingFirm",
+  COMPLIANCE_PROVIDER: "orgTypeComplianceProvider",
+} as const satisfies Record<OrganizationType, string>;
+
+export function organizationTypeLabelKey(type: OrganizationType): string {
+  return ORGANIZATION_TYPE_LABEL_KEYS[type] ?? ELIGIBILITY_UNAVAILABLE_KEY;
+}
 
 export type EligibilityStateTone =
   | "ELIGIBLE"

@@ -4,17 +4,22 @@ import { requireActor } from "@/lib/auth/load-actor";
 import { AuthorizationError } from "@/domain/identity";
 import { redirect, unauthorized } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
+import { PageSection } from "@/components/shared/page-section";
 import { DeskNote } from "@/components/surface/desk-stage";
 import { FormSubmitButton } from "@/components/identity/form-submit-button";
 import { Input } from "@/components/ui/input";
+import { lookupMessage } from "@/i18n/t-dynamic";
+import { presentOnboardingReadiness } from "@/lib/market-core/eligibility-presentation";
+import { explainOnboardingMarketReadinessForOrganization } from "@/services/market-core-service";
 
 export default async function OnboardingPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  let actor;
   try {
-    await requireActor();
+    actor = await requireActor();
   } catch (error) {
     if (error instanceof AuthorizationError && error.code === "unauthenticated") {
       unauthorized();
@@ -22,7 +27,14 @@ export default async function OnboardingPage({
     redirect("/login?reason=not_configured");
   }
   const t = await getTranslations("onboarding");
+  const tElig = await getTranslations("eligibility");
   const params = await searchParams;
+  const organizationId = actor.effective.organization?.id ?? null;
+  const readiness = organizationId
+    ? presentOnboardingReadiness(
+        explainOnboardingMarketReadinessForOrganization(organizationId),
+      )
+    : null;
 
   return (
     <div>
@@ -61,6 +73,53 @@ export default async function OnboardingPage({
         </div>
         <FormSubmitButton pendingLabel={t("submit")}>{t("submit")}</FormSubmitButton>
       </form>
+      <PageSection title={t("sequenceTitle")}>
+        <ol className="max-w-2xl list-decimal space-y-2 pl-5 text-sm leading-relaxed text-straw">
+          <li>{t("stepRequest")}</li>
+          <li>{t("stepMembership")}</li>
+          <li>{t("stepParticipant")}</li>
+          <li>{t("stepAssessment")}</li>
+          <li>{t("stepNewOrder")}</li>
+        </ol>
+        <div className="mt-4 max-w-2xl space-y-2 text-sm leading-relaxed text-straw">
+          <p>{t("noEligibilityGranted")}</p>
+          <p>{t("noPermissionsGranted")}</p>
+          <p>{t("instrumentSpecific")}</p>
+          <p>{t("noDatePromised")}</p>
+          <p>{t("notRegulatory")}</p>
+        </div>
+      </PageSection>
+      {readiness ? (
+        <PageSection title={tElig("readinessTitle")}>
+          <DeskNote className="mb-4">
+            {lookupMessage(tElig, readiness.onboardingDoesNotGrantEligibilityKey)}
+          </DeskNote>
+          <dl className="max-w-lg space-y-2 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt>{tElig("readinessHasOrganization")}</dt>
+              <dd>{readiness.hasOrganization ? tElig("yes") : tElig("readinessMissing")}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt>{tElig("readinessHasMembership")}</dt>
+              <dd>{readiness.hasMembership ? tElig("yes") : tElig("readinessMissing")}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt>{tElig("readinessHasParticipant")}</dt>
+              <dd>{readiness.hasParticipant ? tElig("yes") : tElig("readinessMissing")}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt>{tElig("readinessHasAssessment")}</dt>
+              <dd>{readiness.hasAssessment ? tElig("yes") : tElig("readinessMissing")}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt>{tElig("labelInstrumentEligibility")}</dt>
+              <dd>{lookupMessage(tElig, readiness.eligibilityStateKey)}</dd>
+            </div>
+          </dl>
+        </PageSection>
+      ) : (
+        <DeskNote className="mt-8">{tElig("fixtureDisclaimer")}</DeskNote>
+      )}
     </div>
   );
 }

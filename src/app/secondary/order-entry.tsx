@@ -11,6 +11,7 @@ export function OrderEntry({
   availableCash,
   eligibilityLabel,
   eligibilityValue,
+  eligibilityExplanation,
   quantityLabel,
   priceLabel,
   estimatedLabel,
@@ -27,6 +28,7 @@ export function OrderEntry({
   availableCash: number;
   eligibilityLabel: string;
   eligibilityValue: string;
+  eligibilityExplanation: string;
   quantityLabel: string;
   priceLabel: string;
   estimatedLabel: string;
@@ -120,6 +122,7 @@ export function OrderEntry({
           <dd>{eligibilityValue}</dd>
         </div>
       </dl>
+      <p className="text-sm text-straw">{eligibilityExplanation}</p>
       {side === "BUY" ? buyDisclosure : null}
       <Button type="submit" disabled={!canSubmit} size="sm">
         {submitLabel}

@@ -15,9 +15,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { AppLocale } from "@/i18n/config";
+import { lookupMessage } from "@/i18n/t-dynamic";
 import { formatDemoKzt, formatInteger, formatTimestamp } from "@/lib/format";
 import { requirePermission } from "@/lib/auth/guard";
 import { marketTrail } from "@/lib/market-core/hierarchy";
+import { presentNewOrderAdmission } from "@/lib/market-core/eligibility-presentation";
 import { actorMayCancelSecondaryOrder, getSecondaryMarketView } from "@/services/secondary-market-service";
 import {
   getAssetProtocol,
@@ -40,6 +42,7 @@ export default async function SecondaryMarketPage({
   const params = await searchParams;
   const t = await getTranslations("secondary");
   const tCore = await getTranslations("marketCore");
+  const tElig = await getTranslations("eligibility");
   const locale = (await getLocale()) as AppLocale;
   const view = await getSecondaryMarketView(actor);
   // Market hierarchy derived from the traded instrument's own records — no
@@ -49,6 +52,11 @@ export default async function SecondaryMarketPage({
     ? (getProtocolVersion(view.instrument.protocolVersionId) ?? null)
     : null;
   const latestTrade = view.trades[view.trades.length - 1];
+  const admission = presentNewOrderAdmission({
+    canSubmit: view.canSubmit,
+    hasParticipant: Boolean(view.participantId),
+    explanation: view.eligibilityExplanation,
+  });
   const book = [
     ...view.bids.map((level) => ({ side: "bids" as const, level })),
     ...view.asks.map((level) => ({ side: "asks" as const, level })),
@@ -110,13 +118,19 @@ export default async function SecondaryMarketPage({
       </PageSection>
 
       <PageSection title={t("orderEntry")} description={t("wholeTokens")}>
+        <DeskNote className="mb-4">{t("admissionPrecheck")}</DeskNote>
         {view.canSubmit || view.participantId ? (
           <OrderEntry
             canSubmit={view.canSubmit}
             availableQty={view.holding?.available ?? 0}
             availableCash={view.cash?.available ?? 0}
-            eligibilityLabel={t("eligibility")}
-            eligibilityValue={view.eligibility}
+            eligibilityLabel={t("admissionExplanation")}
+            eligibilityValue={
+              admission.stateKey
+                ? lookupMessage(tElig, admission.stateKey)
+                : lookupMessage(tElig, admission.summaryKey)
+            }
+            eligibilityExplanation={lookupMessage(tElig, admission.summaryKey)}
             quantityLabel={t("quantity")}
             priceLabel={t("limitPrice")}
             estimatedLabel={t("estimatedTotal")}
@@ -129,7 +143,11 @@ export default async function SecondaryMarketPage({
             buyDisclosure={<DeskNote>{t("noDirectFarmerOwnership")}</DeskNote>}
           />
         ) : (
-          <EmptyState kicker={t("orderEntry")} title={t("viewOnly")} body={t("limitOnly")} />
+          <EmptyState
+            kicker={t("orderEntry")}
+            title={t("viewOnly")}
+            body={lookupMessage(tElig, admission.summaryKey)}
+          />
         )}
       </PageSection>
 

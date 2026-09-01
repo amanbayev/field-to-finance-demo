@@ -11,6 +11,7 @@ const TONE: Record<string, string> = {
   FUTURE: "bg-muted-foreground/40",
   NOT_ASSESSED: "bg-muted-foreground/40",
   POLICY_PENDING: "bg-muted-foreground/55",
+  NOT_ELIGIBLE: "bg-muted-foreground/40",
   CLOSED: "bg-muted-foreground/55",
   PRIMARY_ONLY: "bg-muted-foreground/55",
   SECONDARY_OPEN: "bg-primary",

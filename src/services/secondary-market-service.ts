@@ -12,11 +12,13 @@ import {
   canReceive,
   canTrade,
   eligibilityFor,
+  explainActorEligibility,
   GRAIN_DESK_ID,
   orderIsCancellable,
   participantIdForActor,
   STEPPE_CAPITAL_ID,
   WHEAT_DEMO_MARKET_ID,
+  type EligibilityExplanation,
   type EngineState,
   type Holding,
   type Market,
@@ -61,6 +63,27 @@ export function actorMaySubmitSecondaryOrder(
 
 export function actorMayCancelSecondaryOrder(actor: ActorContext, order: Order): boolean {
   return actorMayCancelOrder({ actor, order });
+}
+
+export function explainSecondaryActorEligibility(
+  actor: ActorContext,
+  instrument: MarketInstrument,
+  eligibility: readonly ParticipantInstrumentEligibility[],
+): EligibilityExplanation | null {
+  const participantId = participantIdForActor(actor);
+  if (!participantId) {
+    return null;
+  }
+  return explainActorEligibility(actor, {
+    participantReference: participantId,
+    instrumentId: instrument.id,
+    eligibility,
+    assessments: eligibilityAssessments,
+    participants: marketParticipants,
+    instruments: marketInstruments,
+    organizations: DEMO_ORGANIZATIONS,
+    memberships: DEMO_MEMBERSHIPS,
+  });
 }
 
 export function canViewAllMarketActivity(actor: ActorContext): boolean {
@@ -108,6 +131,7 @@ export async function getSecondaryMarketView(actor: ActorContext) {
       ? canReceive({ eligibility, instrument })
       : false,
     canSubmit: actorMaySubmitSecondaryOrder(actor, instrument, market, state.eligibility),
+    eligibilityExplanation: explainSecondaryActorEligibility(actor, instrument, state.eligibility),
     holding,
     cash,
     bids: bidsFromOrders(state.orders.filter((order) => order.marketId === market.id)),
