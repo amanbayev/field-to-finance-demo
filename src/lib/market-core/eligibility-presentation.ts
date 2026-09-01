@@ -18,6 +18,8 @@ type OnboardingMarketReadiness = {
   readonly hasParticipant: boolean;
   readonly hasAssessment: boolean;
   readonly eligibilityState: InstrumentEligibilityState;
+  readonly instrumentId: string;
+  readonly instrumentSymbol: string | null;
 };
 
 /**
@@ -132,7 +134,35 @@ export interface OnboardingReadinessPresentation {
   readonly hasAssessment: boolean;
   readonly eligibilityStateKey: string;
   readonly eligibilityTone: EligibilityStateTone;
+  readonly instrumentId: string;
+  readonly instrumentSymbol: string | null;
   readonly onboardingDoesNotGrantEligibilityKey: "onboardingDoesNotGrantEligibility";
+}
+
+export interface EligibilityAttributionField {
+  readonly labelKey: string;
+  readonly valueKey: string;
+}
+
+export function eligibilityAttributionFields(
+  presented: EligibilityPresentation,
+): {
+  readonly membership: EligibilityAttributionField;
+  readonly assessment: EligibilityAttributionField;
+} | null {
+  if (!showAssessmentAttribution(presented)) {
+    return null;
+  }
+  return {
+    membership: {
+      labelKey: "membershipField",
+      valueKey: presented.membershipRecorded ? "fieldRecorded" : "fieldNotRecorded",
+    },
+    assessment: {
+      labelKey: "assessmentField",
+      valueKey: "fieldRecorded",
+    },
+  };
 }
 
 function isEligibilityState(value: string): value is InstrumentEligibilityState {
@@ -372,6 +402,10 @@ export function allEligibilityPresentationKeys(): readonly string[] {
     "labelInstrumentEligibility",
     "labelComplianceScreening",
     "onboardingDoesNotGrantEligibility",
+    "membershipField",
+    "assessmentField",
+    "fieldRecorded",
+    "fieldNotRecorded",
   ]);
 }
 
@@ -395,6 +429,8 @@ export function presentOnboardingReadiness(
     hasAssessment: readiness.hasAssessment,
     eligibilityStateKey: eligibilityStateLabelKey(readiness.eligibilityState),
     eligibilityTone: eligibilityStateTone(readiness.eligibilityState),
+    instrumentId: readiness.instrumentId,
+    instrumentSymbol: readiness.instrumentSymbol,
     onboardingDoesNotGrantEligibilityKey: "onboardingDoesNotGrantEligibility",
   };
 }

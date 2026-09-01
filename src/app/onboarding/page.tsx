@@ -112,6 +112,12 @@ export default async function OnboardingPage({
               <dd>{readiness.hasAssessment ? tElig("yes") : tElig("readinessMissing")}</dd>
             </div>
             <div className="flex justify-between gap-4">
+              <dt>{tElig("columnInstrument")}</dt>
+              <dd>
+                {readiness.instrumentSymbol ?? lookupMessage(tElig, "summaryUnavailable")}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
               <dt>{tElig("labelInstrumentEligibility")}</dt>
               <dd>{lookupMessage(tElig, readiness.eligibilityStateKey)}</dd>
             </div>

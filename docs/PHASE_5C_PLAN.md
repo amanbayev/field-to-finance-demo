@@ -387,7 +387,7 @@ Minimal Help & Support, kk/ru/en polish, accessibility passes on the market-core
 regression hardening. EN/RU/KK key-set parity testing already exists
 (`src/i18n/message-parity.test.ts`): a missing key no longer fails silently in review.
 Ordering remains enforced only for the namespaces explicitly covered by the current
-test (`marketCore` and `errors`). 5C.5 still owns broader multilingual polish,
+test (`marketCore`, `errors` and `eligibility`). 5C.5 still owns broader multilingual polish,
 Help & Support content, and accessibility.
 
 **Acceptance criteria**

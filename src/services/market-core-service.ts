@@ -278,16 +278,21 @@ export function explainOnboardingMarketReadinessForOrganization(
   instrumentId: string = WHEAT_INSTRUMENT_ID,
 ) {
   const registry = shippedEligibilityRegistryInput();
-  return explainOnboardingMarketReadiness({
-    organizationId,
+  const instrument = getMarketInstrument(instrumentId);
+  return {
+    ...explainOnboardingMarketReadiness({
+      organizationId,
+      instrumentId,
+      organizations: registry.organizations,
+      memberships: registry.memberships,
+      participants: registry.participants,
+      assessments: registry.assessments,
+      eligibility: registry.eligibility,
+      instruments: registry.instruments,
+    }),
     instrumentId,
-    organizations: registry.organizations,
-    memberships: registry.memberships,
-    participants: registry.participants,
-    assessments: registry.assessments,
-    eligibility: registry.eligibility,
-    instruments: registry.instruments,
-  });
+    instrumentSymbol: instrument?.symbol ?? null,
+  };
 }
 
 export function shippedEligibilityRegistryViolations() {

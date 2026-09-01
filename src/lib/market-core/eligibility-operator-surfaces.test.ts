@@ -185,6 +185,29 @@ describe("onboarding explanation", () => {
     expect(presented.hasParticipant).toBe(false);
     expect(presented.hasAssessment).toBe(false);
     expect(presented.eligibilityStateKey).toBe("stateNotAssessed");
+    expect(presented.instrumentId).toBe(WHEAT_INSTRUMENT_ID);
+    expect(presented.instrumentSymbol).toBe("WHEAT-2027");
+  });
+
+  it("names the Steppe instrument context without treating it as organisation-wide eligibility", () => {
+    const steppe = DEMO_ORGANIZATIONS.find((item) => item.slug === "steppe-capital")!;
+    const presented = presentOnboardingReadiness(
+      explainOnboardingMarketReadinessForOrganization(steppe.id),
+    );
+    expect(presented.hasParticipant).toBe(true);
+    expect(presented.hasAssessment).toBe(true);
+    expect(presented.eligibilityStateKey).toBe("stateEligible");
+    expect(presented.instrumentSymbol).toBe("WHEAT-2027");
+    expect(presented.onboardingDoesNotGrantEligibilityKey).toBe(
+      "onboardingDoesNotGrantEligibility",
+    );
+  });
+
+  it("does not hardcode the instrument symbol in the onboarding page", () => {
+    const source = readFileSync("src/app/onboarding/page.tsx", "utf8");
+    expect(source).not.toContain("WHEAT-2027");
+    expect(source).toContain("instrumentSymbol");
+    expect(source).toContain("columnInstrument");
   });
 });
 

@@ -5,7 +5,6 @@ import {
   ELIGIBILITY_REASON_CODES,
   ELIGIBILITY_STATES,
   explainEligibility,
-  explainOnboardingMarketReadiness,
   explanationAllowsTrade,
   type EligibilityExplanation,
   type EligibilityAssessment,
@@ -17,7 +16,7 @@ import {
   shippedEligibilityRegistryInput,
 } from "@/data/market-core/catalog";
 import { DEMO_ORGANIZATIONS, demoMembershipForPersona } from "@/data/identity/demo-catalog";
-import { explainInstrumentEligibility } from "@/services/market-core-service";
+import { explainInstrumentEligibility, explainOnboardingMarketReadinessForOrganization } from "@/services/market-core-service";
 import en from "../../../messages/en.json";
 import ru from "../../../messages/ru.json";
 import kk from "../../../messages/kk.json";
@@ -42,6 +41,7 @@ import {
   presentNewOrderAdmission,
   presentOnboardingReadiness,
   showAssessmentAttribution,
+  eligibilityAttributionFields,
 } from "./eligibility-presentation";
 
 const registry = shippedEligibilityRegistryInput();
@@ -444,25 +444,41 @@ describe("presentNewOrderAdmission", () => {
 
 describe("presentOnboardingReadiness", () => {
   it("does not treat organisation membership as instrument eligibility", () => {
-    const readiness = explainOnboardingMarketReadiness({
-      organizationId: issuerOrg.id,
-      instrumentId: WHEAT_INSTRUMENT_ID,
-      organizations: registry.organizations,
-      memberships: registry.memberships,
-      participants: registry.participants,
-      assessments: registry.assessments,
-      eligibility: registry.eligibility,
-      instruments: registry.instruments,
-    });
-    const presented = presentOnboardingReadiness(readiness);
+    const presented = presentOnboardingReadiness(
+      explainOnboardingMarketReadinessForOrganization(issuerOrg.id),
+    );
     expect(presented.hasOrganization).toBe(true);
     expect(presented.hasMembership).toBe(true);
     expect(presented.hasParticipant).toBe(false);
     expect(presented.hasAssessment).toBe(false);
     expect(presented.eligibilityStateKey).toBe("stateNotAssessed");
+    expect(presented.instrumentId).toBe(WHEAT_INSTRUMENT_ID);
+    expect(presented.instrumentSymbol).toBe("WHEAT-2027");
     expect(presented.onboardingDoesNotGrantEligibilityKey).toBe(
       "onboardingDoesNotGrantEligibility",
     );
+  });
+});
+
+describe("eligibilityAttributionFields", () => {
+  it("uses distinct field labels and recorded/not-recorded values", () => {
+    const assessed = presentEligibilityExplanation(
+      explainInstrumentEligibility("INVESTOR-0001", WHEAT_INSTRUMENT_ID),
+    );
+    const fields = eligibilityAttributionFields(assessed);
+    expect(fields).not.toBeNull();
+    expect(fields?.membership.labelKey).toBe("membershipField");
+    expect(fields?.membership.valueKey).toBe("fieldRecorded");
+    expect(fields?.assessment.labelKey).toBe("assessmentField");
+    expect(fields?.assessment.valueKey).toBe("fieldRecorded");
+    expect(fields?.membership.labelKey).not.toBe(fields?.membership.valueKey);
+    expect(fields?.assessment.labelKey).not.toBe(fields?.assessment.valueKey);
+
+    const unassessed = presentEligibilityExplanation(
+      explainInstrumentEligibility("COMMODITY-DESK", WHEAT_INSTRUMENT_ID),
+    );
+    expect(eligibilityAttributionFields(unassessed)).toBeNull();
+    expect(showAssessmentAttribution(unassessed)).toBe(false);
   });
 });
 

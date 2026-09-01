@@ -20,6 +20,7 @@ import type { AppLocale } from "@/i18n/config";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { formatTimestamp } from "@/lib/format";
 import {
+  eligibilityAttributionFields,
   presentEligibilityExplanation,
   showAssessmentAttribution,
 } from "@/lib/market-core/eligibility-presentation";
@@ -55,14 +56,22 @@ export async function InstrumentEligibilityTable({
                 key={`${row.participantReference}-${row.instrumentId}`}
                 index={deskIndex(index)}
                 kicker={row.participantName}
-                title={label}
+                title={
+                  row.instrumentHref ? (
+                    <Link href={row.instrumentHref} className="text-primary hover:underline">
+                      {label}
+                    </Link>
+                  ) : (
+                    label
+                  )
+                }
                 value={
                   <MarketStatusChip
                     label={lookupMessage(t, presented.stateKey)}
                     tone={presented.tone}
                   />
                 }
-                hint={
+                block={
                   <EligibilityRowExplanation
                     row={row}
                     presented={presented}
@@ -129,7 +138,7 @@ export async function InstrumentEligibilityTable({
   );
 }
 
-function EligibilityRowExplanation({
+export function EligibilityRowExplanation({
   row,
   presented,
   t,
@@ -141,7 +150,8 @@ function EligibilityRowExplanation({
   locale: AppLocale;
 }) {
   const items: { label: string; value: string }[] = [];
-  if (showAssessmentAttribution(presented)) {
+  const attribution = eligibilityAttributionFields(presented);
+  if (attribution) {
     items.push({
       label: t("organizationRelationship"),
       value: presented.organizationRecorded
@@ -149,14 +159,12 @@ function EligibilityRowExplanation({
         : lookupMessage(t, "organizationMissing"),
     });
     items.push({
-      label: t("membershipRecorded"),
-      value: presented.membershipRecorded
-        ? lookupMessage(t, "membershipRecorded")
-        : lookupMessage(t, "membershipMissing"),
+      label: lookupMessage(t, attribution.membership.labelKey),
+      value: lookupMessage(t, attribution.membership.valueKey),
     });
     items.push({
-      label: t("assessmentRecorded"),
-      value: lookupMessage(t, "assessmentRecorded"),
+      label: lookupMessage(t, attribution.assessment.labelKey),
+      value: lookupMessage(t, attribution.assessment.valueKey),
     });
     if (presented.authorityKey) {
       items.push({
