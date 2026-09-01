@@ -6,7 +6,17 @@ alwaysApply: false
 
 # Surface files
 
-- Tokens live in `src/app/globals.css`. Typography: Unbounded display, Geologica body, JetBrains Mono figures. Subsets must include `cyrillic` and `cyrillic-ext`.
-- Motion: CSS only, no `transition: all`, honor `prefers-reduced-motion`. Loaders and empty states use `public/media/` photography.
-- New copy in `messages/en.json`, `messages/kk.json`, and `messages/ru.json` together. Locale codes are `kk` | `ru` | `en`.
-- Reuse `@/components/ui/*`. Guest `/` is `data-surface="flush"`. Prefer `next/image`.
+Design and product authority is `DESIGN.md` and `PRODUCT.md`. Tokens live in
+`src/app/globals.css`; derive from the existing variables rather than introducing a parallel
+palette.
+
+- **Locales.** New copy ships in `messages/en.json`, `messages/ru.json` and `messages/kk.json`
+  together, at identical key set and ordering. Locale codes are `kk` | `ru` | `en`. Never render a
+  canonical internal English record directly to a user; select a localized message and fail closed.
+- **Accessibility.** Localized alt text on meaningful imagery, empty `alt` on decorative. Visible
+  focus on every interactive element. Status is never colour alone.
+- **Motion.** CSS only. No `transition: all`. Honour `prefers-reduced-motion: reduce`.
+- **Components.** Reuse `@/components/ui/*` and the existing shared and surface primitives. Do not
+  fork a second button, table or layout system, and do not add a parallel UI tree.
+- **Responsive.** Wide content scrolls inside its own container; the page body never scrolls
+  horizontally. Prefer `next/image`.
