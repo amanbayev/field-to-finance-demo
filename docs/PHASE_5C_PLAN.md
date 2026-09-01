@@ -123,17 +123,43 @@ page rather than in global navigation.
 hierarchy spine do not yet declare a level. Acceptance criteria 1 and 3 are therefore only
 partially met until 5C.2B.
 
-#### 5C.2B — Unified route/navigation authorization and F2F module containment *(not started)*
+#### 5C.2B — Unified route/navigation authorization and F2F module containment *(implemented)*
 
-- A shared route/navigation registry carrying href, hierarchy level, permission predicate **and
-  organisation-type predicate**, consumed both by navigation and by route guards. Today
-  `src/lib/auth/nav.ts` and each page's `requirePermission` call are two independent declarations
-  that happen to agree; organisation-type guards such as `requireScasVerifier` are not
-  expressible in the navigation vocabulary at all.
-- Role-adaptive paths for Producer, Investor, Registrar, Compliance, Regulator and Admin.
-- Agriculture modules reachable only through the Field to Finance protocol context, with
-  redirects rather than deletions.
-- A navigation × route-access regression matrix.
+- **Typed route registry** (`src/lib/navigation/route-registry.ts`) is the single source of
+  navigation metadata: stable route id, localized label key, static href or documented dynamic
+  pattern, hierarchy level, placement, group, and a visibility rule carrying permission clauses
+  **and an organisation-type clause**. Entries are a discriminated union on `scope`:
+  `PLATFORM` (protocol-neutral) or `PROTOCOL_MODULE` (owned by exactly one protocol).
+- **Visibility is not authorization.** `src/lib/navigation/policy.ts` holds pure selectors that
+  decide which destinations are *offered*. Whether a request is *allowed* remains the job of the
+  unchanged guards in `src/lib/auth/guard.ts`. Hiding a link neither grants nor denies access.
+- The organisation-type clause closes the 5C.2A gap: guards such as `requireScasVerifier`,
+  `requireRegistrarIntake` and `requireIssuerOperator` check `organization.type` in addition to
+  permissions, which the old navigation vocabulary could not express. An ISSUER holding the same
+  permission pair as a REGISTRAR no longer sees registrar intake.
+- `src/lib/auth/nav.ts` is now a thin adapter over the registry, so **desktop and mobile
+  navigation share one policy source**.
+- **Protocol-specific containment.** Agriculture modules (fields, contracts, SCAS verification and
+  attestation, matching, monitoring, documents, finance, pools, coverage, backing, issuer DACs,
+  registrar intake, primary placements) are `PROTOCOL_MODULE` entries owned by `F2F`. They are
+  rendered under a Field to Finance section and **never as global platform items**. No route was
+  moved, renamed or deleted, so URLs and bookmarks are unchanged, and each route keeps its own
+  guard. Producer, SCAS, issuer and registrar workflows retain every destination they need.
+- **Off-spine hierarchy.** `protocolModuleTrail` gives operational module screens
+  (`/fields`, `/pools`, `/coverage`, `/scas`, `/backing`) a truthful
+  `Commodity Chain → Protocols → Protocol → Module` trail. It is generic: the protocol record is
+  supplied by the caller, and protocol steps are omitted when the record is absent.
+- **Navigation × access matrix** (`src/lib/navigation/navigation-access.test.ts`) drives the
+  production selectors and the real registry — no test-only reimplementation. It covers every
+  canonical demo persona, platform-global navigation, F2F context, a non-agriculture context,
+  the unauthenticated state, a missing protocol context, the organisation-type rejection case,
+  and asserts no persona gains a destination its rule denies.
+
+**Still deferred.** A fully automated *navigation ⊆ route-guard* cross-check would require the
+async server guards to expose a pure predicate; the registry mirrors the guard predicates by
+construction and the organisation-type case is pinned by test, but the two are not yet derived
+from one shared function. Hierarchy context on non-module platform screens
+(`/registry`, `/clearing`, `/participants`, `/supervision`, `/audit`) also remains open.
 
 **Acceptance criteria (whole of 5C.2)**
 

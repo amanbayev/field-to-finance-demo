@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { AttestationQueue } from "@/components/scas/attestation-queue";
 import { IssuanceGate } from "@/components/scas/issuance-gate";
 import { DataList } from "@/components/shared/data-list";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
@@ -31,6 +31,8 @@ import { formatInteger, formatScore } from "@/lib/format";
 import { stageMediaForRole } from "@/lib/surface/role-media";
 import { getScasSnapshot } from "@/services/scas-service";
 import { requirePermission } from "@/lib/auth/guard";
+import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { getAssetProtocol } from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("workspace");
@@ -49,9 +51,20 @@ export default async function ScasPage() {
   const coverage = wheatPoolCoverageFromEngine();
   const media = stageMediaForRole("SCAS_OPERATOR");
 
+  // Protocol context for this module, from the registry record.
+
+  const f2fProtocol = getAssetProtocol("F2F") ?? null;
+
+  const tNav = await getTranslations("nav");
+  const tCoreNav = await getTranslations("marketCore");
+
+
   return (
     <div>
-      <PageHeader
+      <MarketCoreContextHeader
+        level="PROTOCOL"
+        trail={protocolModuleTrail(f2fProtocol, tNav("attestation"))}
+        translate={tCoreNav}
         eyebrow={t("eyebrow")}
         title={tWorkspace("attestationTitle")}
         description={t("description")}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { CoverageConsole } from "@/components/coverage/coverage-console";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { PageSection } from "@/components/shared/page-section";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
@@ -25,6 +25,8 @@ import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { ON_CHAIN_DEMO_POOL_ID } from "@/adapters/blockchain";
 import { requireAllPermissions } from "@/lib/auth/guard";
+import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { getAssetProtocol } from "@/services/market-core-service";
 import { listContracts } from "@/services/contract-service";
 import { getPool, poolMembershipForContract } from "@/services/pool-service";
 
@@ -43,9 +45,20 @@ export default async function BackingPage() {
   const pool = getPool(ON_CHAIN_DEMO_POOL_ID);
   const contracts = listContracts();
 
+  // Protocol context for this module, from the registry record.
+
+  const f2fProtocol = getAssetProtocol("F2F") ?? null;
+
+  const tNav = await getTranslations("nav");
+  const tCoreNav = await getTranslations("marketCore");
+
+
   return (
     <div>
-      <PageHeader
+      <MarketCoreContextHeader
+        level="PROTOCOL"
+        trail={protocolModuleTrail(f2fProtocol, tNav("backing"))}
+        translate={tCoreNav}
         eyebrow={t("backingEyebrow")}
         title={t("backingTitle")}
         description={t("backingIntro")}

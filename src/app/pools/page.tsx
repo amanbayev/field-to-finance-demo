@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
 import {
@@ -23,6 +23,8 @@ import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { getPool, listPoolIds, type PoolDetail } from "@/services/pool-service";
 import { requirePermission } from "@/lib/auth/guard";
+import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { getAssetProtocol } from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pools");
@@ -39,9 +41,20 @@ export default async function PoolsPage() {
     .map((id) => getPool(id))
     .filter((pool): pool is PoolDetail => pool !== undefined);
 
+  // Protocol context for this module, from the registry record.
+
+  const f2fProtocol = getAssetProtocol("F2F") ?? null;
+
+  const tNav = await getTranslations("nav");
+  const tCoreNav = await getTranslations("marketCore");
+
+
   return (
     <div>
-      <PageHeader
+      <MarketCoreContextHeader
+        level="PROTOCOL"
+        trail={protocolModuleTrail(f2fProtocol, tNav("pools"))}
+        translate={tCoreNav}
         eyebrow={t("eyebrow")}
         title={t("title")}
         description={t("description")}

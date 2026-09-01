@@ -23,8 +23,13 @@ export function MarketCoreContextHeader({
   description,
   translate,
   photo,
+  photoAlt,
+  photoPosition,
+  kenBurnsOrigin,
+  asOfLabel,
   figure,
   eyebrow,
+  className,
 }: {
   level: HierarchyLevel;
   trail: HierarchyCrumb[];
@@ -33,7 +38,12 @@ export function MarketCoreContextHeader({
   /** `useTranslations`/`getTranslations` scope holding the marketCore keys. */
   translate: (key: never) => string;
   photo?: string;
+  photoAlt?: string;
+  photoPosition?: string;
+  kenBurnsOrigin?: "center" | "left" | "right" | "bottom";
+  asOfLabel?: string;
   figure?: ReactNode;
+  className?: string;
   /** Overrides the level label when a screen needs a more specific eyebrow. */
   eyebrow?: string;
 }) {
@@ -55,7 +65,12 @@ export function MarketCoreContextHeader({
         title={title}
         description={description}
         photo={photo}
+        photoAlt={photoAlt}
+        photoPosition={photoPosition}
+        kenBurnsOrigin={kenBurnsOrigin}
+        asOfLabel={asOfLabel}
         figure={figure}
+        className={className}
       />
     </>
   );

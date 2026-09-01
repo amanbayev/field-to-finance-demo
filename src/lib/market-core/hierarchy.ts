@@ -245,3 +245,27 @@ export function marketTrail(
     { level: "MARKET", labelKey: marketLabelKey },
   ];
 }
+
+/**
+ * Trail for an operational screen that belongs to one protocol's module set.
+ *
+ * Generic: the protocol record is supplied by the caller, so no protocol id is
+ * hardcoded here. The protocol steps are omitted when the record is absent.
+ */
+export function protocolModuleTrail(
+  protocol: AssetProtocol | null,
+  /** Already-localized module name; the caller owns its message namespace. */
+  moduleLabel: string,
+): HierarchyCrumb[] {
+  const trail: HierarchyCrumb[] = [platformCrumb(platformHref())];
+  if (protocol) {
+    trail.push(protocolsCrumb(protocolsHref()));
+    trail.push({
+      level: "PROTOCOL",
+      href: protocolHref(protocol.id),
+      label: protocol.name,
+    });
+  }
+  trail.push({ level: "PROTOCOL", label: moduleLabel });
+  return trail;
+}

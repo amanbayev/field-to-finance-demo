@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/shared/page-section";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { DeskFigure, DeskLedger, DeskRow, deskIndex } from "@/components/surface/desk-stage";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { AppLocale } from "@/i18n/config";
 import { formatNumber } from "@/lib/format";
 import { requireOwnProducerWorkspace } from "@/lib/auth/guard";
+import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { getAssetProtocol } from "@/services/market-core-service";
 import { originationService } from "@/services/origination-service";
 import {
   PRODUCER_FIELD_FILTERS,
@@ -57,9 +59,20 @@ export default async function FieldsPage({
   }
   const hectares = fields.reduce((sum, field) => sum + (field.declared.declaredAreaHa ?? 0), 0);
 
+  // Protocol context for this module, from the registry record.
+
+  const f2fProtocol = getAssetProtocol("F2F") ?? null;
+
+  const tNav = await getTranslations("nav");
+  const tCoreNav = await getTranslations("marketCore");
+
+
   return (
     <div>
-      <PageHeader
+      <MarketCoreContextHeader
+        level="PROTOCOL"
+        trail={protocolModuleTrail(f2fProtocol, tNav("myFields"))}
+        translate={tCoreNav}
         eyebrow={t("fieldsEyebrow")}
         title={t("fieldsTitle")}
         description={t("fieldsIntro")}
