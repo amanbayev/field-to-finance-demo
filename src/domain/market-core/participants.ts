@@ -29,3 +29,20 @@ export function participantIdFromInvestorRef(
   }
   return participantIdForOrganizationSlug(organizationSlug);
 }
+
+/**
+ * Trading participant identity belongs to the organisation. Multiple active
+ * members of one trading organisation may resolve to this same reference.
+ * Issuer organisations have no trading participant identity in this slice.
+ */
+export function participantIdForActor(actor: {
+  effective: {
+    investorReference?: string | null;
+    organization?: { slug: string } | undefined;
+  };
+}): string | null {
+  return participantIdFromInvestorRef(
+    actor.effective.investorReference,
+    actor.effective.organization?.slug,
+  );
+}

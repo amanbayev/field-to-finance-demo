@@ -4,6 +4,7 @@ import {
   producerIdsForOrganization,
   investorReferenceFor,
 } from "./scope";
+import { demoMembershipForPersona } from "@/data/identity/demo-catalog";
 import type {
   ActorContext,
   ActorPrincipal,
@@ -104,10 +105,15 @@ export function buildEffectiveFromMembership(
   principal: ActorPrincipal,
 ): EffectiveActor {
   const roleId: PlatformRoleId = principal.roleIds[0] ?? "INVESTOR";
+  const membershipId =
+    principal.memberships.find(
+      (item) => item.organizationId === principal.organization?.id,
+    )?.id ?? null;
   return {
     roleId,
     permissions: principal.permissions,
     organization: principal.organization,
+    membershipId,
     producerIds: producerIdsForOrganization(principal.organization),
     investorReference: investorReferenceFor(principal.organization),
     personaId: null,
@@ -128,6 +134,7 @@ export function buildEffectiveFromPersona(
     roleId: persona.roleId,
     permissions: permissionsForRole(persona.roleId),
     organization,
+    membershipId: demoMembershipForPersona(persona.id)?.id ?? null,
     producerIds: producerIdsForOrganization(organization, persona),
     investorReference: investorReferenceFor(organization, persona),
     walletAddress: persona.walletAddress,

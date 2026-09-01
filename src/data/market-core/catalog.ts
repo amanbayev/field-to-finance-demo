@@ -1,14 +1,19 @@
 import {
   LEGAL_OPERATOR,
   availableBalance,
+  freezeEligibilityAssessmentRegistry,
+  freezeEligibilityMatrix,
+  freezeMarketParticipantRegistry,
   freezeProtocolVersionRegistry,
   type AdmissionStage,
   type AssetProtocol,
   type CustodyProviderAdapter,
   type DistributionChannelRecord,
+  type EligibilityAssessment,
   type Holding,
   type Market,
   type MarketInstrument,
+  type MarketParticipantRecord,
   type ParticipantInstrumentEligibility,
   type ProtocolInvestmentVehicle,
   type ProtocolVersion,
@@ -17,6 +22,11 @@ import {
   type Trade,
 } from "@/domain/market-core";
 import { tokens } from "@/data/mock/tokens";
+import {
+  DEMO_MEMBERSHIPS,
+  DEMO_ORGANIZATIONS,
+  demoMembershipForPersona,
+} from "@/data/identity/demo-catalog";
 
 const wheat = tokens[0]!;
 
@@ -291,44 +301,157 @@ export const holdings: Holding[] = [
   },
 ];
 
-export const eligibilityMatrix: ParticipantInstrumentEligibility[] = [
-  {
-    participantReference: "INVESTOR-0001",
-    participantName: "Steppe Capital",
-    instrumentId: WHEAT_INSTRUMENT_ID,
-    state: "ELIGIBLE",
-  },
-  {
-    participantReference: "INVESTOR-0001",
-    participantName: "Steppe Capital",
-    instrumentId: "WATER-FUTURE",
-    state: "NOT_ASSESSED",
-  },
-  {
-    participantReference: "INVESTOR-0001",
-    participantName: "Steppe Capital",
-    instrumentId: F2F_PROTOCOL_INVESTMENT_ID,
-    state: "NOT_ASSESSED",
-  },
-  {
-    participantReference: "GRAIN-DESK",
-    participantName: "Grain Desk",
-    instrumentId: WHEAT_INSTRUMENT_ID,
-    state: "ELIGIBLE",
-  },
-  {
-    participantReference: "COMMODITY-DESK",
-    participantName: "Commodity Desk",
-    instrumentId: WHEAT_INSTRUMENT_ID,
-    state: "NOT_ASSESSED",
-  },
-  {
-    participantReference: "RETAIL-PLACEHOLDER",
-    participantName: "Retail investor (future channel)",
-    instrumentId: WHEAT_INSTRUMENT_ID,
-    state: "POLICY_PENDING",
-  },
-];
+function demoOrgId(slug: string): string {
+  const organization = DEMO_ORGANIZATIONS.find((item) => item.slug === slug);
+  if (!organization) {
+    throw new Error(`Demo organization ${slug} is missing.`);
+  }
+  return organization.id;
+}
+
+const STEPPE_ORGANIZATION_ID = demoOrgId("steppe-capital");
+const GRAIN_ORGANIZATION_ID = demoOrgId("grain-desk");
+const COMMODITY_ORGANIZATION_ID = demoOrgId("commodity-desk");
+const REGISTRAR_ORGANIZATION_ID = demoOrgId("agricultural-registrar");
+const STEPPE_MEMBERSHIP_ID = demoMembershipForPersona("DEMO-FUND-001")!.id;
+const GRAIN_MEMBERSHIP_ID = demoMembershipForPersona("DEMO-TRADER-001")!.id;
+
+export const DEMO_EAS_STEPPE_WHEAT_001 = "DEMO-EAS-STEPPE-WHEAT-001";
+export const DEMO_EAS_GRAIN_WHEAT_001 = "DEMO-EAS-GRAIN-WHEAT-001";
+
+/**
+ * Recorded participant × instrument assessments. One assessment governs one
+ * pair. `recordedAt` is null: no assessment event date is claimed.
+ */
+export const eligibilityAssessments: readonly EligibilityAssessment[] =
+  freezeEligibilityAssessmentRegistry([
+    {
+      id: DEMO_EAS_STEPPE_WHEAT_001,
+      participantReference: "INVESTOR-0001",
+      instrumentId: WHEAT_INSTRUMENT_ID,
+      organizationId: STEPPE_ORGANIZATION_ID,
+      membershipId: STEPPE_MEMBERSHIP_ID,
+      authorityRole: "COMPLIANCE_OFFICER",
+      state: "ELIGIBLE",
+      reasonCode: "DEMO_RECORDED_ELIGIBLE",
+      evidenceRefs: [],
+      recordedAt: null,
+    },
+    {
+      id: DEMO_EAS_GRAIN_WHEAT_001,
+      participantReference: "GRAIN-DESK",
+      instrumentId: WHEAT_INSTRUMENT_ID,
+      organizationId: GRAIN_ORGANIZATION_ID,
+      membershipId: GRAIN_MEMBERSHIP_ID,
+      authorityRole: "COMPLIANCE_OFFICER",
+      state: "ELIGIBLE",
+      reasonCode: "DEMO_RECORDED_ELIGIBLE",
+      evidenceRefs: [],
+      recordedAt: null,
+    },
+  ]);
+
+/**
+ * Organisation-owned market participants. RETAIL-PLACEHOLDER is not admitted.
+ * Issuer has no trading participant identity in this slice.
+ */
+export const marketParticipants: readonly MarketParticipantRecord[] =
+  freezeMarketParticipantRegistry([
+    {
+      participantReference: "INVESTOR-0001",
+      name: "Steppe Capital",
+      organizationId: STEPPE_ORGANIZATION_ID,
+      kind: "ORGANIZATION",
+    },
+    {
+      participantReference: "GRAIN-DESK",
+      name: "Grain Desk",
+      organizationId: GRAIN_ORGANIZATION_ID,
+      kind: "ORGANIZATION",
+    },
+    {
+      participantReference: "COMMODITY-DESK",
+      name: "Commodity Desk",
+      organizationId: COMMODITY_ORGANIZATION_ID,
+      kind: "ORGANIZATION",
+    },
+    {
+      participantReference: "REGISTRAR",
+      name: "Agricultural Registrar",
+      organizationId: REGISTRAR_ORGANIZATION_ID,
+      kind: "ORGANIZATION",
+    },
+    {
+      participantReference: "RETAIL-PLACEHOLDER",
+      name: "Retail investor (future channel)",
+      organizationId: null,
+      kind: "PLACEHOLDER",
+    },
+  ]);
+
+/**
+ * WATER-FUTURE, protocol investment, Commodity Desk, and the retail placeholder
+ * remain outside recorded assessed eligibility. Missing assessed attribution is
+ * honest: those rows are not invented assessments.
+ */
+export const eligibilityMatrix: readonly ParticipantInstrumentEligibility[] =
+  freezeEligibilityMatrix([
+    {
+      participantReference: "INVESTOR-0001",
+      participantName: "Steppe Capital",
+      instrumentId: WHEAT_INSTRUMENT_ID,
+      state: "ELIGIBLE",
+      organizationId: STEPPE_ORGANIZATION_ID,
+      membershipId: STEPPE_MEMBERSHIP_ID,
+      assessmentId: DEMO_EAS_STEPPE_WHEAT_001,
+      reasonCode: "DEMO_RECORDED_ELIGIBLE",
+    },
+    {
+      participantReference: "INVESTOR-0001",
+      participantName: "Steppe Capital",
+      instrumentId: "WATER-FUTURE",
+      state: "NOT_ASSESSED",
+    },
+    {
+      participantReference: "INVESTOR-0001",
+      participantName: "Steppe Capital",
+      instrumentId: F2F_PROTOCOL_INVESTMENT_ID,
+      state: "NOT_ASSESSED",
+    },
+    {
+      participantReference: "GRAIN-DESK",
+      participantName: "Grain Desk",
+      instrumentId: WHEAT_INSTRUMENT_ID,
+      state: "ELIGIBLE",
+      organizationId: GRAIN_ORGANIZATION_ID,
+      membershipId: GRAIN_MEMBERSHIP_ID,
+      assessmentId: DEMO_EAS_GRAIN_WHEAT_001,
+      reasonCode: "DEMO_RECORDED_ELIGIBLE",
+    },
+    {
+      participantReference: "COMMODITY-DESK",
+      participantName: "Commodity Desk",
+      instrumentId: WHEAT_INSTRUMENT_ID,
+      state: "NOT_ASSESSED",
+    },
+    {
+      participantReference: "RETAIL-PLACEHOLDER",
+      participantName: "Retail investor (future channel)",
+      instrumentId: WHEAT_INSTRUMENT_ID,
+      state: "POLICY_PENDING",
+    },
+  ]);
+
+export function shippedEligibilityRegistryInput() {
+  return {
+    assessments: eligibilityAssessments,
+    eligibility: eligibilityMatrix,
+    participants: marketParticipants,
+    instruments: marketInstruments,
+    organizations: DEMO_ORGANIZATIONS,
+    memberships: DEMO_MEMBERSHIPS,
+  };
+}
 
 export const distributionChannels: DistributionChannelRecord[] = [
   { channel: "DIRECT_MTP", active: true, routesToMarketCore: true },

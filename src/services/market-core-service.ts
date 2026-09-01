@@ -4,12 +4,16 @@ import {
   canTrade,
   currentVersionForProtocol,
   eligibilityFor,
+  explainEligibility,
   protocolVersionSummary,
   resolveGoverningProtocolVersion,
   resolveProtocolVersionContext,
+  validateEligibilityAssessmentRegistry,
   type AdmissionStage,
   type AssetProtocol,
+  type EligibilityExplanation,
   type MarketInstrument,
+  type MarketParticipantRecord,
   type ProtocolVersion,
   type ProtocolVersionContext,
   type ProtocolVersionRegistries,
@@ -17,6 +21,7 @@ import {
 import {
   assetProtocols,
   distributionChannels,
+  eligibilityAssessments,
   eligibilityMatrix,
   futureCustodyAdapters,
   futureSettlementAdapters,
@@ -25,11 +30,13 @@ import {
   instrumentsForProtocol,
   marketForInstrument,
   marketInstruments,
+  marketParticipants,
   markets,
   protocolById,
   protocolVehicles,
   protocolVersions,
   settlements,
+  shippedEligibilityRegistryInput,
   trades,
   versionById,
   versionsForProtocol,
@@ -193,6 +200,35 @@ export function listEligibility(participantReference?: string) {
     return eligibilityMatrix;
   }
   return eligibilityMatrix.filter((row) => row.participantReference === participantReference);
+}
+
+export function listEligibilityAssessments() {
+  return eligibilityAssessments;
+}
+
+export function listMarketParticipants(): readonly MarketParticipantRecord[] {
+  return marketParticipants;
+}
+
+export function explainInstrumentEligibility(
+  participantReference: string,
+  instrumentId: string,
+): EligibilityExplanation {
+  const registry = shippedEligibilityRegistryInput();
+  return explainEligibility({
+    participantReference,
+    instrumentId,
+    eligibility: registry.eligibility,
+    assessments: registry.assessments,
+    participants: registry.participants,
+    instruments: registry.instruments,
+    organizations: registry.organizations,
+    memberships: registry.memberships,
+  });
+}
+
+export function shippedEligibilityRegistryViolations() {
+  return validateEligibilityAssessmentRegistry(shippedEligibilityRegistryInput());
 }
 
 export function tradeDecision(participantReference: string, instrumentId: string) {

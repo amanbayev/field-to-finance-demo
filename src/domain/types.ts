@@ -29,6 +29,16 @@ export type RiskBand = "LOW_RISK" | "HIGH_RISK" | "PENDING";
 
 export type ScreeningResult = "CLEAR" | "HIT" | "PENDING";
 
+/**
+ * Phase 4 compliance screening status.
+ *
+ * Compliance screening status != participant × instrument eligibility.
+ * `APPROVED` / `BLOCKED` / `PENDING` are screening outcomes on Phase 4
+ * compliance records (`prd-*`, `inv-*`, …). They are not Market Core
+ * instrument eligibility (`ELIGIBLE` / `NOT_ELIGIBLE` / `NOT_ASSESSED` /
+ * `POLICY_PENDING`) and must not be mapped onto Market Core participant IDs
+ * such as `INVESTOR-0001`.
+ */
 export type ParticipantEligibility = "APPROVED" | "BLOCKED" | "PENDING";
 
 export type FinancingModule = "SECURED_LOAN" | "REPO";

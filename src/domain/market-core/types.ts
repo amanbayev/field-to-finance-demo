@@ -148,6 +148,40 @@ export const ELIGIBILITY_STATES = [
 
 export type InstrumentEligibilityState = (typeof ELIGIBILITY_STATES)[number];
 
+/**
+ * Known domain reason codes for participant × instrument assessments.
+ * This is a closed TypeScript catalog of currently recorded codes, not a
+ * state-specific semantic binding: future assessed-decision codes may be added
+ * without a 1:1 mapping from eligibility state. Codes are not localized UI copy
+ * and not message-catalog keys. They do not claim AFSA admission, legal
+ * approval, or regulatory permission.
+ */
+export const ELIGIBILITY_REASON_CODES = [
+  "DEMO_RECORDED_ELIGIBLE",
+  "DEMO_RECORDED_NOT_ELIGIBLE",
+] as const;
+
+export type EligibilityReasonCode = (typeof ELIGIBILITY_REASON_CODES)[number];
+
+export const ASSESSED_ELIGIBILITY_STATES = ["ELIGIBLE", "NOT_ELIGIBLE"] as const;
+
+export type AssessedEligibilityState = (typeof ASSESSED_ELIGIBILITY_STATES)[number];
+
+export const MARKET_PARTICIPANT_KINDS = ["ORGANIZATION", "PLACEHOLDER"] as const;
+
+export type MarketParticipantKind = (typeof MARKET_PARTICIPANT_KINDS)[number];
+
+/**
+ * Market Core trading participant. Identity belongs to the organisation, not
+ * to an individual user. PLACEHOLDER rows are not admitted participants.
+ */
+export interface MarketParticipantRecord {
+  readonly participantReference: string;
+  readonly name: string;
+  readonly organizationId: string | null;
+  readonly kind: MarketParticipantKind;
+}
+
 export const PROTOCOL_VERSION_STATES = [
   "DRAFT",
   "ACTIVE",
@@ -381,12 +415,41 @@ export interface Holding {
   available: number;
 }
 
+/**
+ * Participant × instrument eligibility. Assessed stored decisions (ELIGIBLE /
+ * NOT_ELIGIBLE) must carry organisation, membership, assessment, and reason-code
+ * attribution; those fields are required on `AssessedParticipantInstrumentEligibility`
+ * and must not be treated as optional there.
+ *
+ * Unassessed or placeholder rows may omit attribution rather than inventing an
+ * assessment. Missing rows resolve fail-closed to NOT_ASSESSED.
+ *
+ * Phase 4 compliance screening (`APPROVED` / `BLOCKED` / `PENDING`) is a
+ * separate product and type space. It is not Market Core instrument eligibility.
+ */
 export interface ParticipantInstrumentEligibility {
-  participantReference: string;
-  participantName: string;
-  instrumentId: string;
-  state: InstrumentEligibilityState;
+  readonly participantReference: string;
+  readonly participantName: string;
+  readonly instrumentId: string;
+  readonly state: InstrumentEligibilityState;
+  readonly organizationId?: string;
+  readonly membershipId?: string;
+  readonly assessmentId?: string;
+  readonly reasonCode?: EligibilityReasonCode;
 }
+
+/**
+ * Stored assessed eligibility decision. Attribution fields are required and
+ * not nullable. Do not use this type for NOT_ASSESSED or POLICY_PENDING
+ * placeholders.
+ */
+export type AssessedParticipantInstrumentEligibility = ParticipantInstrumentEligibility & {
+  readonly state: AssessedEligibilityState;
+  readonly organizationId: string;
+  readonly membershipId: string;
+  readonly assessmentId: string;
+  readonly reasonCode: EligibilityReasonCode;
+};
 
 export interface DistributionChannelRecord {
   channel: DistributionChannel;

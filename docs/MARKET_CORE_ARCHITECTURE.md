@@ -79,16 +79,40 @@ Platform stages from idea through secondary market admission are recorded for WH
 
 ## Eligibility
 
-Eligibility is **participant × instrument**, not a single ELIGIBLE flag.
+Eligibility is **participant × instrument**, not a single ELIGIBLE flag. There is no
+global organisation-level eligibility helper.
+
+Phase 5C.3A adds explainable assessments in TypeScript. A recorded assessment is one
+participant × instrument pair, attributed to an organisation and membership, assessed
+by `COMPLIANCE_OFFICER`. Stored `ELIGIBLE` / `NOT_ELIGIBLE` decisions carry those
+references and a stable domain reason code. `recordedAt` is null unless a real
+assessment timestamp exists; shipped fixtures claim none. This is not persisted by a
+Supabase migration.
+
+Onboarding approval is not eligibility: it creates membership and roles only.
+
+Phase 4 compliance screening (`APPROVED` / `BLOCKED` / `PENDING`) is a separate
+product. It is not Market Core instrument eligibility.
+
+TypeScript `actorMaySubmitOrder` is a fail-closed UX/server precheck for new-order
+admission (`canSubmit` / submit). Cancellation uses `actorMayCancelOrder`
+(authenticated trading identity and order ownership) and does not re-run current
+eligibility. `market_core_submit_limit_order` and `market_core_cancel_order` remain
+the final atomic authorization.
+
+Recorded `ELIGIBLE` / `NOT_ELIGIBLE` decisions carry organisation, membership,
+assessment and a reason code. `NOT_ASSESSED` means no assessment exists.
+`POLICY_PENDING` is a placeholder, not a completed assessment. Unassessed/pending
+presentation and lifecycle remain in 5C.3B.
 
 Current matrix:
 
-- Steppe Capital × WHEAT-2027 → ELIGIBLE (`canReceive` true, `canTrade` true on the DEMO LIMIT market)
-- Grain Desk × WHEAT-2027 → ELIGIBLE
-- Commodity Desk × WHEAT-2027 → NOT_ASSESSED
-- Steppe Capital × future water instrument → NOT_ASSESSED
+- Steppe Capital × WHEAT-2027 → ELIGIBLE (`canReceive` true, `canTrade` true on the DEMO LIMIT market), attributed through the Steppe organisation and demo membership
+- Grain Desk × WHEAT-2027 → ELIGIBLE, organisation-level participant
+- Commodity Desk × WHEAT-2027 → NOT_ASSESSED (no assessment; cannot submit)
+- Steppe Capital × future water instrument (`WATER-FUTURE`) → NOT_ASSESSED placeholder; not an issued instrument
 - Steppe Capital × protocol investment → NOT_ASSESSED (`canTrade` always false)
-- Retail placeholder × WHEAT-2027 → POLICY_PENDING
+- Retail placeholder × WHEAT-2027 → POLICY_PENDING, not an admitted participant
 
 Holdings: `available = owned − reserved − pledged − blocked`. Legal owned amounts do not change on match. Pending in/out are working fields only.
 
@@ -165,7 +189,7 @@ Asset Protocol → SPV / Issuer → Investment Instrument → Market Core
 - Registrar — backing, tokens, issuances, placements, registry, clearing, audit (no discretionary matching)
 - Regulator — read-only surveillance
 - Compliance officer — screening workspace
-- Admin — system workspace; unimpersonated admin has no participant id and cannot submit orders
+- Admin — system workspace; unimpersonated admin has no participant id, no `market.trade`, and cannot submit orders. Demo impersonation adopts the persona's effective identity.
 - Matching Engine — system logic, non-discretionary
 
 ### E. Screens inherited from Phase 4.5

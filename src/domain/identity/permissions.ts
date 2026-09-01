@@ -10,6 +10,7 @@ const ADMIN_EXCLUDED_OPERATIONAL: Permission[] = [
   "fields.manage.own",
   "fields.read.own",
   "fields.read.all",
+  "market.trade",
 ];
 
 const ROLE_PERMISSIONS: Record<PlatformRoleId, readonly Permission[]> = {

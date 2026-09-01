@@ -17,6 +17,8 @@ export type {
   MarketEvent,
   MarketEventType,
   MarketInstrument,
+  MarketParticipantKind,
+  MarketParticipantRecord,
   MarketPhase,
   Order,
   OrderReservation,
@@ -24,6 +26,9 @@ export type {
   OrderSourceChannel,
   OrderStatus,
   OrderType,
+  AssessedEligibilityState,
+  AssessedParticipantInstrumentEligibility,
+  EligibilityReasonCode,
   ParticipantInstrumentEligibility,
   ProtocolInvestmentModel,
   ProtocolInvestmentVehicle,
@@ -45,7 +50,10 @@ export {
   ASSET_CLASSES,
   CLEARING_STEPS,
   DISTRIBUTION_CHANNELS,
+  ELIGIBILITY_REASON_CODES,
   ELIGIBILITY_STATES,
+  ASSESSED_ELIGIBILITY_STATES,
+  MARKET_PARTICIPANT_KINDS,
   INSTRUMENT_SECTIONS,
   INSTRUMENT_STATUSES,
   INSTRUMENT_TYPES,
@@ -70,6 +78,38 @@ export {
   eligibilityFor,
   withAvailable,
 } from "./eligibility";
+export {
+  ELIGIBILITY_ASSESSMENT_AUTHORITY_ROLE,
+  ELIGIBILITY_EXPLANATION_GAPS,
+  ELIGIBILITY_EXPLANATION_INCONSISTENCIES,
+  ELIGIBILITY_REGISTRY_VIOLATIONS,
+  assertEligibilityAssessmentRegistry,
+  explainActorEligibility,
+  explainEligibility,
+  explainOnboardingMarketReadiness,
+  explanationAllowsTrade,
+  freezeEligibilityAssessment,
+  freezeEligibilityAssessmentRegistry,
+  freezeEligibilityMatrix,
+  freezeMarketParticipantRegistry,
+  freezeParticipantInstrumentEligibility,
+  isAssessedEligibilityDecision,
+  organizationOwnsParticipant,
+  organizationParticipantReference,
+  validateEligibilityAssessmentRegistry,
+} from "./eligibility-assessment";
+export type {
+  EligibilityAssessment,
+  EligibilityAssessmentId,
+  EligibilityAttribution,
+  EligibilityExplanation,
+  EligibilityExplanationGap,
+  EligibilityExplanationInconsistency,
+  EligibilityExplanationInput,
+  EligibilityRegistryInput,
+  EligibilityRegistryViolation,
+  EligibilityRegistryViolationCode,
+} from "./eligibility-assessment";
 export {
   IMMUTABLE_PROTOCOL_VERSION_BINDING_RULE,
   PROTOCOL_CURRENT_VERSION_VIOLATIONS,
@@ -135,6 +175,7 @@ export {
   REGISTRAR_ID,
   STEPPE_CAPITAL_ID,
   WHEAT_DEMO_MARKET_ID,
+  participantIdForActor,
   participantIdForOrganizationSlug,
   participantIdFromInvestorRef,
 } from "./participants";
@@ -165,6 +206,16 @@ export {
   roleMayDirectMatching,
   roleMayReadAllMarketRecords,
 } from "./actor-gate";
+export {
+  ORDER_CANCELLATION_AUTHORIZATION,
+  TRADE_ADMISSION_AUTHORIZATION,
+  actorHasAuthenticatedTradingIdentity,
+  actorMayCancelOrder,
+  actorMayRequestOrderCancellation,
+  actorMaySubmitOrder,
+  orderIsCancellable,
+} from "./trade-admission";
+export type { OrderCancellationInput, TradeAdmissionInput } from "./trade-admission";
 export {
   PRIMARY_DVP_INSTRUCTION,
   SECONDARY_DVP_AUDIT,
