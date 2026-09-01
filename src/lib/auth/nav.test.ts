@@ -9,7 +9,7 @@ import {
   demoPersonaById,
   organizationById,
 } from "@/data/identity/demo-catalog";
-import { visibleNavHrefs, visibleNavKeys } from "@/lib/auth/nav";
+import { navGroupsForActor, visibleNavHrefs, visibleNavKeys } from "@/lib/auth/nav";
 
 const platform = DEMO_ORGANIZATIONS.find((o) => o.slug === "field-to-finance")!;
 
@@ -70,6 +70,41 @@ function hrefsOf(personaId: string) {
   return visibleNavHrefs(asPersona(personaId));
 }
 
+function groupsOf(personaId: string) {
+  return navGroupsForActor(asPersona(personaId));
+}
+
+function platformHrefs(personaId: string) {
+  return groupsOf(personaId)
+    .filter((group) => !group.protocolId)
+    .flatMap((group) => group.items.map((item) => item.href));
+}
+
+function protocolHrefs(personaId: string, protocolId: string) {
+  return groupsOf(personaId)
+    .filter((group) => group.protocolId === protocolId)
+    .flatMap((group) => group.items.map((item) => item.href));
+}
+
+/** Agriculture routes that must never appear as global platform destinations. */
+const AGRICULTURE_PATHS = [
+  "/fields",
+  "/contracts",
+  "/pools",
+  "/coverage",
+  "/backing",
+  "/monitoring",
+  "/documents",
+  "/finance",
+  "/scas",
+  "/scas/verification",
+  "/scas/dacs",
+  "/scas/matching",
+  "/scas/monitoring",
+  "/issuer/dacs",
+  "/registrar/intake",
+];
+
 describe("effective navigation", () => {
   it("hides operational routes from the SYSTEM_ADMIN principal", () => {
     const actor = resolveActorContext({
@@ -90,122 +125,91 @@ describe("effective navigation", () => {
     ]);
   });
 
-  it("farmer nav is producer-scoped", () => {
-    expect(keysOf("DEMO-FARM-001")).toEqual([
-      "dashboard",
-      "myFields",
-      "myContracts",
-      "monitoring",
-      "documents",
-      "finance",
-    ]);
-    expect(hrefsOf("DEMO-FARM-001")).toEqual([
-      "/",
+  it("contains the producer workflow inside Field to Finance context", () => {
+    // The producer keeps every destination their workflow needs, but those
+    // destinations are no longer global platform items.
+    expect(platformHrefs("DEMO-FARM-001")).toEqual(["/"]);
+    expect(protocolHrefs("DEMO-FARM-001", "F2F")).toEqual([
       "/fields",
       "/contracts",
       "/monitoring",
       "/documents",
       "/finance",
     ]);
-    expect(hrefsOf("DEMO-FARM-001")).not.toContain("/pools");
     expect(hrefsOf("DEMO-FARM-001")).not.toContain("/regulator");
   });
 
-  it("SCAS nav uses dedicated monitoring and coverage", () => {
-    expect(keysOf("DEMO-SCAS-001")).toEqual([
-      "dashboard",
-      "verification",
-      "scasDacs",
-      "attestation",
-      "matching",
-      "scasMonitoring",
-      "contracts",
-      "pools",
-      "coverage",
+  it("contains SCAS verification inside Field to Finance context", () => {
+    expect(platformHrefs("DEMO-SCAS-001")).toEqual(["/", "/instruments"]);
+    expect(protocolHrefs("DEMO-SCAS-001", "F2F")).toEqual([
+      "/contracts",
+      "/scas/verification",
+      "/scas/dacs",
+      "/scas",
+      "/scas/matching",
+      "/scas/monitoring",
+      "/pools",
+      "/coverage",
     ]);
-    expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/verification");
-    expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/dacs");
-    expect(hrefsOf("DEMO-SCAS-001")).toContain("/scas/monitoring");
-    expect(hrefsOf("DEMO-SCAS-001")).toContain("/coverage");
-    expect(hrefsOf("DEMO-SCAS-001")).not.toContain("/pools/POOL-WHEAT-2027-01");
   });
 
-  it("issuer nav points instrument and issuance to distinct routes", () => {
-    expect(keysOf("DEMO-ISSUER-001")).toEqual([
-      "dashboard",
-      "issuerDacs",
-      "contracts",
-      "pools",
-      "coverage",
-      "wheat2027",
-      "iss001",
-      "primaryPlacements",
-    ]);
-    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/issuer/dacs");
-    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/instruments/WHEAT-2027");
-    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/issuances/ISS-001");
-    expect(hrefsOf("DEMO-ISSUER-001")).toContain("/placements");
-    expect(hrefsOf("DEMO-ISSUER-001")).not.toContain("/ownership");
-    expect(hrefsOf("DEMO-ISSUER-001")).not.toContain("/markets");
-  });
-
-  it("registrar nav is registry-scoped", () => {
-    expect(keysOf("DEMO-REGISTRAR-001")).toEqual([
-      "dashboard",
-      "markets",
-      "backing",
-      "tokens",
-      "issuance",
-      "placements",
-      "registrarIntake",
-      "registry",
-      "clearing",
-      "audit",
-    ]);
-    expect(hrefsOf("DEMO-REGISTRAR-001")).toEqual([
+  it("gives the issuer platform market access plus F2F origination", () => {
+    expect(platformHrefs("DEMO-ISSUER-001")).toEqual([
       "/",
+      "/protocols",
       "/markets",
-      "/backing",
-      "/tokens",
-      "/issuances",
+      "/instruments",
+      "/secondary",
       "/placements",
-      "/registrar/intake",
-      "/registry",
-      "/clearing",
-      "/audit",
+    ]);
+    expect(protocolHrefs("DEMO-ISSUER-001", "F2F")).toEqual([
+      "/contracts",
+      "/pools",
+      "/coverage",
+      "/issuer/dacs",
     ]);
   });
 
-  it("investor nav drops duplicate market items", () => {
-    expect(keysOf("DEMO-FUND-001")).toEqual([
-      "dashboard",
-      "markets",
-      "instruments",
-      "portfolio",
-      "placementsOwn",
-      "secondary",
-      "myCompliance",
-    ]);
-    expect(hrefsOf("DEMO-FUND-001")).not.toContain("/market");
-    expect(hrefsOf("DEMO-FUND-001")).toContain("/instruments");
-    expect(hrefsOf("DEMO-FUND-001")).toContain("/placements");
-    expect(hrefsOf("DEMO-FUND-001")).toContain("/markets");
-    expect(hrefsOf("DEMO-FUND-001")).toContain("/secondary");
-  });
-
-  it("trader nav is overview, instruments and secondary market", () => {
-    expect(keysOf("DEMO-TRADER-001")).toEqual([
-      "dashboard",
-      "markets",
-      "traderInstruments",
-      "secondary",
-    ]);
-    expect(hrefsOf("DEMO-TRADER-001")).toEqual([
+  it("keeps registrar platform duties global and F2F intake contained", () => {
+    expect(platformHrefs("DEMO-REGISTRAR-001")).toEqual([
       "/",
+      "/protocols",
+      "/markets",
+      "/instruments",
+      "/issuances",
+      "/secondary",
+      "/placements",
+      "/clearing",
+      "/registry",
+      "/audit",
+      "/tokens",
+    ]);
+    expect(protocolHrefs("DEMO-REGISTRAR-001", "F2F")).toEqual([
+      "/backing",
+      "/registrar/intake",
+    ]);
+  });
+
+  it("gives investors and traders platform-only navigation", () => {
+    expect(platformHrefs("DEMO-FUND-001")).toEqual([
+      "/",
+      "/protocols",
+      "/markets",
+      "/instruments",
+      "/secondary",
+      "/portfolio",
+      "/placements",
+      "/compliance",
+    ]);
+    expect(protocolHrefs("DEMO-FUND-001", "F2F")).toEqual([]);
+    expect(platformHrefs("DEMO-TRADER-001")).toEqual([
+      "/",
+      "/protocols",
       "/markets",
       "/instruments",
       "/secondary",
     ]);
+    expect(protocolHrefs("DEMO-TRADER-001", "F2F")).toEqual([]);
   });
 
   it("compliance nav splits checks from the overview", () => {
@@ -216,33 +220,17 @@ describe("effective navigation", () => {
       "eligibility",
       "alerts",
     ]);
-    expect(hrefsOf("DEMO-COMPLIANCE-001")).toEqual([
-      "/",
-      "/compliance",
-      "/compliance/checks",
-      "/compliance/eligibility",
-      "/compliance/alerts",
-    ]);
+    expect(protocolHrefs("DEMO-COMPLIANCE-001", "F2F")).toEqual([]);
   });
 
   it("regulator nav is platform infrastructure, not agriculture modules", () => {
-    expect(keysOf("DEMO-REGULATOR-001")).toEqual([
-      "dashboard",
-      "markets",
-      "instruments",
-      "issuance",
-      "clearing",
-      "registry",
-      "participants",
-      "compliance",
-      "supervision",
-      "reports",
-    ]);
-    expect(hrefsOf("DEMO-REGULATOR-001")).toEqual([
+    expect(platformHrefs("DEMO-REGULATOR-001")).toEqual([
       "/",
+      "/protocols",
       "/markets",
       "/instruments",
       "/issuances",
+      "/secondary",
       "/clearing",
       "/registry",
       "/participants",
@@ -250,11 +238,7 @@ describe("effective navigation", () => {
       "/supervision",
       "/audit",
     ]);
-    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/regulator");
-    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/contracts");
-    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/pools");
-    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/coverage");
-    expect(hrefsOf("DEMO-REGULATOR-001")).not.toContain("/admin");
+    expect(protocolHrefs("DEMO-REGULATOR-001", "F2F")).toEqual([]);
   });
 
   it("admin persona stays on the system workspace", () => {
@@ -268,7 +252,24 @@ describe("effective navigation", () => {
       "adminAudit",
       "system",
     ]);
-    expect(hrefsOf("DEMO-ADMIN-001")).not.toContain("/fields");
-    expect(hrefsOf("DEMO-ADMIN-001")).not.toContain("/coverage");
+    expect(protocolHrefs("DEMO-ADMIN-001", "F2F")).toEqual([]);
+  });
+
+  it("never shows an agriculture module as a global platform destination", () => {
+    for (const personaId of [
+      "DEMO-FARM-001",
+      "DEMO-SCAS-001",
+      "DEMO-ISSUER-001",
+      "DEMO-REGISTRAR-001",
+      "DEMO-FUND-001",
+      "DEMO-TRADER-001",
+      "DEMO-COMPLIANCE-001",
+      "DEMO-REGULATOR-001",
+      "DEMO-ADMIN-001",
+    ]) {
+      for (const path of AGRICULTURE_PATHS) {
+        expect(platformHrefs(personaId), `${personaId} ${path}`).not.toContain(path);
+      }
+    }
   });
 });

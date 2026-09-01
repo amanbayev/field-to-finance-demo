@@ -245,3 +245,42 @@ export function marketTrail(
     { level: "MARKET", labelKey: marketLabelKey },
   ];
 }
+
+/**
+ * Whether hierarchy crumbs that point at the protocol catalogue may carry an
+ * href. This is link eligibility, not a permission grant: the values come from
+ * the production navigation policy, not from duplicated permission strings.
+ */
+export interface ProtocolModuleTrailAccess {
+  readonly protocolsCollection: boolean;
+  readonly protocolDetail: boolean;
+}
+
+/**
+ * Trail for an operational screen that belongs to one protocol's module set.
+ *
+ * Generic: the protocol record is supplied by the caller, so no protocol id is
+ * hardcoded here. The protocol steps are omitted when the record is absent.
+ * Catalogue and protocol crumbs stay visible as labels even when the current
+ * actor cannot open them; hrefs are attached only when `access` allows it.
+ */
+export function protocolModuleTrail(
+  protocol: AssetProtocol | null,
+  /** Already-localized module name; the caller owns its message namespace. */
+  moduleLabel: string,
+  access: ProtocolModuleTrailAccess,
+): HierarchyCrumb[] {
+  const trail: HierarchyCrumb[] = [platformCrumb(platformHref())];
+  if (protocol) {
+    trail.push(
+      protocolsCrumb(access.protocolsCollection ? protocolsHref() : undefined),
+    );
+    trail.push({
+      level: "PROTOCOL",
+      href: access.protocolDetail ? protocolHref(protocol.id) : undefined,
+      label: protocol.name,
+    });
+  }
+  trail.push({ level: "PROTOCOL", label: moduleLabel });
+  return trail;
+}

@@ -16,7 +16,7 @@ import {
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { navHrefIsActive } from "@/lib/auth/nav-path";
-import type { PermissionNavGroup } from "@/lib/auth/nav";
+import type { PermissionNavGroup, PermissionNavItem } from "@/lib/auth/nav";
 import { cn } from "@/lib/utils";
 
 function NavItems({
@@ -32,12 +32,34 @@ function NavItems({
 }) {
   const pathname = usePathname();
   const t = useTranslations("nav");
-  const items = groups.flatMap((group) => group.items);
+  // Render section by section so a protocol's modules read as contained within
+  // that protocol rather than as universal platform destinations.
+  const items = groups.flatMap((group) =>
+    group.protocolId
+      ? [
+          {
+            key: `section:${group.protocolId}`,
+            sectionLabel: group.protocolLabel ?? group.protocolId,
+          },
+          ...group.items,
+        ]
+      : group.items,
+  ) as Array<PermissionNavItem & { sectionLabel?: string }>;
   let hrefIndex = 0;
 
   return (
     <div className={className}>
       {items.map((item) => {
+        if (item.sectionLabel) {
+          return (
+            <span
+              key={item.key}
+              className="px-2 py-1 text-[10px] uppercase tracking-widest text-harvest/80"
+            >
+              {item.sectionLabel}
+            </span>
+          );
+        }
         if (item.note || !item.href) {
           return (
             <span

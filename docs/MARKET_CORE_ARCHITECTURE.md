@@ -184,7 +184,16 @@ Markets, protocol detail, instrument detail (universal layout), clearing, regist
 
 Retail app, broker/API portals, Binance custody UI, bank/stablecoin settlement UI, live protocol-investment offer, Devnet secondary DvP.
 
-### I. Navigation hierarchy (target)
+### I. Navigation hierarchy (implemented in Phase 5C.2B)
+
+Navigation policy is one typed registry (`src/lib/navigation/route-registry.ts`) plus pure
+selectors (`src/lib/navigation/policy.ts`). Platform-global entries are protocol-neutral;
+agriculture modules are `PROTOCOL_MODULE` entries owned by `F2F` and appear only inside Field to
+Finance context, never in the global rail. Visibility is not authorization — route access remains
+governed by `src/lib/auth/guard.ts`, and the registry adds an organisation-type visibility clause
+so organisation-scoped guards are expressible in navigation.
+
+### I(a). Navigation hierarchy (original target)
 
 Regulator: Overview / Markets / Instruments / Issuances / Clearing / Registry / Participants / Compliance / Supervision / Reports.
 

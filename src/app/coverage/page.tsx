@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { F2F_PROTOCOL_ID } from "@/data/market-core/catalog";
 import { actorCan } from "@/domain/identity";
 import { CoverageConsole } from "@/components/coverage/coverage-console";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { requirePermission } from "@/lib/auth/guard";
+import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { protocolModuleTrailAccess } from "@/lib/navigation/policy";
+import { getAssetProtocol } from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("workspace");
@@ -24,10 +28,20 @@ export default async function CoveragePage() {
       : actorCan(actor, "issuance.manage")
         ? ("coverageRoleIssuer" as const)
         : undefined;
+  const f2fProtocol = getAssetProtocol(F2F_PROTOCOL_ID) ?? null;
+  const tNav = await getTranslations("nav");
+  const tCoreNav = await getTranslations("marketCore");
 
   return (
     <div>
-      <PageHeader
+      <MarketCoreContextHeader
+        level="PROTOCOL"
+        trail={protocolModuleTrail(
+          f2fProtocol,
+          tNav("coverage"),
+          protocolModuleTrailAccess(actor),
+        )}
+        translate={tCoreNav}
         eyebrow={t("coverageEyebrow")}
         title={t("coverageTitle")}
         description={t("coverageIntro")}

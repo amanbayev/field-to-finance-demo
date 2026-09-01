@@ -124,8 +124,6 @@
     "scasMonitoring": "Мониторинг",
     "coverage": "Покрытие",
     "backing": "Обеспечение",
-    "wheat2027": "WHEAT-2027",
-    "iss001": "ISS-001",
     "issuance": "Выпуски",
     "placements": "Размещения",
     "registrarIntake": "Приём",
@@ -160,7 +158,11 @@
       "control": "Контроль",
       "operations": "Операции",
       "admin": "Админ"
-    }
+    },
+    "protocols": "Протоколы",
+    "protocolVersion": "Версия протокола",
+    "architecture": "Архитектура",
+    "platform": "Commodity Chain"
   },
   "header": {
     "badge": "ПРОТОТИП · SOLANA DEVNET",

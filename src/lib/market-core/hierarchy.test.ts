@@ -15,6 +15,7 @@ import {
   marketTrail,
   marketsTrail,
   platformTrail,
+  protocolModuleTrail,
   protocolTrail,
   protocolVersionHref,
   protocolVersionTrail,
@@ -226,6 +227,14 @@ describe("breadcrumb trails — visible labels and hrefs", () => {
       instrumentTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION),
       issuanceTrail("TIDE-ISS-001", TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION),
       marketTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION),
+      protocolModuleTrail(TIDAL_PROTOCOL, "Metering", {
+        protocolsCollection: true,
+        protocolDetail: true,
+      }),
+      protocolModuleTrail(TIDAL_PROTOCOL, "Metering", {
+        protocolsCollection: false,
+        protocolDetail: false,
+      }),
     ];
     for (const trail of all) {
       for (const item of render(trail)) {
@@ -250,5 +259,47 @@ describe("hierarchy hrefs", () => {
     expect(
       boundProtocolVersionHref({ ...TIDAL_INSTRUMENT, protocolVersionId: null }),
     ).toBeUndefined();
+  });
+});
+
+describe("protocolModuleTrail", () => {
+  const moduleLabel = "Metering";
+  const openAccess = { protocolsCollection: true, protocolDetail: true };
+  const closedAccess = { protocolsCollection: false, protocolDetail: false };
+
+  it("builds platform, protocols, protocol and current-module crumbs", () => {
+    expect(render(protocolModuleTrail(TIDAL_PROTOCOL, moduleLabel, openAccess))).toEqual([
+      { label: "Commodity Chain", href: "/" },
+      { label: "Protocols", href: "/protocols" },
+      { label: "Tidal Energy", href: "/protocols/TIDAL" },
+      { label: "Metering", href: undefined },
+    ]);
+  });
+
+  it("keeps protocol hierarchy labels without hrefs when the actor cannot open them", () => {
+    expect(render(protocolModuleTrail(TIDAL_PROTOCOL, moduleLabel, closedAccess))).toEqual([
+      { label: "Commodity Chain", href: "/" },
+      { label: "Protocols", href: undefined },
+      { label: "Tidal Energy", href: undefined },
+      { label: "Metering", href: undefined },
+    ]);
+  });
+
+  it("omits protocol steps when the protocol record is absent", () => {
+    expect(render(protocolModuleTrail(null, moduleLabel, openAccess))).toEqual([
+      { label: "Commodity Chain", href: "/" },
+      { label: "Metering", href: undefined },
+    ]);
+  });
+
+  it("does not hardcode a WHEAT instrument or F2F protocol id", () => {
+    const source = protocolModuleTrail.toString();
+    expect(source).not.toMatch(/WHEAT/);
+    expect(source).not.toMatch(/F2F/);
+    const labels = render(
+      protocolModuleTrail(TIDAL_PROTOCOL, moduleLabel, openAccess),
+    ).map((item) => item.label);
+    expect(labels).not.toContain("WHEAT-2027");
+    expect(labels).toContain("Tidal Energy");
   });
 });

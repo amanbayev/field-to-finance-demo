@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StickyCell, StickyHead } from "@/components/shared/sticky-cell";
 import {
@@ -20,9 +20,13 @@ import {
 } from "@/components/surface/desk-stage";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
+import { F2F_PROTOCOL_ID } from "@/data/market-core/catalog";
 import { formatInteger } from "@/lib/format";
 import { getPool, listPoolIds, type PoolDetail } from "@/services/pool-service";
 import { requirePermission } from "@/lib/auth/guard";
+import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { protocolModuleTrailAccess } from "@/lib/navigation/policy";
+import { getAssetProtocol } from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pools");
@@ -30,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PoolsPage() {
-  await requirePermission("pools.read");
+  const actor = await requirePermission("pools.read");
   const t = await getTranslations("pools");
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
@@ -38,10 +42,20 @@ export default async function PoolsPage() {
   const pools = listPoolIds()
     .map((id) => getPool(id))
     .filter((pool): pool is PoolDetail => pool !== undefined);
+  const f2fProtocol = getAssetProtocol(F2F_PROTOCOL_ID) ?? null;
+  const tNav = await getTranslations("nav");
+  const tCoreNav = await getTranslations("marketCore");
 
   return (
     <div>
-      <PageHeader
+      <MarketCoreContextHeader
+        level="PROTOCOL"
+        trail={protocolModuleTrail(
+          f2fProtocol,
+          tNav("pools"),
+          protocolModuleTrailAccess(actor),
+        )}
+        translate={tCoreNav}
         eyebrow={t("eyebrow")}
         title={t("title")}
         description={t("description")}
