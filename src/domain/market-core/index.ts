@@ -207,10 +207,15 @@ export {
   roleMayReadAllMarketRecords,
 } from "./actor-gate";
 export {
+  ORDER_CANCELLATION_AUTHORIZATION,
   TRADE_ADMISSION_AUTHORIZATION,
+  actorHasAuthenticatedTradingIdentity,
+  actorMayCancelOrder,
+  actorMayRequestOrderCancellation,
   actorMaySubmitOrder,
+  orderIsCancellable,
 } from "./trade-admission";
-export type { TradeAdmissionInput } from "./trade-admission";
+export type { OrderCancellationInput, TradeAdmissionInput } from "./trade-admission";
 export {
   PRIMARY_DVP_INSTRUCTION,
   SECONDARY_DVP_AUDIT,

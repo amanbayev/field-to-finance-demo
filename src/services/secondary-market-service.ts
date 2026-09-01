@@ -6,11 +6,14 @@ import {
   availableBalance,
   bidsFromOrders,
   asksFromOrders,
+  actorMayCancelOrder,
+  actorMayRequestOrderCancellation,
   actorMaySubmitOrder,
   canReceive,
   canTrade,
   eligibilityFor,
   GRAIN_DESK_ID,
+  orderIsCancellable,
   participantIdForActor,
   STEPPE_CAPITAL_ID,
   WHEAT_DEMO_MARKET_ID,
@@ -18,6 +21,7 @@ import {
   type Holding,
   type Market,
   type MarketInstrument,
+  type Order,
   type OrderSide,
   type ParticipantInstrumentEligibility,
 } from "@/domain/market-core";
@@ -53,6 +57,10 @@ export function actorMaySubmitSecondaryOrder(
     memberships: DEMO_MEMBERSHIPS,
     instruments: marketInstruments,
   });
+}
+
+export function actorMayCancelSecondaryOrder(actor: ActorContext, order: Order): boolean {
+  return actorMayCancelOrder({ actor, order });
 }
 
 export function canViewAllMarketActivity(actor: ActorContext): boolean {
@@ -158,18 +166,21 @@ export async function cancelSecondaryOrder(input: {
   idempotencyKey: string;
 }) {
   const state = await fetchPersistentEngineState();
-  const market =
-    state.markets.find((item) => item.id === WHEAT_DEMO_MARKET_ID) ?? state.markets[0];
-  const instrument = market
-    ? state.instruments.find((item) => item.id === market.instrumentId)
-    : undefined;
-  if (
-    !market ||
-    !instrument ||
-    !actorMaySubmitSecondaryOrder(input.actor, instrument, market, state.eligibility)
-  ) {
+  const order = state.orders.find((item) => item.id === input.orderId);
+  if (!actorMayRequestOrderCancellation(input.actor)) {
     return { error: "NOT_OWNER" as const, state };
   }
+  const participantId = participantIdForActor(input.actor);
+  if (order) {
+    if (!participantId || order.participantId !== participantId) {
+      return { error: "NOT_OWNER" as const, state };
+    }
+    if (!orderIsCancellable(order)) {
+      return { error: "ORDER_NOT_CANCELABLE" as const, state };
+    }
+  }
+  // If the snapshot does not contain the order, trading identity has been
+  // checked above; market_core_cancel_order remains the atomic owner check.
   const cancelled = await rpcCancelOrder({
     orderId: input.orderId,
     idempotencyKey: input.idempotencyKey,

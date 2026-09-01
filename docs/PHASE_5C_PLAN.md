@@ -285,13 +285,17 @@ settlement, custody, Devnet execution, or production deployment.
   product and type space. It is not Market Core instrument eligibility and is not
   mapped onto Market Core participant IDs.
 - TypeScript `actorMaySubmitOrder` is a fail-closed UX/server precheck for the
-  secondary-market view and submit path. SQL/RPC remains the final atomic
-  authorization. Overlaying a persistent eligibility state that disagrees with the
-  assessment fails closed and does not present the old assessment as supporting the
-  new state.
+  secondary-market view `canSubmit` and new-order submit path only. Cancellation
+  uses a separate ownership and trading-identity policy (`actorMayCancelOrder`)
+  and does not require current participant × instrument eligibility, attribution,
+  overlay equality, or the instrument's new-order `canTrade` state. SQL/RPC
+  remains the final atomic authorization. Overlaying a persistent eligibility
+  state that disagrees with the assessment fails closed for **new orders** and
+  does not present the old assessment as supporting the new state.
 - Unimpersonated `SYSTEM_ADMIN` no longer has `market.trade`, has no participant
-  identity, and cannot submit. Demo impersonation still adopts the selected persona's
-  effective role, permissions, organisation, membership, and participant identity.
+  identity, and cannot submit or cancel. Demo impersonation still adopts the selected
+  persona's effective role, permissions, organisation, membership, and participant
+  identity.
 
 **Not claimed by 5C.3A.** Eligibility and onboarding UI (`/compliance/eligibility`,
 participants matrix presentation, onboarding copy) are unchanged. Assessment records
@@ -301,12 +305,17 @@ No AFSA admission or approval claim.
 **Acceptance criteria (whole of 5C.3)**
 
 1. Eligibility remains participant × instrument; no global `ELIGIBLE` flag is introduced.
-2. Each eligibility state is attributable to an organisation, membership and assessment.
+2. **Partial in 5C.3A.** Recorded assessed decisions (`ELIGIBLE` / `NOT_ELIGIBLE`) are
+   attributable to an organisation, membership and assessment. `NOT_ASSESSED` means no
+   assessment exists. `POLICY_PENDING` is currently a placeholder, not a completed
+   assessment. Attribution is not fabricated for unassessed or pending rows. Resolution
+   of unassessed/pending presentation or lifecycle remains in 5C.3B.
 3. `NOT_ASSESSED` and `POLICY_PENDING` are never presented as approval.
 4. Registrar, regulator and unimpersonated admin still cannot trade.
 
-5C.3A satisfies these as domain/service invariants. 5C.3B still owns presenting them
-in the operator UI.
+5C.3A satisfies criteria 1, 3 and 4 as domain/service invariants. Criterion 2 is
+satisfied for recorded assessed decisions only. 5C.3B still owns presenting them in
+the operator UI and any remaining unassessed/pending lifecycle.
 
 #### 5C.3B — Eligibility and onboarding UI *(planned)*
 

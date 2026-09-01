@@ -402,6 +402,61 @@ describe("validation rejects invented attribution", () => {
   });
 });
 
+describe("validation rejects duplicate registry rows", () => {
+  it("rejects two eligibility rows for the same participant × instrument pair", () => {
+    const row = registry.eligibility.find(
+      (item) =>
+        item.participantReference === "INVESTOR-0001" &&
+        item.instrumentId === WHEAT_INSTRUMENT_ID,
+    )!;
+    const violations = validateEligibilityAssessmentRegistry({
+      ...registry,
+      eligibility: [...registry.eligibility, { ...row }],
+    });
+    expect(violations.map((item) => item.code)).toContain(
+      "DUPLICATE_ELIGIBILITY_PARTICIPANT_INSTRUMENT",
+    );
+  });
+
+  it("rejects two assessments with the same assessment ID", () => {
+    const assessment = registry.assessments.find((item) => item.id === DEMO_EAS_STEPPE_WHEAT_001)!;
+    const violations = validateEligibilityAssessmentRegistry({
+      ...registry,
+      assessments: [
+        ...registry.assessments,
+        { ...assessment, participantReference: "GRAIN-DESK" },
+      ],
+    });
+    expect(violations.map((item) => item.code)).toContain("DUPLICATE_ASSESSMENT_ID");
+  });
+
+  it("rejects two assessments for the same participant × instrument pair", () => {
+    const assessment = registry.assessments.find((item) => item.id === DEMO_EAS_STEPPE_WHEAT_001)!;
+    const violations = validateEligibilityAssessmentRegistry({
+      ...registry,
+      assessments: [...registry.assessments, { ...assessment, id: "DEMO-EAS-DUPLICATE-PAIR" }],
+    });
+    expect(violations.map((item) => item.code)).toContain(
+      "DUPLICATE_ASSESSMENT_PARTICIPANT_INSTRUMENT",
+    );
+  });
+
+  it("does not bind catalog reason codes to a specific eligibility state", () => {
+    const assessment = registry.assessments.find((item) => item.id === DEMO_EAS_STEPPE_WHEAT_001)!;
+    const eligibility = registry.eligibility.map((row) =>
+      row.assessmentId === DEMO_EAS_STEPPE_WHEAT_001
+        ? { ...row, reasonCode: "DEMO_RECORDED_NOT_ELIGIBLE" as const }
+        : row,
+    );
+    const violations = validateEligibilityAssessmentRegistry({
+      ...registry,
+      assessments: [{ ...assessment, reasonCode: "DEMO_RECORDED_NOT_ELIGIBLE" }],
+      eligibility,
+    });
+    expect(violations.map((item) => item.code)).not.toContain("ELIGIBILITY_REASON_CODE_MISMATCH");
+  });
+});
+
 describe("runtime immutability", () => {
   it("freezes owned copies without freezing shared evidence arrays", () => {
     const shared = ["evidence-a"];

@@ -94,8 +94,16 @@ Onboarding approval is not eligibility: it creates membership and roles only.
 Phase 4 compliance screening (`APPROVED` / `BLOCKED` / `PENDING`) is a separate
 product. It is not Market Core instrument eligibility.
 
-TypeScript `actorMaySubmitOrder` is a fail-closed UX/server precheck.
-`market_core_submit_limit_order` remains the final atomic authorization.
+TypeScript `actorMaySubmitOrder` is a fail-closed UX/server precheck for new-order
+admission (`canSubmit` / submit). Cancellation uses `actorMayCancelOrder`
+(authenticated trading identity and order ownership) and does not re-run current
+eligibility. `market_core_submit_limit_order` and `market_core_cancel_order` remain
+the final atomic authorization.
+
+Recorded `ELIGIBLE` / `NOT_ELIGIBLE` decisions carry organisation, membership,
+assessment and a reason code. `NOT_ASSESSED` means no assessment exists.
+`POLICY_PENDING` is a placeholder, not a completed assessment. Unassessed/pending
+presentation and lifecycle remain in 5C.3B.
 
 Current matrix:
 

@@ -45,6 +45,7 @@ export interface EligibilityAssessment {
 export const ELIGIBILITY_REGISTRY_VIOLATIONS = [
   "DUPLICATE_ASSESSMENT_ID",
   "DUPLICATE_ASSESSMENT_PARTICIPANT_INSTRUMENT",
+  "DUPLICATE_ELIGIBILITY_PARTICIPANT_INSTRUMENT",
   "PARTICIPANT_NOT_FOUND",
   "INSTRUMENT_NOT_FOUND",
   "INSTRUMENT_NOT_ISSUED_OR_ADMITTED",
@@ -336,6 +337,8 @@ export function validateEligibilityAssessmentRegistry(
       });
     }
 
+    // Reason codes must be catalog members on assessed decisions. The catalog
+    // is extensible; this does not bind a code to a specific eligibility state.
     if (
       isAssessedState(assessment.state) &&
       !isEligibilityReasonCode(assessment.reasonCode)
@@ -347,7 +350,18 @@ export function validateEligibilityAssessmentRegistry(
     }
   }
 
+  const eligibilityPairs = new Set<string>();
   for (const row of input.eligibility) {
+    const eligibilityPairKey = `${row.participantReference}::${row.instrumentId}`;
+    if (eligibilityPairs.has(eligibilityPairKey)) {
+      violations.push({
+        code: "DUPLICATE_ELIGIBILITY_PARTICIPANT_INSTRUMENT",
+        participantReference: row.participantReference,
+        instrumentId: row.instrumentId,
+      });
+    }
+    eligibilityPairs.add(eligibilityPairKey);
+
     if (!isAssessedState(row.state)) {
       continue;
     }

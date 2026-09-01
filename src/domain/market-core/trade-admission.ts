@@ -18,6 +18,7 @@ import type {
   Market,
   MarketInstrument,
   MarketParticipantRecord,
+  Order,
   ParticipantInstrumentEligibility,
 } from "./types";
 
@@ -31,6 +32,14 @@ import type {
 export const TRADE_ADMISSION_AUTHORIZATION =
   "TypeScript predicate = fail-closed UX/server precheck. RPC = final atomic authorization.";
 
+/**
+ * Cancellation TypeScript predicate = fail-closed UX/server precheck for
+ * trading identity and order ownership. It does not re-run current instrument
+ * eligibility. `market_core_cancel_order` remains the final atomic authorization.
+ */
+export const ORDER_CANCELLATION_AUTHORIZATION =
+  "TypeScript cancellation predicate = fail-closed UX/server precheck for trading identity and order ownership. RPC = final atomic authorization. Current eligibility is not required.";
+
 export interface TradeAdmissionInput {
   readonly actor: ActorContext;
   readonly instrument: MarketInstrument;
@@ -43,16 +52,21 @@ export interface TradeAdmissionInput {
   readonly instruments: readonly MarketInstrument[];
 }
 
+export interface OrderCancellationInput {
+  readonly actor: ActorContext;
+  readonly order: Order;
+}
+
 function isTradingRole(roleId: PlatformRoleId): boolean {
   return roleId === "INVESTOR" || roleId === "TRADER";
 }
 
 /**
- * Single production TypeScript admission predicate for view `canSubmit` and
- * the submit precheck. Fail-closed. Does not authorize a persistent write.
+ * Authenticated trading identity shared by submit admission and cancel
+ * authorization. Does not inspect eligibility, attribution, overlay, or
+ * instrument `canTrade`.
  */
-export function actorMaySubmitOrder(input: TradeAdmissionInput): boolean {
-  const { actor, instrument, market } = input;
+export function actorHasAuthenticatedTradingIdentity(actor: ActorContext): boolean {
   if (!isTradingRole(actor.effective.roleId)) {
     return false;
   }
@@ -67,7 +81,63 @@ export function actorMaySubmitOrder(input: TradeAdmissionInput): boolean {
   if (!organization || !organizationOwnsParticipant(organization, participantId)) {
     return false;
   }
-  if (!actor.effective.membershipId) {
+  return Boolean(actor.effective.membershipId);
+}
+
+/**
+ * Snapshot statuses that the TypeScript cancel precheck treats as cancellable.
+ * Matches `market_core_cancel_order`: not FILLED / CANCELLED / REJECTED, and
+ * remaining quantity greater than zero.
+ */
+export function orderIsCancellable(order: Order): boolean {
+  if (
+    order.status === "FILLED" ||
+    order.status === "CANCELLED" ||
+    order.status === "REJECTED"
+  ) {
+    return false;
+  }
+  return order.remainingQuantity > 0;
+}
+
+/**
+ * Identity-only cancel precheck used when the service snapshot does not contain
+ * the target order. Actual ownership remains enforced by
+ * `market_core_cancel_order`.
+ */
+export function actorMayRequestOrderCancellation(actor: ActorContext): boolean {
+  return actorHasAuthenticatedTradingIdentity(actor);
+}
+
+/**
+ * Order-aware TypeScript cancellation authorization. Requires authenticated
+ * trading identity and that the resolved participant owns a cancellable order.
+ * Does not require current eligibility, attribution, overlay equality, or the
+ * instrument's new-order `canTrade` state. Does not authorize a persistent write.
+ */
+export function actorMayCancelOrder(input: OrderCancellationInput): boolean {
+  if (!actorHasAuthenticatedTradingIdentity(input.actor)) {
+    return false;
+  }
+  const participantId = participantIdForActor(input.actor);
+  if (!participantId || input.order.participantId !== participantId) {
+    return false;
+  }
+  return orderIsCancellable(input.order);
+}
+
+/**
+ * Single production TypeScript admission predicate for view `canSubmit` and
+ * the new-order submit precheck. Not used for cancellation. Fail-closed.
+ * Does not authorize a persistent write.
+ */
+export function actorMaySubmitOrder(input: TradeAdmissionInput): boolean {
+  const { actor, instrument, market } = input;
+  if (!actorHasAuthenticatedTradingIdentity(actor)) {
+    return false;
+  }
+  const participantId = participantIdForActor(actor);
+  if (!participantId) {
     return false;
   }
   const knownInstrument = input.instruments.find((item) => item.id === instrument.id);

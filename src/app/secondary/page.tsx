@@ -18,7 +18,7 @@ import type { AppLocale } from "@/i18n/config";
 import { formatDemoKzt, formatInteger, formatTimestamp } from "@/lib/format";
 import { requirePermission } from "@/lib/auth/guard";
 import { marketTrail } from "@/lib/market-core/hierarchy";
-import { getSecondaryMarketView } from "@/services/secondary-market-service";
+import { actorMayCancelSecondaryOrder, getSecondaryMarketView } from "@/services/secondary-market-service";
 import {
   getAssetProtocol,
   getProtocolVersion,
@@ -165,9 +165,7 @@ export default async function SecondaryMarketPage({
                     <StatusBadge value={order.status} />
                   </TableCell>
                   <TableCell>
-                    {view.canSubmit &&
-                    view.participantId === order.participantId &&
-                    (order.status === "OPEN" || order.status === "PARTIALLY_FILLED") ? (
+                    {actorMayCancelSecondaryOrder(actor, order) ? (
                       <form action={cancelSecondaryOrderAction}>
                         <input type="hidden" name="orderId" value={order.id} />
                         <input type="hidden" name="idempotencyKey" value={`cancel-${order.id}`} />

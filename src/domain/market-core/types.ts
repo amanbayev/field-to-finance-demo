@@ -149,9 +149,12 @@ export const ELIGIBILITY_STATES = [
 export type InstrumentEligibilityState = (typeof ELIGIBILITY_STATES)[number];
 
 /**
- * Stable domain reason codes for participant × instrument assessments.
- * These are not localized UI copy and not message-catalog keys.
- * They do not claim AFSA admission, legal approval, or regulatory permission.
+ * Known domain reason codes for participant × instrument assessments.
+ * This is a closed TypeScript catalog of currently recorded codes, not a
+ * state-specific semantic binding: future assessed-decision codes may be added
+ * without a 1:1 mapping from eligibility state. Codes are not localized UI copy
+ * and not message-catalog keys. They do not claim AFSA admission, legal
+ * approval, or regulatory permission.
  */
 export const ELIGIBILITY_REASON_CODES = [
   "DEMO_RECORDED_ELIGIBLE",
