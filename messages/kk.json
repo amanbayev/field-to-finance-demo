@@ -160,7 +160,11 @@
       "control": "Бақылау",
       "operations": "Операциялар",
       "admin": "Әкімші"
-    }
+    },
+    "protocols": "Хаттамалар",
+    "protocolVersion": "Хаттама нұсқасы",
+    "architecture": "Архитектура",
+    "platform": "Commodity Chain"
   },
   "header": {
     "badge": "ПРОТОТИП · SOLANA DEVNET",
