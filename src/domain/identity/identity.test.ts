@@ -143,8 +143,11 @@ describe("role matrix", () => {
     expect(regulatorPrincipal().permissions).not.toContain("admin.access");
   });
 
-  it("system admin can access admin", () => {
-    expect(adminPrincipal().permissions).toContain("admin.access");
+  it("system admin can access admin but not market.trade", () => {
+    const admin = adminPrincipal();
+    expect(admin.permissions).toContain("admin.access");
+    expect(admin.permissions).not.toContain("market.trade");
+    expect(admin.permissions).toContain("market.read");
   });
 });
 
@@ -360,6 +363,8 @@ describe("demo personas", () => {
       personaOrganization: fund,
     });
     expect(context.effective.investorReference).toBe("INVESTOR-0001");
+    expect(context.effective.permissions).toContain("market.trade");
+    expect(context.principal.permissions).not.toContain("market.trade");
     expect(canReadInvestorPortfolio(context, "INVESTOR-0001")).toBe(true);
     expect(context.effective.investorAta).toBe(
       "D7dNbub9wmETEkDoS7b73KpVxTwRb26Cbe9ffRptVUDw",

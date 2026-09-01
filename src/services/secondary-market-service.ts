@@ -6,17 +6,27 @@ import {
   availableBalance,
   bidsFromOrders,
   asksFromOrders,
+  actorMaySubmitOrder,
   canReceive,
   canTrade,
   eligibilityFor,
   GRAIN_DESK_ID,
-  participantIdFromInvestorRef,
+  participantIdForActor,
   STEPPE_CAPITAL_ID,
   WHEAT_DEMO_MARKET_ID,
   type EngineState,
   type Holding,
+  type Market,
+  type MarketInstrument,
   type OrderSide,
+  type ParticipantInstrumentEligibility,
 } from "@/domain/market-core";
+import { DEMO_MEMBERSHIPS, DEMO_ORGANIZATIONS } from "@/data/identity/demo-catalog";
+import {
+  eligibilityAssessments,
+  marketInstruments,
+  marketParticipants,
+} from "@/data/market-core/catalog";
 import { getMarketInstrument } from "@/services/market-core-service";
 import {
   fetchPersistentEngineState,
@@ -24,15 +34,25 @@ import {
   rpcSubmitLimitOrder,
 } from "@/services/secondary-market-repository";
 
-export function participantIdForActor(actor: ActorContext): string | null {
-  return participantIdFromInvestorRef(
-    actor.effective.investorReference,
-    actor.effective.organization?.slug,
-  );
-}
+export { participantIdForActor };
 
-export function canSubmitOrders(actor: ActorContext): boolean {
-  return actorCan(actor, "market.trade") && Boolean(participantIdForActor(actor));
+export function actorMaySubmitSecondaryOrder(
+  actor: ActorContext,
+  instrument: MarketInstrument,
+  market: Market,
+  eligibility: readonly ParticipantInstrumentEligibility[],
+): boolean {
+  return actorMaySubmitOrder({
+    actor,
+    instrument,
+    market,
+    eligibility,
+    assessments: eligibilityAssessments,
+    participants: marketParticipants,
+    organizations: DEMO_ORGANIZATIONS,
+    memberships: DEMO_MEMBERSHIPS,
+    instruments: marketInstruments,
+  });
 }
 
 export function canViewAllMarketActivity(actor: ActorContext): boolean {
@@ -79,9 +99,7 @@ export async function getSecondaryMarketView(actor: ActorContext) {
     canReceive: participantId
       ? canReceive({ eligibility, instrument })
       : false,
-    canSubmit: canSubmitOrders(actor) && participantId
-      ? canTrade({ eligibility, instrument, market })
-      : false,
+    canSubmit: actorMaySubmitSecondaryOrder(actor, instrument, market, state.eligibility),
     holding,
     cash,
     bids: bidsFromOrders(state.orders.filter((order) => order.marketId === market.id)),
@@ -93,6 +111,13 @@ export async function getSecondaryMarketView(actor: ActorContext) {
   };
 }
 
+/**
+ * TypeScript predicate = fail-closed UX/server precheck.
+ * RPC = final atomic authorization.
+ *
+ * Current eligibility is taken from the existing snapshot/current-state
+ * boundary. This precheck does not authorize a persistent write.
+ */
 export async function submitSecondaryOrder(input: {
   actor: ActorContext;
   side: OrderSide;
@@ -100,11 +125,18 @@ export async function submitSecondaryOrder(input: {
   quantity: number;
   idempotencyKey: string;
 }) {
-  if (!canSubmitOrders(input.actor)) {
-    return { error: "INELIGIBLE" as const, state: await fetchPersistentEngineState() };
-  }
-  if (!participantIdForActor(input.actor)) {
-    return { error: "INELIGIBLE" as const, state: await fetchPersistentEngineState() };
+  const state = await fetchPersistentEngineState();
+  const market =
+    state.markets.find((item) => item.id === WHEAT_DEMO_MARKET_ID) ?? state.markets[0];
+  const instrument = market
+    ? state.instruments.find((item) => item.id === market.instrumentId)
+    : undefined;
+  if (
+    !market ||
+    !instrument ||
+    !actorMaySubmitSecondaryOrder(input.actor, instrument, market, state.eligibility)
+  ) {
+    return { error: "INELIGIBLE" as const, state };
   }
   const submitted = await rpcSubmitLimitOrder({
     side: input.side,
@@ -113,11 +145,11 @@ export async function submitSecondaryOrder(input: {
     idempotencyKey: input.idempotencyKey,
     marketId: WHEAT_DEMO_MARKET_ID,
   });
-  const state = await fetchPersistentEngineState();
+  const latest = await fetchPersistentEngineState();
   if (!submitted.ok) {
-    return { error: submitted.error ?? "INELIGIBLE", state };
+    return { error: submitted.error ?? "INELIGIBLE", state: latest };
   }
-  return { error: null, state };
+  return { error: null, state: latest };
 }
 
 export async function cancelSecondaryOrder(input: {
@@ -125,18 +157,28 @@ export async function cancelSecondaryOrder(input: {
   orderId: string;
   idempotencyKey: string;
 }) {
-  if (!canSubmitOrders(input.actor) || !participantIdForActor(input.actor)) {
-    return { error: "NOT_OWNER" as const, state: await fetchPersistentEngineState() };
+  const state = await fetchPersistentEngineState();
+  const market =
+    state.markets.find((item) => item.id === WHEAT_DEMO_MARKET_ID) ?? state.markets[0];
+  const instrument = market
+    ? state.instruments.find((item) => item.id === market.instrumentId)
+    : undefined;
+  if (
+    !market ||
+    !instrument ||
+    !actorMaySubmitSecondaryOrder(input.actor, instrument, market, state.eligibility)
+  ) {
+    return { error: "NOT_OWNER" as const, state };
   }
   const cancelled = await rpcCancelOrder({
     orderId: input.orderId,
     idempotencyKey: input.idempotencyKey,
   });
-  const state = await fetchPersistentEngineState();
+  const latest = await fetchPersistentEngineState();
   if (!cancelled.ok) {
-    return { error: cancelled.error ?? "NOT_OWNER", state };
+    return { error: cancelled.error ?? "NOT_OWNER", state: latest };
   }
-  return { error: null, state };
+  return { error: null, state: latest };
 }
 
 export function overlayWorkingHoldings(

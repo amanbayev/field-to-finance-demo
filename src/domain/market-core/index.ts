@@ -207,6 +207,11 @@ export {
   roleMayReadAllMarketRecords,
 } from "./actor-gate";
 export {
+  TRADE_ADMISSION_AUTHORIZATION,
+  actorMaySubmitOrder,
+} from "./trade-admission";
+export type { TradeAdmissionInput } from "./trade-admission";
+export {
   PRIMARY_DVP_INSTRUCTION,
   SECONDARY_DVP_AUDIT,
   SECONDARY_DVP_INSTRUCTION,
