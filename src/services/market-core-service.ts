@@ -4,11 +4,15 @@ import {
   canTrade,
   currentVersionForProtocol,
   eligibilityFor,
+  protocolVersionSummary,
   resolveGoverningProtocolVersion,
+  resolveProtocolVersionContext,
   type AdmissionStage,
   type AssetProtocol,
   type MarketInstrument,
   type ProtocolVersion,
+  type ProtocolVersionContext,
+  type ProtocolVersionRegistries,
 } from "@/domain/market-core";
 import {
   assetProtocols,
@@ -19,7 +23,6 @@ import {
   holdings,
   instrumentById,
   instrumentsForProtocol,
-  instrumentsForProtocolVersion,
   marketForInstrument,
   marketInstruments,
   markets,
@@ -66,34 +69,42 @@ export function getCurrentProtocolVersion(protocolId: string): ProtocolVersion |
   return currentVersionForProtocol(protocolVersions, protocol);
 }
 
+/** Canonical registries for protocol-version resolution. */
+function canonicalRegistries(): ProtocolVersionRegistries {
+  return {
+    protocols: assetProtocols,
+    versions: protocolVersions,
+    instruments: marketInstruments,
+  };
+}
+
 /**
- * Resolves a protocol version in the context of its owning protocol.
- *
- * Returns null for an unknown protocol, an unknown version, or a version that
- * belongs to a different protocol. Generic: it reads route parameters and the
- * registry only, with no protocol- or asset-specific branch.
+ * Thin wrapper: the resolution rules live in the pure, injectable
+ * `resolveProtocolVersionContext`, which tests exercise directly against
+ * non-agriculture registries.
  */
 export function getProtocolVersionContext(
   protocolId: string,
   versionId: string,
-): {
+): ProtocolVersionContext | null {
+  return resolveProtocolVersionContext(canonicalRegistries(), protocolId, versionId);
+}
+
+/**
+ * Every protocol with all its recorded versions and its current usable version.
+ *
+ * `versions` is separate from `currentVersion` on purpose: a protocol whose
+ * only recorded versions are DRAFT, SUPERSEDED, RETIRED or unfrozen still has
+ * recorded versions, and must not be shown as having none.
+ */
+export function listProtocolVersionSummaries(): Array<{
   protocol: AssetProtocol;
-  version: ProtocolVersion;
-  boundInstruments: readonly MarketInstrument[];
-} | null {
-  const protocol = protocolById(protocolId);
-  if (!protocol) {
-    return null;
-  }
-  const version = versionById(versionId);
-  if (!version || version.protocolId !== protocol.id) {
-    return null;
-  }
-  return {
-    protocol,
-    version,
-    boundInstruments: instrumentsForProtocolVersion(version.id),
-  };
+  versions: readonly ProtocolVersion[];
+  currentVersion: ProtocolVersion | null;
+}> {
+  return assetProtocols.map((protocol) =>
+    protocolVersionSummary(protocolVersions, protocol),
+  );
 }
 
 export function listAssetProtocolsWithCurrentVersion(): Array<{

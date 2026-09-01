@@ -87,24 +87,37 @@ page rather than in global navigation.
 
 #### 5C.2A — Hierarchy spine, protocol catalogue, version route and shared context *(implemented)*
 
-- Canonical `/protocols` catalogue showing every recorded protocol, with F2F's recorded
-  `F2F-V1.1` and an explicit "no recorded protocol version" state for Water, Music Rights and
-  Gaming Assets. `/markets` is retained unchanged.
+- Canonical `/protocols` catalogue listing every recorded protocol version with its real
+  lifecycle state and frozen marker, separately from the current usable version (the ACTIVE and
+  frozen pointer). "No recorded protocol version" appears only when a protocol genuinely has no
+  recorded version — Water, Music Rights and Gaming Assets. `/markets` is retained and links to
+  the catalogue.
 - Generic `/protocols/[protocolId]/versions/[versionId]` route. It resolves both route parameters
   and returns `notFound()` for an unknown protocol, an unknown version, or a protocol/version
   mismatch. It contains no protocol-id or asset-name branch.
 - Presentation-layer hierarchy model in `src/lib/market-core/hierarchy.ts` covering PLATFORM,
   PROTOCOL, PROTOCOL_VERSION, INSTRUMENT, ISSUANCE and MARKET. It holds message keys, not
   localized text, and adds no second source of domain truth.
-- Shared `MarketCoreContextHeader`, adopted on the nine hierarchy-spine screens: `/protocols`,
+- Shared `MarketCoreContextHeader` rendering the level and a localized breadcrumb trail rooted at
+  **Commodity Chain** (not Markets), with each collection screen showing its own collection level.
+  Adopted on the nine hierarchy-spine screens: `/protocols`,
   `/protocols/[protocolId]`, the version route, `/markets`, `/instruments`,
   `/instruments/[instrumentId]`, `/issuances`, `/issuances/[issuanceId]` and `/secondary`.
-- Instrument catalogue regrouped by protocol, then instrument family, then actual lifecycle
-  status, showing the exact bound protocol version where one exists.
+- Instrument catalogue grouped by protocol, then instrument family, then lifecycle status, by a
+  shared production helper (`groupInstrumentCatalogue`) that the page and its tests both use.
+  Empty protocols and empty families are omitted rather than padded. The exact bound protocol
+  version is shown where one exists.
 - Version links derived from `instrument.protocolVersionId`, so moving a protocol's mutable
   `currentVersionId` never changes an issued instrument's version route.
+- The complete `ProtocolRuleSnapshot` is rendered, including lifecycle and modules, with the
+  frozen marker shown explicitly in both the frozen and not-frozen states.
+- Protocol-version resolution lives in a pure, injectable resolver
+  (`resolveProtocolVersionContext`) that the service wraps with canonical registries and the tests
+  exercise directly against a synthetic non-agriculture registry.
 - The eight `errors` keys rendered by `error.tsx` and `not-found.tsx` translated into Russian and
   Kazakh, because the new version route uses `notFound()`.
+- All namespaces have EN/RU/KK key-set parity. The changed `marketCore` and `errors` namespaces
+  also have identical key ordering; unrelated legacy namespaces were deliberately not reordered.
 
 **Not claimed by 5C.2A.** Agriculture routes remain globally reachable. Screens outside the
 hierarchy spine do not yet declare a level. Acceptance criteria 1 and 3 are therefore only

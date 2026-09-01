@@ -9,20 +9,34 @@ import {
   HIERARCHY_LEVEL_KEYS,
   boundProtocolVersionHref,
   instrumentTrail,
+  instrumentsTrail,
   issuanceTrail,
+  issuancesTrail,
   marketTrail,
+  marketsTrail,
   platformTrail,
   protocolTrail,
   protocolVersionHref,
   protocolVersionTrail,
   protocolsTrail,
+  type HierarchyCrumb,
 } from "@/lib/market-core/hierarchy";
+import en from "../../../messages/en.json";
 
-/**
- * Synthetic non-agriculture fixtures. These prove the hierarchy is generic
- * without relying on Field to Finance records, and are never added to the
- * production catalogue.
- */
+/** Resolves a trail the way MarketCoreContextHeader does, for visible assertions. */
+function render(trail: HierarchyCrumb[]): Array<{ label: string; href?: string }> {
+  const messages = en.marketCore as unknown as Record<string, string>;
+  return trail.map((crumb) => ({
+    label: crumb.labelKey !== undefined ? messages[crumb.labelKey]! : crumb.label,
+    href: crumb.href,
+  }));
+}
+
+function labels(trail: HierarchyCrumb[]): string[] {
+  return render(trail).map((item) => item.label);
+}
+
+/** Synthetic non-agriculture fixtures; never added to the production catalogue. */
 const TIDAL_PROTOCOL: AssetProtocol = {
   id: "TIDAL",
   name: "Tidal Energy",
@@ -51,7 +65,7 @@ const TIDAL_VERSION: ProtocolVersion = {
     coverageModel: "Contracted revenue",
     issuanceModel: "Claim against issuer",
     redemptionModel: "Scheduled",
-    lifecycle: ["site", "commissioning", "instrument"],
+    lifecycle: ["site", "commissioning"],
     modules: ["metering"],
   },
 };
@@ -94,6 +108,134 @@ describe("hierarchy levels", () => {
   });
 });
 
+describe("breadcrumb trails — visible labels and hrefs", () => {
+  it("names the platform Commodity Chain, not Markets", () => {
+    expect(labels(platformTrail())).toEqual(["Commodity Chain"]);
+    expect(labels(protocolsTrail())[0]).toBe("Commodity Chain");
+    expect(labels(protocolsTrail())).not.toContain("Markets");
+  });
+
+  it("shows the collection on every collection screen", () => {
+    expect(labels(protocolsTrail())).toEqual(["Commodity Chain", "Protocols"]);
+    expect(labels(instrumentsTrail())).toEqual(["Commodity Chain", "Instruments"]);
+    expect(labels(issuancesTrail())).toEqual(["Commodity Chain", "Issuances"]);
+    expect(labels(marketsTrail())).toEqual(["Commodity Chain", "Markets"]);
+  });
+
+  it("builds the protocol trail with correct hrefs", () => {
+    expect(render(protocolTrail(TIDAL_PROTOCOL))).toEqual([
+      { label: "Commodity Chain", href: "/" },
+      { label: "Protocols", href: "/protocols" },
+      { label: "Tidal Energy", href: undefined },
+    ]);
+  });
+
+  it("builds the version trail with correct hrefs", () => {
+    expect(render(protocolVersionTrail(TIDAL_PROTOCOL, TIDAL_VERSION))).toEqual([
+      { label: "Commodity Chain", href: "/" },
+      { label: "Protocols", href: "/protocols" },
+      { label: "Tidal Energy", href: "/protocols/TIDAL" },
+      { label: "TIDAL-V3.2", href: undefined },
+    ]);
+  });
+
+  it("puts the bound version in the instrument trail", () => {
+    expect(render(instrumentTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION))).toEqual(
+      [
+        { label: "Commodity Chain", href: "/" },
+        { label: "Protocols", href: "/protocols" },
+        { label: "Tidal Energy", href: "/protocols/TIDAL" },
+        { label: "TIDAL-V3.2", href: "/protocols/TIDAL/versions/TIDAL-V3.2" },
+        { label: "TIDE-2030", href: undefined },
+      ],
+    );
+  });
+
+  it("omits the version level honestly when the instrument has no binding", () => {
+    const unbound = { ...TIDAL_INSTRUMENT, protocolVersionId: null };
+    expect(labels(instrumentTrail(unbound, TIDAL_PROTOCOL, null))).toEqual([
+      "Commodity Chain",
+      "Protocols",
+      "Tidal Energy",
+      "TIDE-2030",
+    ]);
+  });
+
+  it("omits the version level when the version belongs to another protocol", () => {
+    const foreign = { ...TIDAL_VERSION, protocolId: "OTHER" };
+    expect(labels(instrumentTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL, foreign))).not.toContain(
+      "TIDAL-V3.2",
+    );
+  });
+
+  it("omits protocol and version levels when the protocol record is absent", () => {
+    expect(labels(instrumentTrail(TIDAL_INSTRUMENT, null, TIDAL_VERSION))).toEqual([
+      "Commodity Chain",
+      "TIDE-2030",
+    ]);
+  });
+
+  it("builds issuance trails from the records available", () => {
+    expect(
+      render(
+        issuanceTrail("TIDE-ISS-001", TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION),
+      ),
+    ).toEqual([
+      { label: "Commodity Chain", href: "/" },
+      { label: "Protocols", href: "/protocols" },
+      { label: "Tidal Energy", href: "/protocols/TIDAL" },
+      { label: "TIDAL-V3.2", href: "/protocols/TIDAL/versions/TIDAL-V3.2" },
+      { label: "TIDE-2030", href: "/instruments/TIDE-2030" },
+      { label: "TIDE-ISS-001", href: undefined },
+    ]);
+    expect(labels(issuanceTrail("TIDE-ISS-001", null, null))).toEqual([
+      "Commodity Chain",
+      "Issuances",
+      "TIDE-ISS-001",
+    ]);
+  });
+
+  it("builds market trails from the traded instrument's records", () => {
+    const trail = render(
+      marketTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION, "sectionMarket"),
+    );
+    expect(trail.map((c) => c.label)).toEqual([
+      "Commodity Chain",
+      "Protocols",
+      "Tidal Energy",
+      "TIDAL-V3.2",
+      "TIDE-2030",
+      "Market",
+    ]);
+    expect(labels(marketTrail(null, null))).toEqual([
+      "Commodity Chain",
+      "Markets",
+      "Market",
+    ]);
+  });
+
+  it("never yields an empty or missing label", () => {
+    const all = [
+      platformTrail(),
+      protocolsTrail(),
+      instrumentsTrail(),
+      issuancesTrail(),
+      marketsTrail(),
+      protocolTrail(TIDAL_PROTOCOL),
+      protocolVersionTrail(TIDAL_PROTOCOL, TIDAL_VERSION),
+      instrumentTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION),
+      issuanceTrail("TIDE-ISS-001", TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION),
+      marketTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION),
+    ];
+    for (const trail of all) {
+      for (const item of render(trail)) {
+        expect(typeof item.label).toBe("string");
+        expect(item.label.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
 describe("hierarchy hrefs", () => {
   it("builds a version href from protocol and version ids", () => {
     expect(protocolVersionHref("TIDAL", "TIDAL-V3.2")).toBe(
@@ -105,92 +247,8 @@ describe("hierarchy hrefs", () => {
     expect(boundProtocolVersionHref(TIDAL_INSTRUMENT)).toBe(
       "/protocols/TIDAL/versions/TIDAL-V3.2",
     );
-  });
-
-  it("returns no version href for an unbound instrument", () => {
     expect(
       boundProtocolVersionHref({ ...TIDAL_INSTRUMENT, protocolVersionId: null }),
     ).toBeUndefined();
-  });
-
-  it("ignores the protocol's mutable current pointer when building the link", () => {
-    const movedOn = { ...TIDAL_PROTOCOL, currentVersionId: "TIDAL-V9.9" };
-    expect(movedOn.currentVersionId).toBe("TIDAL-V9.9");
-    // The instrument's link still points at the version it was created under.
-    expect(boundProtocolVersionHref(TIDAL_INSTRUMENT)).toBe(
-      "/protocols/TIDAL/versions/TIDAL-V3.2",
-    );
-  });
-});
-
-describe("hierarchy trails", () => {
-  it("builds a platform trail", () => {
-    expect(platformTrail().map((c) => c.level)).toEqual(["PLATFORM"]);
-  });
-
-  it("builds a protocol catalogue trail", () => {
-    expect(protocolsTrail().map((c) => c.level)).toEqual(["PLATFORM", "PROTOCOL"]);
-  });
-
-  it("builds a protocol trail for a non-agriculture protocol", () => {
-    const trail = protocolTrail(TIDAL_PROTOCOL);
-    expect(trail.map((c) => c.level)).toEqual(["PLATFORM", "PROTOCOL", "PROTOCOL"]);
-    expect(trail.at(-1)?.label).toBe("Tidal Energy");
-  });
-
-  it("builds a version trail ending at the permanent version id", () => {
-    const trail = protocolVersionTrail(TIDAL_PROTOCOL, TIDAL_VERSION);
-    expect(trail.map((c) => c.level)).toEqual([
-      "PLATFORM",
-      "PROTOCOL",
-      "PROTOCOL",
-      "PROTOCOL_VERSION",
-    ]);
-    expect(trail.at(-1)?.label).toBe("TIDAL-V3.2");
-    expect(trail[2]?.href).toBe("/protocols/TIDAL");
-  });
-
-  it("builds an instrument trail", () => {
-    const trail = instrumentTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL);
-    expect(trail.map((c) => c.level)).toEqual(["PLATFORM", "PROTOCOL", "INSTRUMENT"]);
-    expect(trail.at(-1)?.label).toBe("TIDE-2030");
-  });
-
-  it("omits a missing optional level instead of inserting a placeholder", () => {
-    const trail = instrumentTrail(TIDAL_INSTRUMENT, null);
-    expect(trail.map((c) => c.level)).toEqual(["PLATFORM", "INSTRUMENT"]);
-    expect(trail.some((c) => c.label === "" || c.label === "—")).toBe(false);
-  });
-
-  it("builds issuance and market trails, omitting absent levels", () => {
-    expect(
-      issuanceTrail("TIDE-ISS-001", TIDAL_INSTRUMENT, TIDAL_PROTOCOL).map((c) => c.level),
-    ).toEqual(["PLATFORM", "PROTOCOL", "INSTRUMENT", "ISSUANCE"]);
-    expect(issuanceTrail("TIDE-ISS-001", null, null).map((c) => c.level)).toEqual([
-      "PLATFORM",
-      "ISSUANCE",
-    ]);
-    expect(marketTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL).map((c) => c.level)).toEqual([
-      "PLATFORM",
-      "PROTOCOL",
-      "INSTRUMENT",
-      "MARKET",
-    ]);
-    expect(marketTrail(null, null).map((c) => c.level)).toEqual(["PLATFORM", "MARKET"]);
-  });
-
-  it("gives every crumb exactly one of label or labelKey", () => {
-    const trails = [
-      ...platformTrail(),
-      ...protocolsTrail(),
-      ...protocolTrail(TIDAL_PROTOCOL),
-      ...protocolVersionTrail(TIDAL_PROTOCOL, TIDAL_VERSION),
-      ...instrumentTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL),
-      ...issuanceTrail("TIDE-ISS-001", TIDAL_INSTRUMENT, TIDAL_PROTOCOL),
-      ...marketTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL),
-    ];
-    for (const crumb of trails) {
-      expect(Boolean(crumb.label) !== Boolean(crumb.labelKey)).toBe(true);
-    }
   });
 });

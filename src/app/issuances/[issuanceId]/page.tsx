@@ -25,6 +25,7 @@ import {
 import { getIssuanceDesk } from "@/services/token-service";
 import {
   getAssetProtocol,
+  getProtocolVersion,
   listMarketInstruments,
 } from "@/services/market-core-service";
 
@@ -74,12 +75,15 @@ export default async function IssuanceDetailPage({
   const issuanceProtocol = issuanceInstrument
     ? (getAssetProtocol(issuanceInstrument.assetProtocolId) ?? null)
     : null;
+  const issuanceVersion = issuanceInstrument?.protocolVersionId
+    ? (getProtocolVersion(issuanceInstrument.protocolVersionId) ?? null)
+    : null;
 
   return (
     <div>
       <MarketCoreContextHeader
         level="ISSUANCE"
-        trail={issuanceTrail(issuanceId, issuanceInstrument, issuanceProtocol)}
+        trail={issuanceTrail(issuanceId, issuanceInstrument, issuanceProtocol, issuanceVersion)}
         translate={tCore}
         title={issuanceId}
         description={t("issuanceIntro")}

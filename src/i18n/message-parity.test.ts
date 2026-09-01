@@ -24,7 +24,27 @@ const base = en as unknown as Catalog;
 const CHANGED_NAMESPACES = ["marketCore", "errors"] as const;
 
 describe("message catalogue parity", () => {
-  it.each(CHANGED_NAMESPACES)("keeps %s at identical key set and order", (namespace) => {
+  const allNamespaces = Object.keys(base);
+
+  it("has EN/RU/KK key-set parity in every namespace", () => {
+    for (const namespace of allNamespaces) {
+      const expected = new Set(Object.keys(base[namespace]!));
+      for (const [locale, catalog] of catalogs) {
+        const actual = new Set(Object.keys(catalog[namespace] ?? {}));
+        const missing = [...expected].filter((key) => !actual.has(key));
+        const extra = [...actual].filter((key) => !expected.has(key));
+        expect(missing, `${namespace} missing in ${locale}`).toEqual([]);
+        expect(extra, `${namespace} extra in ${locale}`).toEqual([]);
+      }
+    }
+  });
+
+  /**
+   * Ordering is asserted only for the namespaces this phase changed. Several
+   * unrelated legacy namespaces have matching key sets but differing order, and
+   * mass-reordering them is out of scope.
+   */
+  it.each(CHANGED_NAMESPACES)("keeps %s at identical key order", (namespace) => {
     const expected = Object.keys(base[namespace]!);
     for (const [locale, catalog] of catalogs) {
       expect(Object.keys(catalog[namespace]!), `${namespace} in ${locale}`).toEqual(
@@ -104,6 +124,48 @@ describe("message catalogue parity", () => {
         expect(canonical, `raw governance note leaked into ${locale}`).not.toContain(
           value,
         );
+      }
+    }
+  });
+
+  it("localizes the markets link to the protocol catalogue", () => {
+    for (const [locale, catalog] of [["en", base], ...catalogs] as Array<
+      [string, Catalog]
+    >) {
+      expect(catalog.marketCore?.browseProtocols, `browseProtocols in ${locale}`)
+        .toBeTruthy();
+    }
+    // Distinct per locale, i.e. actually translated.
+    expect(
+      new Set([base, ru as unknown as Catalog, kk as unknown as Catalog].map(
+        (c) => c.marketCore!.browseProtocols,
+      )).size,
+    ).toBe(3);
+  });
+
+  it("localizes both frozen states and the full rule-snapshot labels", () => {
+    const keys = [
+      "immutableRules",
+      "rulesNotFrozen",
+      "verification",
+      "riskModel",
+      "coverageModel",
+      "issuanceModel",
+      "redemptionModel",
+      "versionLifecycle",
+      "versionModules",
+      "versionNoLifecycle",
+      "versionNoModules",
+      "recordedVersions",
+      "currentUsableVersion",
+      "noCurrentUsableVersion",
+      "breadcrumbPlatform",
+    ];
+    for (const key of keys) {
+      for (const [locale, catalog] of [["en", base], ...catalogs] as Array<
+        [string, Catalog]
+      >) {
+        expect(catalog.marketCore?.[key], `${key} in ${locale}`).toBeTruthy();
       }
     }
   });

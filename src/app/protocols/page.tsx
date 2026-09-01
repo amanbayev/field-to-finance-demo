@@ -11,8 +11,12 @@ import {
   protocolVersionHref,
   protocolsTrail,
 } from "@/lib/market-core/hierarchy";
-import { ASSET_CLASS_KEYS, protocolStatusKey } from "@/lib/market-core/presentation";
-import { listAssetProtocolsWithCurrentVersion } from "@/services/market-core-service";
+import {
+  ASSET_CLASS_KEYS,
+  PROTOCOL_VERSION_STATE_KEYS,
+  protocolStatusKey,
+} from "@/lib/market-core/presentation";
+import { listProtocolVersionSummaries } from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketCore");
@@ -22,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ProtocolsPage() {
   await requirePermission("market.read", "regulator.read");
   const t = await getTranslations("marketCore");
-  const protocols = listAssetProtocolsWithCurrentVersion();
+  const protocols = listProtocolVersionSummaries();
 
   return (
     <div>
@@ -36,7 +40,7 @@ export default async function ProtocolsPage() {
 
       <PageSection title={t("catalogueByProtocol")}>
         <DeskLedger>
-          {protocols.map(({ protocol, currentVersion }, index) => (
+          {protocols.map(({ protocol, versions }, index) => (
             <DeskRow
               key={protocol.id}
               href={protocolHref(protocol.id)}
@@ -44,8 +48,8 @@ export default async function ProtocolsPage() {
               kicker={lookupMessage(t, ASSET_CLASS_KEYS[protocol.assetClass])}
               title={protocol.name}
               hint={
-                currentVersion
-                  ? `${t("recordedVersion")}: ${currentVersion.id}`
+                versions.length > 0
+                  ? `${t("recordedVersions")}: ${versions.map((v) => v.id).join(", ")}`
                   : t("noRecordedVersion")
               }
               value={
@@ -59,36 +63,51 @@ export default async function ProtocolsPage() {
         </DeskLedger>
       </PageSection>
 
-      <PageSection title={t("protocolVersionPageTitle")}>
+      <PageSection title={t("recordedVersions")}>
         <DeskNote className="mb-4">{t("protocolVersionIntro")}</DeskNote>
-        <DeskLedger>
-          {protocols.map(({ protocol, currentVersion }, index) =>
-            currentVersion ? (
-              <DeskRow
-                key={protocol.id}
-                href={protocolVersionHref(protocol.id, currentVersion.id)}
-                index={deskIndex(index)}
-                kicker={protocol.name}
-                title={currentVersion.id}
-                hint={`${t("protocolVersionDisplay")} ${currentVersion.displayVersion}`}
-                value={
-                  <MarketStatusChip
-                    label={t("immutableRules")}
-                    tone={currentVersion.frozen ? "ACTIVE" : "STRUCTURING"}
-                  />
-                }
-              />
+        {protocols.map(({ protocol, versions, currentVersion }) => (
+          <div key={protocol.id} className="mb-6 last:mb-0">
+            <p className="label-caps text-harvest">{protocol.name}</p>
+            {versions.length > 0 ? (
+              <>
+                <DeskLedger className="mt-3">
+                  {versions.map((version, index) => (
+                    <DeskRow
+                      key={version.id}
+                      href={protocolVersionHref(protocol.id, version.id)}
+                      index={deskIndex(index)}
+                      title={version.id}
+                      hint={`${t("protocolVersionDisplay")} ${version.displayVersion}`}
+                      value={
+                        <span className="flex flex-wrap gap-3">
+                          <MarketStatusChip
+                            label={lookupMessage(
+                              t,
+                              PROTOCOL_VERSION_STATE_KEYS[version.state],
+                            )}
+                            tone={version.state === "ACTIVE" ? "ACTIVE" : "STRUCTURING"}
+                          />
+                          <MarketStatusChip
+                            label={
+                              version.frozen ? t("immutableRules") : t("rulesNotFrozen")
+                            }
+                            tone={version.frozen ? "ACTIVE" : "FUTURE"}
+                          />
+                        </span>
+                      }
+                    />
+                  ))}
+                </DeskLedger>
+                <p className="mt-2 text-xs text-straw">
+                  {t("currentUsableVersion")}:{" "}
+                  {currentVersion ? currentVersion.id : t("noCurrentUsableVersion")}
+                </p>
+              </>
             ) : (
-              <DeskRow
-                key={protocol.id}
-                index={deskIndex(index)}
-                kicker={protocol.name}
-                title={t("noRecordedVersion")}
-                hint={lookupMessage(t, protocolStatusKey(protocol.status))}
-              />
-            ),
-          )}
-        </DeskLedger>
+              <p className="mt-2 text-sm text-straw">{t("noRecordedVersion")}</p>
+            )}
+          </div>
+        ))}
       </PageSection>
 
       <p className="mt-6 text-xs text-straw">{t("noFakeEconomics")}</p>

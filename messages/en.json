@@ -1830,7 +1830,17 @@
     "familyProtocolInvestment": "Protocol investment",
     "notIssuedNote": "Not issued. No offer, price, yield or admission.",
     "instrumentsWithoutVersion": "No bound protocol version.",
-    "viewProtocolVersion": "View protocol version"
+    "viewProtocolVersion": "View protocol version",
+    "breadcrumbPlatform": "Commodity Chain",
+    "browseProtocols": "Browse the protocol catalogue",
+    "recordedVersions": "Recorded versions",
+    "currentUsableVersion": "Current usable version",
+    "noCurrentUsableVersion": "No current usable version.",
+    "versionLifecycle": "Lifecycle",
+    "versionModules": "Modules",
+    "rulesNotFrozen": "Rules not frozen",
+    "versionNoLifecycle": "No lifecycle recorded.",
+    "versionNoModules": "No modules recorded."
   },
   "origination": {
     "addField": "Add field",

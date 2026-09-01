@@ -303,8 +303,8 @@
       "name": "Nav Rail",
       "kind": "nav",
       "refersTo": "nav-rail",
-      "description": "Desktop shell rail.",
-      "html": "<nav class=\"ds-rail\" aria-label=\"Primary\"><div class=\"ds-rail-brand\">Commodity Chain</div><div class=\"ds-rail-protocol\">Field-to-Finance</div><a class=\"ds-rail-link ds-rail-link-active\" href=\"/\">Overview</a><a class=\"ds-rail-link\" href=\"/fields\">Fields</a></nav>",
+      "description": "Desktop shell rail. Global platform navigation only — never protocol-specific.",
+      "html": "<nav class=\"ds-rail\" aria-label=\"Primary\"><div class=\"ds-rail-brand\">Commodity Chain</div><div class=\"ds-rail-protocol\">Multi-protocol platform</div><a class=\"ds-rail-link ds-rail-link-active\" href=\"/\">Overview</a><a class=\"ds-rail-link\" href=\"/protocols\">Protocols</a><a class=\"ds-rail-link\" href=\"/instruments\">Instruments</a><a class=\"ds-rail-link\" href=\"/markets\">Markets</a></nav>",
       "css": ".ds-rail { background: #0B1F33; color: #E8EEF4; padding: 16px 12px; width: 240px; min-height: 320px; font: 400 14px/1.4 \"Golos Text\", system-ui, sans-serif; } .ds-rail-brand { font-weight: 600; } .ds-rail-protocol { color: #8A9AAB; font-size: 12px; margin: 4px 0 16px; } .ds-rail-link { display: block; color: #8A9AAB; text-decoration: none; padding: 8px 10px; border-radius: 4px; } .ds-rail-link-active { color: #FFFFFF; background: rgba(10, 79, 140, 0.35); }"
     },
     {
@@ -314,6 +314,14 @@
       "description": "Table host. Not a KPI tile.",
       "html": "<section class=\"ds-panel\"><header class=\"ds-panel-h\">Workflow</header><p class=\"ds-panel-p\">Field → Placement as rows.</p></section>",
       "css": ".ds-panel { background: #FFFFFF; color: #121820; border: 1px solid #D8DEE6; border-radius: 6px; padding: 16px; box-shadow: none; font: 400 14px/1.5 \"Golos Text\", system-ui, sans-serif; } .ds-panel-h { font-weight: 600; margin: 0 0 8px; } .ds-panel-p { margin: 0; color: #5A6572; }"
+    },
+    {
+      "name": "Protocol Context Nav (Field to Finance)",
+      "kind": "nav",
+      "refersTo": "nav-protocol-context",
+      "description": "Protocol-specific sub-navigation shown INSIDE a Field to Finance protocol context. Never the global platform rail, and never applied to Water, Music Rights or Gaming Assets.",
+      "html": "<nav class=\"ds-subnav\" aria-label=\"Field to Finance\"><div class=\"ds-subnav-scope\">Field to Finance</div><a class=\"ds-subnav-link\" href=\"/protocols/F2F\">Protocol</a><a class=\"ds-subnav-link\" href=\"/fields\">Fields</a><a class=\"ds-subnav-link\" href=\"/scas\">Verification</a></nav>",
+      "css": ".ds-subnav { background: #FFFFFF; color: #121820; border: 1px solid #D8DEE6; border-radius: 6px; padding: 12px; font: 400 14px/1.4 \"Golos Text\", system-ui, sans-serif; } .ds-subnav-scope { color: #5A6572; font-size: 12px; margin-bottom: 8px; } .ds-subnav-link { display: block; color: #0A4F8C; text-decoration: none; padding: 6px 8px; border-radius: 4px; } .ds-subnav-link:focus-visible { outline: 2px solid #0A4F8C; outline-offset: 2px; }"
     }
   ],
   "narrative": {

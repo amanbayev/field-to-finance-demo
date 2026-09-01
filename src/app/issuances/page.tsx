@@ -22,7 +22,7 @@ import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { ON_CHAIN_DEMO_ISSUANCE_ID } from "@/adapters/blockchain";
 import { requireRegistrarOrRegulator } from "@/lib/auth/guard";
-import { platformTrail } from "@/lib/market-core/hierarchy";
+import { issuancesTrail } from "@/lib/market-core/hierarchy";
 import { getPlacementSnapshot } from "@/services/placement-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -41,7 +41,7 @@ export default async function IssuancesPage() {
     <div>
       <MarketCoreContextHeader
         level="ISSUANCE"
-        trail={platformTrail()}
+        trail={issuancesTrail()}
         translate={tCore}
         title={t("issuanceRegistryTitle")}
         description={t("issuanceRegistryIntro")}

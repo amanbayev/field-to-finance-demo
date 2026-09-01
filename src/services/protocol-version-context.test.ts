@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   currentVersionForProtocol,
-  protocolVersionById,
+  protocolVersionSummary,
   resolveGoverningProtocolVersion,
+  resolveProtocolVersionContext,
+  type ProtocolVersionRegistries,
   type AssetProtocol,
   type MarketInstrument,
   type ProtocolVersion,
@@ -16,6 +18,7 @@ import {
   WATER_PROTOCOL_ID,
   WHEAT_INSTRUMENT_ID,
   instrumentById,
+  assetProtocols,
   instrumentsForProtocolVersion,
   marketInstruments,
   protocolById,
@@ -23,7 +26,7 @@ import {
 } from "@/data/market-core/catalog";
 import {
   getProtocolVersionContext,
-  listAssetProtocolsWithCurrentVersion,
+  listProtocolVersionSummaries,
 } from "@/services/market-core-service";
 import { boundProtocolVersionHref } from "@/lib/market-core/hierarchy";
 import { protocolVersionGovernanceKey } from "@/lib/market-core/presentation";
@@ -99,7 +102,7 @@ describe("version binding and links", () => {
 
 describe("protocol catalogue truthfulness", () => {
   it("shows the recorded version for F2F and none for future protocols", () => {
-    const rows = listAssetProtocolsWithCurrentVersion();
+    const rows = listProtocolVersionSummaries();
     const f2f = rows.find((r) => r.protocol.id === F2F_PROTOCOL_ID)!;
     expect(f2f.currentVersion?.id).toBe(F2F_V1_1_VERSION_ID);
 
@@ -111,7 +114,7 @@ describe("protocol catalogue truthfulness", () => {
   });
 
   it("presents no future protocol as active, issued or approved", () => {
-    const rows = listAssetProtocolsWithCurrentVersion();
+    const rows = listProtocolVersionSummaries();
     for (const id of [WATER_PROTOCOL_ID, MUSIC_PROTOCOL_ID, GAMING_PROTOCOL_ID]) {
       const { protocol } = rows.find((r) => r.protocol.id === id)!;
       expect(protocol.status).not.toBe("ACTIVE");
@@ -206,7 +209,7 @@ describe("generic resolution without Field to Finance", () => {
       coverageModel: "Contracted revenue",
       issuanceModel: "Claim against issuer",
       redemptionModel: "Scheduled",
-      lifecycle: ["site", "commissioning", "instrument"],
+      lifecycle: ["site", "commissioning"],
       modules: ["metering"],
     },
   };
@@ -218,41 +221,61 @@ describe("generic resolution without Field to Finance", () => {
     protocolVersionId: "TIDAL-V3.2",
     assetClass: "WATER",
   };
-  const registry: readonly ProtocolVersion[] = [version];
+  // The exact registries shape the production service injects.
+  const registries: ProtocolVersionRegistries = {
+    protocols: [protocol],
+    versions: [version],
+    instruments: [instrument],
+  };
 
-  /** Mirrors getProtocolVersionContext against an injected registry. */
-  function resolveContext(protocolId: string, versionId: string) {
-    if (protocol.id !== protocolId) {
-      return null;
-    }
-    const found = protocolVersionById(registry, versionId);
-    if (!found || found.protocolId !== protocol.id) {
-      return null;
-    }
-    return { protocol, version: found };
-  }
-
-  it("resolves a non-agriculture protocol version", () => {
-    const context = resolveContext("TIDAL", "TIDAL-V3.2")!;
-    expect(context.version.displayVersion).toBe("3.2");
+  it("resolves a non-agriculture protocol version through the production resolver", () => {
+    const context = resolveProtocolVersionContext(registries, "TIDAL", "TIDAL-V3.2")!;
+    expect(context).not.toBeNull();
     expect(context.protocol.assetClass).toBe("WATER");
+    expect(context.version.displayVersion).toBe("3.2");
+    expect(context.boundInstruments.map((i) => i.id)).toEqual(["TIDE-2030"]);
   });
 
   it("applies the same absence rules to a non-agriculture protocol", () => {
-    expect(resolveContext("NOPE", "TIDAL-V3.2")).toBeNull();
-    expect(resolveContext("TIDAL", "TIDAL-V9.9")).toBeNull();
-    expect(
-      protocolVersionById([{ ...version, protocolId: "OTHER" }], "TIDAL-V3.2")
-        ?.protocolId,
-    ).not.toBe(protocol.id);
+    expect(resolveProtocolVersionContext(registries, "NOPE", "TIDAL-V3.2")).toBeNull();
+    expect(resolveProtocolVersionContext(registries, "TIDAL", "TIDAL-V9.9")).toBeNull();
+    const crossed: ProtocolVersionRegistries = {
+      ...registries,
+      versions: [{ ...version, protocolId: "OTHER" }],
+    };
+    expect(resolveProtocolVersionContext(crossed, "TIDAL", "TIDAL-V3.2")).toBeNull();
+  });
+
+  it("is the same function the production service wrapper uses", () => {
+    // Canonical registries through the wrapper must equal a direct call on the
+    // pure resolver with those same registries.
+    const viaWrapper = getProtocolVersionContext(F2F_PROTOCOL_ID, F2F_V1_1_VERSION_ID)!;
+    const direct = resolveProtocolVersionContext(
+      {
+        protocols: assetProtocols,
+        versions: protocolVersions,
+        instruments: marketInstruments,
+      },
+      F2F_PROTOCOL_ID,
+      F2F_V1_1_VERSION_ID,
+    )!;
+    expect(direct.version.id).toBe(viaWrapper.version.id);
+    expect(direct.protocol.id).toBe(viaWrapper.protocol.id);
+    expect(direct.boundInstruments.map((i) => i.id)).toEqual(
+      viaWrapper.boundInstruments.map((i) => i.id),
+    );
   });
 
   it("binds and links a non-agriculture instrument through its own version", () => {
-    expect(resolveGoverningProtocolVersion(instrument, registry)?.id).toBe("TIDAL-V3.2");
+    expect(resolveGoverningProtocolVersion(instrument, registries.versions)?.id).toBe(
+      "TIDAL-V3.2",
+    );
     expect(boundProtocolVersionHref(instrument)).toBe(
       "/protocols/TIDAL/versions/TIDAL-V3.2",
     );
-    expect(currentVersionForProtocol(registry, protocol)?.id).toBe("TIDAL-V3.2");
+    expect(currentVersionForProtocol(registries.versions, protocol)?.id).toBe(
+      "TIDAL-V3.2",
+    );
   });
 
   it("leaks no synthetic record into the production catalogue", () => {
@@ -260,5 +283,89 @@ describe("generic resolution without Field to Finance", () => {
     expect(protocolVersions.map((v) => v.id)).not.toContain("TIDAL-V3.2");
     expect(protocolVersions).toHaveLength(1);
     expect(protocolById("TIDAL")).toBeUndefined();
+  });
+});
+
+describe("recorded versions versus current usable version", () => {
+  const protocol: AssetProtocol = {
+    id: "TIDAL",
+    name: "Tidal Energy",
+    assetClass: "WATER",
+    protocolOwner: "Not appointed",
+    operator: "Test operator",
+    status: "STRUCTURING",
+    regulatoryStatus: "NOT_SUBMITTED",
+    currentVersionId: "TIDAL-V1",
+  };
+  function version(overrides: Partial<ProtocolVersion>): ProtocolVersion {
+    return {
+      id: "TIDAL-V1",
+      protocolId: "TIDAL",
+      displayVersion: "1.0",
+      state: "ACTIVE",
+      frozen: true,
+      activatedAt: null,
+      frozenAt: null,
+      supersedesVersionId: null,
+      supersededByVersionId: null,
+      governanceNote: "Synthetic",
+      rules: {
+        verificationModel: "T",
+        riskModel: "T",
+        coverageModel: "T",
+        issuanceModel: "T",
+        redemptionModel: "T",
+        lifecycle: [],
+        modules: [],
+      },
+      ...overrides,
+    };
+  }
+
+  it.each(["DRAFT", "SUPERSEDED", "RETIRED"] as const)(
+    "keeps a %s version visible as recorded while there is no current usable version",
+    (state) => {
+      const summary = protocolVersionSummary([version({ state })], protocol);
+      expect(summary.versions).toHaveLength(1);
+      expect(summary.versions[0]!.state).toBe(state);
+      expect(summary.currentVersion).toBeNull();
+    },
+  );
+
+  it("keeps an unfrozen ACTIVE version recorded but not current", () => {
+    const summary = protocolVersionSummary(
+      [version({ state: "ACTIVE", frozen: false })],
+      protocol,
+    );
+    expect(summary.versions).toHaveLength(1);
+    expect(summary.versions[0]!.frozen).toBe(false);
+    expect(summary.currentVersion).toBeNull();
+  });
+
+  it("reports an ACTIVE frozen version as both recorded and current", () => {
+    const summary = protocolVersionSummary([version({})], protocol);
+    expect(summary.versions).toHaveLength(1);
+    expect(summary.currentVersion?.id).toBe("TIDAL-V1");
+  });
+
+  it("reports genuinely versionless protocols as having no recorded versions", () => {
+    const summary = protocolVersionSummary([], {
+      ...protocol,
+      currentVersionId: null,
+    });
+    expect(summary.versions).toEqual([]);
+    expect(summary.currentVersion).toBeNull();
+  });
+
+  it("shows every shipped protocol truthfully", () => {
+    const rows = listProtocolVersionSummaries();
+    const f2f = rows.find((r) => r.protocol.id === F2F_PROTOCOL_ID)!;
+    expect(f2f.versions.map((v) => v.id)).toEqual([F2F_V1_1_VERSION_ID]);
+    expect(f2f.currentVersion?.id).toBe(F2F_V1_1_VERSION_ID);
+    for (const id of [WATER_PROTOCOL_ID, MUSIC_PROTOCOL_ID, GAMING_PROTOCOL_ID]) {
+      const row = rows.find((r) => r.protocol.id === id)!;
+      expect(row.versions).toEqual([]);
+      expect(row.currentVersion).toBeNull();
+    }
   });
 });

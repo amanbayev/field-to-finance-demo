@@ -17,8 +17,12 @@ import {
 import type { AppLocale } from "@/i18n/config";
 import { formatDemoKzt, formatInteger, formatTimestamp } from "@/lib/format";
 import { requirePermission } from "@/lib/auth/guard";
-import { platformTrail } from "@/lib/market-core/hierarchy";
+import { marketTrail } from "@/lib/market-core/hierarchy";
 import { getSecondaryMarketView } from "@/services/secondary-market-service";
+import {
+  getAssetProtocol,
+  getProtocolVersion,
+} from "@/services/market-core-service";
 import { OrderEntry } from "./order-entry";
 import { cancelSecondaryOrderAction } from "./actions";
 
@@ -38,6 +42,12 @@ export default async function SecondaryMarketPage({
   const tCore = await getTranslations("marketCore");
   const locale = (await getLocale()) as AppLocale;
   const view = await getSecondaryMarketView(actor);
+  // Market hierarchy derived from the traded instrument's own records — no
+  // hardcoded protocol or instrument identifier.
+  const marketProtocol = getAssetProtocol(view.instrument.assetProtocolId) ?? null;
+  const marketVersion = view.instrument.protocolVersionId
+    ? (getProtocolVersion(view.instrument.protocolVersionId) ?? null)
+    : null;
   const latestTrade = view.trades[view.trades.length - 1];
   const book = [
     ...view.bids.map((level) => ({ side: "bids" as const, level })),
@@ -48,7 +58,7 @@ export default async function SecondaryMarketPage({
     <div>
       <MarketCoreContextHeader
         level="MARKET"
-        trail={platformTrail()}
+        trail={marketTrail(view.instrument, marketProtocol, marketVersion, "title")}
         translate={tCore}
         title={t("title")}
         description={t("intro")}

@@ -11,7 +11,7 @@ import {
 } from "@/components/surface/desk-stage";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { requirePermission } from "@/lib/auth/guard";
-import { platformTrail } from "@/lib/market-core/hierarchy";
+import { marketsTrail, protocolsHref } from "@/lib/market-core/hierarchy";
 import { ASSET_CLASS_KEYS, protocolStatusKey } from "@/lib/market-core/presentation";
 import {
   getProtocolContext,
@@ -41,7 +41,7 @@ export default async function MarketsPage() {
     <div>
       <MarketCoreContextHeader
         level="PLATFORM"
-        trail={platformTrail()}
+        trail={marketsTrail()}
         translate={t}
         title={t("marketsTitle")}
         description={t("marketsIntro")}
@@ -118,7 +118,14 @@ export default async function MarketsPage() {
             kicker={t("levelInstrument")}
             title={t("notProtocol")}
           />
-          <DeskRow href="/architecture" index={deskIndex(3)} title={t("architectureCta")} />
+          <DeskRow
+            href={protocolsHref()}
+            index={deskIndex(3)}
+            kicker={t("levelProtocol")}
+            title={t("browseProtocols")}
+            hint={t("protocolsIntro")}
+          />
+          <DeskRow href="/architecture" index={deskIndex(4)} title={t("architectureCta")} />
         </DeskLedger>
       </div>
     </div>

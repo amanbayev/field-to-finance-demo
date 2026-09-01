@@ -80,14 +80,18 @@ export {
   freezeProtocolVersionRegistry,
   isFrozenProtocolVersion,
   protocolVersionById,
+  protocolVersionSummary,
   protocolVersionsForProtocol,
   resolveGoverningProtocolVersion,
+  resolveProtocolVersionContext,
   validateInstrumentVersionBinding,
   validateProtocolCurrentVersion,
   validateProtocolVersionRegistry,
 } from "./protocol-version";
 export type {
   ProtocolCurrentVersionResult,
+  ProtocolVersionContext,
+  ProtocolVersionRegistries,
   ProtocolCurrentVersionViolation,
   ProtocolVersionBindingResult,
   ProtocolVersionBindingViolation,

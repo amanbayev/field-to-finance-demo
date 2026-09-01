@@ -1830,7 +1830,17 @@
     "familyProtocolInvestment": "Инвестиция в протокол",
     "notIssuedNote": "Не выпущен. Нет предложения, цены, доходности и допуска.",
     "instrumentsWithoutVersion": "Привязанной версии протокола нет.",
-    "viewProtocolVersion": "Открыть версию протокола"
+    "viewProtocolVersion": "Открыть версию протокола",
+    "breadcrumbPlatform": "Commodity Chain",
+    "browseProtocols": "Открыть каталог протоколов",
+    "recordedVersions": "Зафиксированные версии",
+    "currentUsableVersion": "Текущая используемая версия",
+    "noCurrentUsableVersion": "Текущей используемой версии нет.",
+    "versionLifecycle": "Жизненный цикл",
+    "versionModules": "Модули",
+    "rulesNotFrozen": "Правила не зафиксированы",
+    "versionNoLifecycle": "Жизненный цикл не зафиксирован.",
+    "versionNoModules": "Модули не зафиксированы."
   },
   "origination": {
     "addField": "Добавить поле",

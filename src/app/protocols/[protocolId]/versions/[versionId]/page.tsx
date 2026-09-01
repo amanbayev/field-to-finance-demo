@@ -12,6 +12,8 @@ import { requirePermission } from "@/lib/auth/guard";
 import { instrumentHref, protocolVersionTrail } from "@/lib/market-core/hierarchy";
 import {
   ASSET_CLASS_KEYS,
+  LIFECYCLE_KEYS,
+  MODULE_KEYS,
   PROTOCOL_VERSION_STATE_KEYS,
   protocolVersionGovernanceKey,
 } from "@/lib/market-core/presentation";
@@ -77,9 +79,10 @@ export default async function ProtocolVersionPage({
           label={lookupMessage(t, PROTOCOL_VERSION_STATE_KEYS[version.state])}
           tone={version.state === "ACTIVE" ? "ACTIVE" : "STRUCTURING"}
         />
-        {version.frozen ? (
-          <MarketStatusChip label={t("immutableRules")} tone="ACTIVE" />
-        ) : null}
+        <MarketStatusChip
+          label={version.frozen ? t("immutableRules") : t("rulesNotFrozen")}
+          tone={version.frozen ? "ACTIVE" : "FUTURE"}
+        />
         <span className="text-xs text-muted-foreground">{t("demonstratorOnly")}</span>
       </div>
 
@@ -115,6 +118,26 @@ export default async function ProtocolVersionPage({
             { label: t("coverageModel"), value: rules.coverageModel },
             { label: t("issuanceModel"), value: rules.issuanceModel },
             { label: t("redemptionModel"), value: rules.redemptionModel },
+            {
+              label: t("versionLifecycle"),
+              value:
+                rules.lifecycle.length > 0
+                  ? rules.lifecycle
+                      .map((step) => lookupMessage(t, LIFECYCLE_KEYS[step] ?? step))
+                      .join(" · ")
+                  : t("versionNoLifecycle"),
+            },
+            {
+              label: t("versionModules"),
+              value:
+                rules.modules.length > 0
+                  ? rules.modules
+                      .map((moduleId) =>
+                        lookupMessage(t, MODULE_KEYS[moduleId] ?? moduleId),
+                      )
+                      .join(" · ")
+                  : t("versionNoModules"),
+            },
           ]}
         />
       </PageSection>

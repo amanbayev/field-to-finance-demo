@@ -1830,7 +1830,17 @@
     "familyProtocolInvestment": "Хаттамаға инвестиция",
     "notIssuedNote": "Шығарылмаған. Ұсыныс, баға, кірістілік және рұқсат жоқ.",
     "instrumentsWithoutVersion": "Байланыстырылған хаттама нұсқасы жоқ.",
-    "viewProtocolVersion": "Хаттама нұсқасын ашу"
+    "viewProtocolVersion": "Хаттама нұсқасын ашу",
+    "breadcrumbPlatform": "Commodity Chain",
+    "browseProtocols": "Хаттамалар каталогын ашу",
+    "recordedVersions": "Тіркелген нұсқалар",
+    "currentUsableVersion": "Ағымдағы қолданыстағы нұсқа",
+    "noCurrentUsableVersion": "Ағымдағы қолданыстағы нұсқа жоқ.",
+    "versionLifecycle": "Өмірлік цикл",
+    "versionModules": "Модульдер",
+    "rulesNotFrozen": "Ережелер бекітілмеген",
+    "versionNoLifecycle": "Өмірлік цикл тіркелмеген.",
+    "versionNoModules": "Модульдер тіркелмеген."
   },
   "origination": {
     "addField": "Алқап қосу",

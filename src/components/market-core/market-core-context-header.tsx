@@ -37,11 +37,14 @@ export function MarketCoreContextHeader({
   /** Overrides the level label when a screen needs a more specific eyebrow. */
   eyebrow?: string;
 }) {
+  // The crumb union guarantees exactly one of labelKey / label, so there is no
+  // empty-string fallback here.
   const items = trail.map((crumb) => ({
     href: crumb.href,
-    label: crumb.labelKey
-      ? lookupMessage(translate, crumb.labelKey)
-      : (crumb.label ?? ""),
+    label:
+      crumb.labelKey !== undefined
+        ? lookupMessage(translate, crumb.labelKey)
+        : crumb.label,
   }));
 
   return (

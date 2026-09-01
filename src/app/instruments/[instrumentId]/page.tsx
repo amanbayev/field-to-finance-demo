@@ -114,7 +114,7 @@ export default async function InstrumentDetailPage({
     <div>
       <MarketCoreContextHeader
         level="INSTRUMENT"
-        trail={instrumentTrail(instrument, protocol)}
+        trail={instrumentTrail(instrument, protocol, protocolVersion)}
         title={instrument.symbol}
         description={instrument.name}
         translate={t}

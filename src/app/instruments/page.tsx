@@ -11,8 +11,9 @@ import { requirePermission } from "@/lib/auth/guard";
 import {
   boundProtocolVersionHref,
   instrumentHref,
-  platformTrail,
+  instrumentsTrail,
 } from "@/lib/market-core/hierarchy";
+import { groupInstrumentCatalogue } from "@/lib/market-core/instrument-catalogue";
 import { ASSET_CLASS_KEYS } from "@/lib/market-core/presentation";
 import {
   listAssetProtocols,
@@ -27,35 +28,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function InstrumentsPage() {
   await requirePermission("issuance.read", "market.read");
   const t = await getTranslations("marketCore");
-  const protocols = listAssetProtocols();
-  const instruments = listMarketInstruments();
-
-  // Group by protocol, then by instrument family, then by actual lifecycle
-  // status. Each instrument is labelled from its own record, so a protocol
-  // investment never colours an asset instrument and vice versa.
-  const groups = protocols
-    .map((protocol) => {
-      const owned = instruments.filter(
-        (item) => item.assetProtocolId === protocol.id,
-      );
-      return {
-        protocol,
-        families: [
-          {
-            key: "familyAssetToken",
-            items: owned.filter((item) => item.instrumentType === "ASSET_TOKEN"),
-          },
-          {
-            key: "familyProtocolInvestment",
-            items: owned.filter(
-              (item) => item.instrumentType === "PROTOCOL_INVESTMENT",
-            ),
-          },
-        ].filter((family) => family.items.length > 0),
-      };
-    })
-    // A protocol with no instruments is omitted, never padded with demo rows.
-    .filter((group) => group.families.length > 0);
+  // Same production helper the catalogue tests exercise.
+  const groups = groupInstrumentCatalogue(listAssetProtocols(), listMarketInstruments());
 
   function statusLabel(item: MarketInstrument): string {
     return item.status === "ISSUED"
@@ -63,18 +37,11 @@ export default async function InstrumentsPage() {
       : lookupMessage(t, `status${item.status}`);
   }
 
-  function hintFor(item: MarketInstrument): string {
-    if (item.status === "ISSUED") {
-      return item.name;
-    }
-    return `${item.name} · ${t("notIssuedNote")}`;
-  }
-
   return (
     <div>
       <MarketCoreContextHeader
         level="INSTRUMENT"
-        trail={platformTrail()}
+        trail={instrumentsTrail()}
         title={t("instrumentsTitle")}
         description={t("instrumentsIntro")}
         translate={t}
@@ -88,48 +55,59 @@ export default async function InstrumentsPage() {
           description={lookupMessage(t, ASSET_CLASS_KEYS[protocol.assetClass])}
         >
           {families.map((family) => (
-            <div key={family.key} className="mb-6 last:mb-0">
-              <p className="label-caps text-harvest">{lookupMessage(t, family.key)}</p>
-              <DeskLedger className="mt-3">
-                {family.items.map((item, index) => (
-                  <DeskRow
-                    key={item.id}
-                    href={instrumentHref(item.id)}
-                    index={deskIndex(index)}
-                    title={
-                      item.instrumentType === "PROTOCOL_INVESTMENT"
-                        ? item.name
-                        : item.symbol
-                    }
-                    hint={hintFor(item)}
-                    value={
-                      <MarketStatusChip label={statusLabel(item)} tone={item.status} />
-                    }
-                  />
-                ))}
-              </DeskLedger>
-              <dl className="mt-3 space-y-1 text-xs text-straw">
-                {family.items.map((item) => {
-                  const versionHref = boundProtocolVersionHref(item);
-                  return (
-                    <div key={item.id} className="flex flex-wrap gap-2">
-                      <dt>{item.symbol}</dt>
-                      <dd>
-                        {versionHref && item.protocolVersionId ? (
-                          <Link
-                            href={versionHref}
-                            className="text-primary hover:underline"
-                          >
-                            {item.protocolVersionId}
-                          </Link>
-                        ) : (
-                          t("instrumentsWithoutVersion")
-                        )}
-                      </dd>
-                    </div>
-                  );
-                })}
-              </dl>
+            <div key={family.instrumentType} className="mb-8 last:mb-0">
+              <p className="label-caps text-harvest">
+                {lookupMessage(t, family.labelKey)}
+              </p>
+              {family.statuses.map((group) => (
+                <div key={group.status} className="mt-4">
+                  <p className="text-xs text-straw">
+                    {group.status === "ISSUED"
+                      ? t("issuedDemonstratorInstrument")
+                      : `${lookupMessage(t, `status${group.status}`)} · ${t("notIssuedNote")}`}
+                  </p>
+                  <DeskLedger className="mt-2">
+                    {group.instruments.map((item, index) => (
+                      <DeskRow
+                        key={item.id}
+                        href={instrumentHref(item.id)}
+                        index={deskIndex(index)}
+                        title={
+                          item.instrumentType === "PROTOCOL_INVESTMENT"
+                            ? item.name
+                            : item.symbol
+                        }
+                        hint={item.name}
+                        value={
+                          <MarketStatusChip label={statusLabel(item)} tone={item.status} />
+                        }
+                      />
+                    ))}
+                  </DeskLedger>
+                  <dl className="mt-2 space-y-1 text-xs text-straw">
+                    {group.instruments.map((item) => {
+                      const versionHref = boundProtocolVersionHref(item);
+                      return (
+                        <div key={item.id} className="flex flex-wrap gap-2">
+                          <dt>{item.symbol}</dt>
+                          <dd>
+                            {versionHref && item.protocolVersionId ? (
+                              <Link
+                                href={versionHref}
+                                className="text-primary hover:underline"
+                              >
+                                {item.protocolVersionId}
+                              </Link>
+                            ) : (
+                              t("instrumentsWithoutVersion")
+                            )}
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                </div>
+              ))}
             </div>
           ))}
         </PageSection>
