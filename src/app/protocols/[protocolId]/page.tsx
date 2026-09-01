@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { PlatformBreadcrumb } from "@/components/market-core/platform-breadcrumb";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { SpvStack } from "@/components/market-core/spv-stack";
 import { WorkflowStrip } from "@/components/market-core/workflow-strip";
 import { MarketStatusChip } from "@/components/market-core/market-status-chip";
 import { DataList } from "@/components/shared/data-list";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
-import { PageHeader } from "@/components/shared/page-header";
 import { PageSection } from "@/components/shared/page-section";
 import {
   DeskLedger,
@@ -23,6 +22,7 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { requirePermission } from "@/lib/auth/guard";
+import { protocolTrail, protocolVersionHref } from "@/lib/market-core/hierarchy";
 import {
   ASSET_CLASS_KEYS,
   LIFECYCLE_KEYS,
@@ -81,17 +81,12 @@ export default async function ProtocolDetailPage({
 
   return (
     <div>
-      <PlatformBreadcrumb
-        items={[
-          { href: "/markets", label: t("breadcrumbMarkets") },
-          { label: lookupMessage(t, ASSET_CLASS_KEYS[protocol.assetClass]) },
-          { label: protocol.name },
-        ]}
-      />
-      <PageHeader
-        eyebrow={t("protocolTitle")}
+      <MarketCoreContextHeader
+        level="PROTOCOL"
+        trail={protocolTrail(protocol)}
         title={protocol.name}
         description={lookupMessage(t, protocolWorldKey(protocol.id))}
+        translate={t}
       />
       <div className="mb-6 flex flex-wrap gap-3">
         <MarketStatusChip
@@ -116,9 +111,16 @@ export default async function ProtocolDetailPage({
           },
           {
             label: t("protocolVersion"),
-            value: currentVersion
-              ? `${currentVersion.id} · ${currentVersion.displayVersion}`
-              : t("noActiveProtocolVersion"),
+            value: currentVersion ? (
+              <Link
+                href={protocolVersionHref(protocol.id, currentVersion.id)}
+                className="text-primary hover:underline"
+              >
+                {`${currentVersion.id} · ${currentVersion.displayVersion}`}
+              </Link>
+            ) : (
+              t("noActiveProtocolVersion")
+            ),
           },
           { label: t("regulatory"), value: t("demonstratorOnly") },
         ]}

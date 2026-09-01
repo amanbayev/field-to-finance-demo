@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/shared/page-section";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import {
   Table,
   TableBody,
@@ -22,6 +22,7 @@ import type { AppLocale } from "@/i18n/config";
 import { formatInteger } from "@/lib/format";
 import { ON_CHAIN_DEMO_ISSUANCE_ID } from "@/adapters/blockchain";
 import { requireRegistrarOrRegulator } from "@/lib/auth/guard";
+import { platformTrail } from "@/lib/market-core/hierarchy";
 import { getPlacementSnapshot } from "@/services/placement-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,13 +33,16 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function IssuancesPage() {
   await requireRegistrarOrRegulator();
   const t = await getTranslations("workspace");
+  const tCore = await getTranslations("marketCore");
   const locale = (await getLocale()) as AppLocale;
   const snapshot = await getPlacementSnapshot();
 
   return (
     <div>
-      <PageHeader
-        eyebrow={t("issuanceEyebrow")}
+      <MarketCoreContextHeader
+        level="ISSUANCE"
+        trail={platformTrail()}
+        translate={tCore}
         title={t("issuanceRegistryTitle")}
         description={t("issuanceRegistryIntro")}
         photo="/media/grain-kernel-macro.png"

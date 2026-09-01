@@ -19,6 +19,7 @@ import {
   holdings,
   instrumentById,
   instrumentsForProtocol,
+  instrumentsForProtocolVersion,
   marketForInstrument,
   marketInstruments,
   markets,
@@ -63,6 +64,36 @@ export function getCurrentProtocolVersion(protocolId: string): ProtocolVersion |
     return null;
   }
   return currentVersionForProtocol(protocolVersions, protocol);
+}
+
+/**
+ * Resolves a protocol version in the context of its owning protocol.
+ *
+ * Returns null for an unknown protocol, an unknown version, or a version that
+ * belongs to a different protocol. Generic: it reads route parameters and the
+ * registry only, with no protocol- or asset-specific branch.
+ */
+export function getProtocolVersionContext(
+  protocolId: string,
+  versionId: string,
+): {
+  protocol: AssetProtocol;
+  version: ProtocolVersion;
+  boundInstruments: readonly MarketInstrument[];
+} | null {
+  const protocol = protocolById(protocolId);
+  if (!protocol) {
+    return null;
+  }
+  const version = versionById(versionId);
+  if (!version || version.protocolId !== protocol.id) {
+    return null;
+  }
+  return {
+    protocol,
+    version,
+    boundInstruments: instrumentsForProtocolVersion(version.id),
+  };
 }
 
 export function listAssetProtocolsWithCurrentVersion(): Array<{

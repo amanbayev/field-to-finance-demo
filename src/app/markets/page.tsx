@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { EmptyState } from "@/components/shared/page-section";
 import {
   DeskFigure,
@@ -11,6 +11,7 @@ import {
 } from "@/components/surface/desk-stage";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import { requirePermission } from "@/lib/auth/guard";
+import { platformTrail } from "@/lib/market-core/hierarchy";
 import { ASSET_CLASS_KEYS, protocolStatusKey } from "@/lib/market-core/presentation";
 import {
   getProtocolContext,
@@ -38,8 +39,10 @@ export default async function MarketsPage() {
 
   return (
     <div>
-      <PageHeader
-        eyebrow={t("levelPlatform")}
+      <MarketCoreContextHeader
+        level="PLATFORM"
+        trail={platformTrail()}
+        translate={t}
         title={t("marketsTitle")}
         description={t("marketsIntro")}
         photo="/media/hero-harvest-dusk.png"

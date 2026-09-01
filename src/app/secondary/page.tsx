@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { TradeLifecycle } from "@/components/market-core/trade-lifecycle";
 import { EmptyState, PageSection } from "@/components/shared/page-section";
-import { PageHeader } from "@/components/shared/page-header";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DeskFigure, DeskLedger, DeskNote, DeskRow, deskIndex } from "@/components/surface/desk-stage";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 import type { AppLocale } from "@/i18n/config";
 import { formatDemoKzt, formatInteger, formatTimestamp } from "@/lib/format";
 import { requirePermission } from "@/lib/auth/guard";
+import { platformTrail } from "@/lib/market-core/hierarchy";
 import { getSecondaryMarketView } from "@/services/secondary-market-service";
 import { OrderEntry } from "./order-entry";
 import { cancelSecondaryOrderAction } from "./actions";
@@ -45,8 +46,10 @@ export default async function SecondaryMarketPage({
 
   return (
     <div>
-      <PageHeader
-        eyebrow={t("eyebrow")}
+      <MarketCoreContextHeader
+        level="MARKET"
+        trail={platformTrail()}
+        translate={tCore}
         title={t("title")}
         description={t("intro")}
         photo="/media/empty-silo-light.png"

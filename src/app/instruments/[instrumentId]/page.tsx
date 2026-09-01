@@ -6,12 +6,11 @@ import { TokenMintProofPanel } from "@/components/tokens/token-mint-proof-panel"
 import { InstrumentSectionNav } from "@/components/market-core/instrument-section-nav";
 import { MarketClearingSplit } from "@/components/market-core/market-clearing-split";
 import { MarketStatusChip } from "@/components/market-core/market-status-chip";
-import { PlatformBreadcrumb } from "@/components/market-core/platform-breadcrumb";
+import { MarketCoreContextHeader } from "@/components/market-core/market-core-context-header";
 import { SpvStack } from "@/components/market-core/spv-stack";
 import { DataList } from "@/components/shared/data-list";
 import { EmptyState, PageSection } from "@/components/shared/page-section";
 import { MetricCell, MetricStrip } from "@/components/shared/metric-strip";
-import { PageHeader } from "@/components/shared/page-header";
 import {
   DeskLedger,
   DeskNote,
@@ -35,6 +34,7 @@ import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
 import { formatInteger, formatPercent } from "@/lib/format";
 import { requirePermission } from "@/lib/auth/guard";
+import { boundProtocolVersionHref, instrumentTrail } from "@/lib/market-core/hierarchy";
 import {
   ASSET_CLASS_KEYS,
   INSTRUMENT_SECTION_KEYS,
@@ -89,6 +89,9 @@ export default async function InstrumentDetailPage({
   const section = parseInstrumentSection(sectionParam);
   const { instrument, protocol, market, protocolVersion } = context;
   const protocolContext = getProtocolContext(instrument.assetProtocolId);
+  // Derived from the instrument's own permanent binding, never from the
+  // protocol's mutable currentVersionId.
+  const versionHref = boundProtocolVersionHref(instrument);
   const wheat = instrument.id === "WHEAT-2027";
   const protocolInvestment = instrument.instrumentType === "PROTOCOL_INVESTMENT";
   const snapshot = wheat ? await getPlacementSnapshot() : null;
@@ -109,25 +112,12 @@ export default async function InstrumentDetailPage({
 
   return (
     <div>
-      <PlatformBreadcrumb
-        items={[
-          { href: "/markets", label: t("breadcrumbMarkets") },
-          {
-            label: protocol
-              ? lookupMessage(t, ASSET_CLASS_KEYS[protocol.assetClass])
-              : instrument.assetClass,
-          },
-          {
-            href: protocol ? `/protocols/${protocol.id}` : undefined,
-            label: protocol?.name ?? instrument.assetProtocolId,
-          },
-          { label: instrument.symbol },
-        ]}
-      />
-      <PageHeader
-        eyebrow={t("levelInstrument")}
+      <MarketCoreContextHeader
+        level="INSTRUMENT"
+        trail={instrumentTrail(instrument, protocol)}
         title={instrument.symbol}
         description={instrument.name}
+        translate={t}
       />
       <div className="mb-4 flex flex-wrap gap-3">
         {protocolInvestment ? (
@@ -190,9 +180,14 @@ export default async function InstrumentDetailPage({
               },
               {
                 label: t("boundProtocolVersion"),
-                value: protocolVersion
-                  ? `${protocolVersion.id} · ${protocolVersion.displayVersion}`
-                  : t("notBoundToProtocolVersion"),
+                value:
+                  protocolVersion && versionHref ? (
+                    <Link href={versionHref} className="text-primary hover:underline">
+                      {`${protocolVersion.id} · ${protocolVersion.displayVersion}`}
+                    </Link>
+                  ) : (
+                    t("notBoundToProtocolVersion")
+                  ),
               },
               { label: t("rowSpv"), value: instrument.issuerName },
               { label: t("issuance"), value: instrument.issuanceId ?? "—" },
