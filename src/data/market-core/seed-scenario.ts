@@ -23,7 +23,7 @@ export function wheatEngineBaseState(): EngineState {
     markets: structuredClone(markets),
     instruments: structuredClone(marketInstruments),
     holdings: structuredClone(holdings),
-    eligibility: structuredClone(eligibilityMatrix),
+    eligibility: eligibilityMatrix.map((row) => ({ ...row })),
     settlementAccounts: [
       {
         participantId: STEPPE_CAPITAL_ID,

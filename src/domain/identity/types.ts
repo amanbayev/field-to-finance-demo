@@ -155,6 +155,7 @@ export interface EffectiveActor {
   roleId: PlatformRoleId;
   permissions: Permission[];
   organization?: OrganizationRecord;
+  membershipId?: string | null;
   producerIds: string[];
   investorReference?: string | null;
   walletAddress?: string | null;

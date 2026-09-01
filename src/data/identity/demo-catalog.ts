@@ -1,5 +1,6 @@
 import type {
   DemoPersonaRecord,
+  MembershipRecord,
   OrganizationRecord,
   PersonaGroup,
   PlatformRoleId,
@@ -255,6 +256,33 @@ export function demoPersonas(): DemoPersonaRecord[] {
 
 export function demoPersonaById(id: string): DemoPersonaRecord | undefined {
   return demoPersonas().find((persona) => persona.id === id);
+}
+
+/**
+ * Demo membership identifiers for persona-to-organisation relationships already
+ * present in the demonstrator. These are application fixture IDs (`DEMO-MEM-*`),
+ * not persisted legal memberships and not created by a migration.
+ */
+export const DEMO_MEMBERSHIPS: readonly MembershipRecord[] = Object.freeze(
+  PERSONA_SEEDS.map((seed) => {
+    const organization = orgBySlug(seed.organizationSlug);
+    const record: MembershipRecord = {
+      id: seed.id.replace("DEMO-", "DEMO-MEM-"),
+      userId: seed.id,
+      organizationId: organization.id,
+      status: "ACTIVE",
+      roleIds: [seed.roleId],
+    };
+    return Object.freeze(record);
+  }),
+);
+
+export function demoMembershipById(id: string): MembershipRecord | undefined {
+  return DEMO_MEMBERSHIPS.find((item) => item.id === id);
+}
+
+export function demoMembershipForPersona(personaId: string): MembershipRecord | undefined {
+  return DEMO_MEMBERSHIPS.find((item) => item.userId === personaId);
 }
 
 export function organizationById(id: string): OrganizationRecord | undefined {
