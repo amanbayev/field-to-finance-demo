@@ -160,13 +160,13 @@ describe("effective navigation", () => {
       "/markets",
       "/instruments",
       "/secondary",
+      "/placements",
     ]);
     expect(protocolHrefs("DEMO-ISSUER-001", "F2F")).toEqual([
       "/contracts",
       "/pools",
       "/coverage",
       "/issuer/dacs",
-      "/placements",
     ]);
   });
 

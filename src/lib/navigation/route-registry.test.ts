@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { F2F_PROTOCOL_ID, protocolById } from "@/data/market-core/catalog";
 import {
   ROUTE_REGISTRY,
   isProtocolModuleRoute,
   routeById,
+  routeHrefMatchesPath,
 } from "@/lib/navigation/route-registry";
 import {
   instrumentHref,
@@ -144,5 +146,59 @@ describe("route registry structure", () => {
         path,
       );
     }
+  });
+
+  it("does not register a static href in both PLATFORM and PROTOCOL_MODULE", () => {
+    const platformPaths = new Set<string>();
+    for (const route of ROUTE_REGISTRY) {
+      if (route.scope === "PLATFORM" && route.href.kind === "STATIC") {
+        platformPaths.add(route.href.path);
+      }
+    }
+    for (const route of ROUTE_REGISTRY) {
+      if (isProtocolModuleRoute(route) && route.href.kind === "STATIC") {
+        expect(
+          platformPaths.has(route.href.path),
+          `${route.id} ${route.href.path}`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("never classifies /placements as an F2F-owned module", () => {
+    const placementRoutes = ROUTE_REGISTRY.filter(
+      (route) => route.href.kind === "STATIC" && route.href.path === "/placements",
+    );
+    expect(placementRoutes.length).toBeGreaterThan(0);
+    for (const route of placementRoutes) {
+      expect(route.scope, route.id).toBe("PLATFORM");
+      expect(isProtocolModuleRoute(route), route.id).toBe(false);
+    }
+  });
+
+  it("binds F2F-owned modules to the canonical protocol record", () => {
+    const protocol = protocolById(F2F_PROTOCOL_ID);
+    expect(protocol?.id).toBe(F2F_PROTOCOL_ID);
+    const moduleIds = new Set(
+      ROUTE_REGISTRY.filter(isProtocolModuleRoute).map((route) => route.protocolId),
+    );
+    expect(moduleIds.has(F2F_PROTOCOL_ID)).toBe(true);
+    for (const route of ROUTE_REGISTRY) {
+      if (isProtocolModuleRoute(route)) {
+        expect(protocolById(route.protocolId), route.id).toBeDefined();
+        if (route.protocolId === F2F_PROTOCOL_ID) {
+          expect(route.protocolId).toBe(protocol!.id);
+        }
+      }
+    }
+  });
+
+  it("matches a synthetic issuance path without hardcoding WHEAT", () => {
+    const issuance = routeById("issuance-detail")!;
+    expect(routeHrefMatchesPath(issuance, "/issuances/TIDE-ISS-001")).toBe(true);
+    expect(routeHrefMatchesPath(issuance, "/issuances")).toBe(false);
+    expect(issuance.href.kind === "DYNAMIC" && issuance.href.pattern).not.toMatch(
+      /WHEAT/,
+    );
   });
 });

@@ -22,10 +22,12 @@ import {
 } from "@/components/ui/table";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
+import { F2F_PROTOCOL_ID } from "@/data/market-core/catalog";
 import { formatInteger } from "@/lib/format";
 import { ON_CHAIN_DEMO_POOL_ID } from "@/adapters/blockchain";
 import { requireAllPermissions } from "@/lib/auth/guard";
 import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { protocolModuleTrailAccess } from "@/lib/navigation/policy";
 import { getAssetProtocol } from "@/services/market-core-service";
 import { listContracts } from "@/services/contract-service";
 import { getPool, poolMembershipForContract } from "@/services/pool-service";
@@ -36,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function BackingPage() {
-  await requireAllPermissions("issuance.manage", "audit.read");
+  const actor = await requireAllPermissions("issuance.manage", "audit.read");
   const t = await getTranslations("workspace");
   const tContracts = await getTranslations("contracts");
   const tCatalog = await getTranslations("catalog");
@@ -44,20 +46,19 @@ export default async function BackingPage() {
   const locale = (await getLocale()) as AppLocale;
   const pool = getPool(ON_CHAIN_DEMO_POOL_ID);
   const contracts = listContracts();
-
-  // Protocol context for this module, from the registry record.
-
-  const f2fProtocol = getAssetProtocol("F2F") ?? null;
-
+  const f2fProtocol = getAssetProtocol(F2F_PROTOCOL_ID) ?? null;
   const tNav = await getTranslations("nav");
   const tCoreNav = await getTranslations("marketCore");
-
 
   return (
     <div>
       <MarketCoreContextHeader
         level="PROTOCOL"
-        trail={protocolModuleTrail(f2fProtocol, tNav("backing"))}
+        trail={protocolModuleTrail(
+          f2fProtocol,
+          tNav("backing"),
+          protocolModuleTrailAccess(actor),
+        )}
         translate={tCoreNav}
         eyebrow={t("backingEyebrow")}
         title={t("backingTitle")}

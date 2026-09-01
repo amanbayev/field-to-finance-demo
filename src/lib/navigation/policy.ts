@@ -1,7 +1,9 @@
 import { actorCan, type ActorContext } from "@/domain/identity";
+import type { ProtocolModuleTrailAccess } from "@/lib/market-core/hierarchy";
 import {
   ROUTE_REGISTRY,
   isProtocolModuleRoute,
+  routeById,
   type NavGroup,
   type ProtocolModuleRoute,
   type RegistryRoute,
@@ -171,4 +173,26 @@ export function visibleNavigationIds(actor: ActorContext | null): readonly strin
   return navigationForActor(actor).flatMap((section) =>
     section.entries.map((entry) => entry.id),
   );
+}
+
+/**
+ * Link eligibility for protocol-catalogue crumbs, derived from the production
+ * registry rather than from duplicated permission strings.
+ *
+ * `protocols` and `protocol-detail` are looked up by id so a later visibility
+ * change on those routes is picked up automatically. This does not authorize
+ * the request; route guards remain the authority.
+ */
+export function protocolModuleTrailAccess(
+  actor: ActorContext | null,
+): ProtocolModuleTrailAccess {
+  if (!actor) {
+    return { protocolsCollection: false, protocolDetail: false };
+  }
+  const collection = routeById("protocols");
+  const detail = routeById("protocol-detail");
+  return {
+    protocolsCollection: collection ? routeVisibleTo(actor, collection) : false,
+    protocolDetail: detail ? routeVisibleTo(actor, detail) : false,
+  };
 }

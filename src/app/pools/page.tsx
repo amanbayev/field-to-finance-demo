@@ -20,10 +20,12 @@ import {
 } from "@/components/surface/desk-stage";
 import { lookupMessage } from "@/i18n/t-dynamic";
 import type { AppLocale } from "@/i18n/config";
+import { F2F_PROTOCOL_ID } from "@/data/market-core/catalog";
 import { formatInteger } from "@/lib/format";
 import { getPool, listPoolIds, type PoolDetail } from "@/services/pool-service";
 import { requirePermission } from "@/lib/auth/guard";
 import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { protocolModuleTrailAccess } from "@/lib/navigation/policy";
 import { getAssetProtocol } from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PoolsPage() {
-  await requirePermission("pools.read");
+  const actor = await requirePermission("pools.read");
   const t = await getTranslations("pools");
   const tCatalog = await getTranslations("catalog");
   const tUnits = await getTranslations("units");
@@ -40,20 +42,19 @@ export default async function PoolsPage() {
   const pools = listPoolIds()
     .map((id) => getPool(id))
     .filter((pool): pool is PoolDetail => pool !== undefined);
-
-  // Protocol context for this module, from the registry record.
-
-  const f2fProtocol = getAssetProtocol("F2F") ?? null;
-
+  const f2fProtocol = getAssetProtocol(F2F_PROTOCOL_ID) ?? null;
   const tNav = await getTranslations("nav");
   const tCoreNav = await getTranslations("marketCore");
-
 
   return (
     <div>
       <MarketCoreContextHeader
         level="PROTOCOL"
-        trail={protocolModuleTrail(f2fProtocol, tNav("pools"))}
+        trail={protocolModuleTrail(
+          f2fProtocol,
+          tNav("pools"),
+          protocolModuleTrailAccess(actor),
+        )}
         translate={tCoreNav}
         eyebrow={t("eyebrow")}
         title={t("title")}

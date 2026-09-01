@@ -27,11 +27,13 @@ import {
 import { wheatPoolCoverageFromEngine } from "@/data/mock/coverage";
 import { issuerScore } from "@/data/mock/pools";
 import type { AppLocale } from "@/i18n/config";
+import { F2F_PROTOCOL_ID } from "@/data/market-core/catalog";
 import { formatInteger, formatScore } from "@/lib/format";
 import { stageMediaForRole } from "@/lib/surface/role-media";
 import { getScasSnapshot } from "@/services/scas-service";
 import { requirePermission } from "@/lib/auth/guard";
 import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
+import { protocolModuleTrailAccess } from "@/lib/navigation/policy";
 import { getAssetProtocol } from "@/services/market-core-service";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ScasPage() {
-  await requirePermission("scas.read");
+  const actor = await requirePermission("scas.read");
   const t = await getTranslations("scas");
   const tWorkspace = await getTranslations("workspace");
   const tUnits = await getTranslations("units");
@@ -50,20 +52,19 @@ export default async function ScasPage() {
   const snapshot = getScasSnapshot();
   const coverage = wheatPoolCoverageFromEngine();
   const media = stageMediaForRole("SCAS_OPERATOR");
-
-  // Protocol context for this module, from the registry record.
-
-  const f2fProtocol = getAssetProtocol("F2F") ?? null;
-
+  const f2fProtocol = getAssetProtocol(F2F_PROTOCOL_ID) ?? null;
   const tNav = await getTranslations("nav");
   const tCoreNav = await getTranslations("marketCore");
-
 
   return (
     <div>
       <MarketCoreContextHeader
         level="PROTOCOL"
-        trail={protocolModuleTrail(f2fProtocol, tNav("attestation"))}
+        trail={protocolModuleTrail(
+          f2fProtocol,
+          tNav("attestation"),
+          protocolModuleTrailAccess(actor),
+        )}
         translate={tCoreNav}
         eyebrow={t("eyebrow")}
         title={tWorkspace("attestationTitle")}

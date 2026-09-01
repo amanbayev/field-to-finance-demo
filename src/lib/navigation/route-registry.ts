@@ -1,3 +1,4 @@
+import { F2F_PROTOCOL_ID } from "@/data/market-core/catalog";
 import type { OrganizationType, Permission } from "@/domain/identity";
 import type { HierarchyLevel } from "@/lib/market-core/hierarchy";
 
@@ -71,6 +72,25 @@ export interface ProtocolModuleRoute extends RouteBase {
 }
 
 export type RegistryRoute = PlatformRoute | ProtocolModuleRoute;
+
+/** True when `path` is this route's static href or a concrete dynamic instance. */
+export function routeHrefMatchesPath(route: RegistryRoute, path: string): boolean {
+  if (route.href.kind === "STATIC") {
+    return route.href.path === path;
+  }
+  const expected = route.href.pattern.split("/");
+  const actual = path.split("/");
+  if (expected.length !== actual.length) {
+    return false;
+  }
+  return expected.every((segment, index) => {
+    const value = actual[index] ?? "";
+    if (segment.startsWith("[") && segment.endsWith("]")) {
+      return value.length > 0;
+    }
+    return segment === value;
+  });
+}
 
 const ADMIN_NONE: readonly Permission[] = ["admin.access"];
 const REGISTRAR_COMBO: readonly Permission[] = ["issuance.manage", "audit.read"];
@@ -183,6 +203,20 @@ const PLATFORM_ROUTES: readonly PlatformRoute[] = [
     visibility: {
       allOf: ["placement.read.all", "audit.read"],
       noneOf: ["admin.access", "regulator.read"],
+    },
+  },
+  {
+    id: "placements-issuer",
+    labelKey: "primaryPlacements",
+    href: { kind: "STATIC", path: "/placements" },
+    level: "MARKET",
+    placement: "GLOBAL",
+    group: "market",
+    scope: "PLATFORM",
+    visibility: {
+      anyOf: ["issuance.manage"],
+      noneOf: ["admin.access", "audit.read"],
+      organizationTypes: ["ISSUER"],
     },
   },
   {
@@ -481,10 +515,9 @@ const PLATFORM_ROUTES: readonly PlatformRoute[] = [
  *
  * These are agriculture-specific and must never appear as global platform
  * items. They are shown inside the Field to Finance protocol context, to the
- * personas whose existing guards already admit them.
+ * personas whose existing guards already admit them. Protocol ownership uses
+ * the canonical catalog id, not a second navigation-layer constant.
  */
-export const F2F_PROTOCOL_ID = "F2F";
-
 const F2F_MODULE_ROUTES: readonly ProtocolModuleRoute[] = [
   {
     id: "f2f-fields",
@@ -709,21 +742,6 @@ const F2F_MODULE_ROUTES: readonly ProtocolModuleRoute[] = [
       allOf: REGISTRAR_COMBO,
       noneOf: ["admin.access", "regulator.read"],
       organizationTypes: ["REGISTRAR"],
-    },
-  },
-  {
-    id: "f2f-primary-placements",
-    labelKey: "primaryPlacements",
-    href: { kind: "STATIC", path: "/placements" },
-    level: "MARKET",
-    placement: "PROTOCOL_CONTEXT",
-    group: "operations",
-    scope: "PROTOCOL_MODULE",
-    protocolId: F2F_PROTOCOL_ID,
-    visibility: {
-      anyOf: ["issuance.manage"],
-      noneOf: ["admin.access", "audit.read"],
-      organizationTypes: ["ISSUER"],
     },
   },
 ];

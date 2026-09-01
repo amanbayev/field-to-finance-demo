@@ -15,6 +15,7 @@ export const PREFIX_ACTIVE_HREFS = new Set([
   "/monitoring",
   "/documents",
   "/finance",
+  "/issuances",
 ]);
 
 export function navHrefIsActive(pathname: string, href: string): boolean {

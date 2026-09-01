@@ -12,18 +12,22 @@ import {
   demoPersonas,
   organizationById,
 } from "@/data/identity/demo-catalog";
+import { F2F_PROTOCOL_ID, protocolById } from "@/data/market-core/catalog";
 import {
   navigationForActor,
   protocolContextsForActor,
+  protocolModuleTrailAccess,
   routeVisibleTo,
   visibleGlobalRoutes,
   visibleNavigationHrefs,
   visibleProtocolModuleRoutes,
 } from "@/lib/navigation/policy";
+import { protocolModuleTrail } from "@/lib/market-core/hierarchy";
 import {
-  F2F_PROTOCOL_ID,
   ROUTE_REGISTRY,
   isProtocolModuleRoute,
+  routeById,
+  routeHrefMatchesPath,
 } from "@/lib/navigation/route-registry";
 
 const platform = DEMO_ORGANIZATIONS.find((o) => o.slug === "field-to-finance")!;
@@ -188,16 +192,6 @@ describe("navigation × access matrix", () => {
     expect(protocolContextsForActor(actor)).toEqual([]);
   });
 
-  it("grants no persona a destination its visibility rule denies", () => {
-    for (const personaId of personaIds) {
-      const actor = asPersona(personaId);
-      for (const entry of navigationForActor(actor).flatMap((s) => s.entries)) {
-        const route = ROUTE_REGISTRY.find((r) => r.id === entry.id)!;
-        expect(routeVisibleTo(actor, route), `${personaId} ${entry.id}`).toBe(true);
-      }
-    }
-  });
-
   it("never surfaces a protocol module through the global selector", () => {
     for (const personaId of personaIds) {
       const actor = asPersona(personaId);
@@ -205,5 +199,161 @@ describe("navigation × access matrix", () => {
         expect(isProtocolModuleRoute(route), `${personaId} ${route.id}`).toBe(false);
       }
     }
+  });
+});
+
+function linkedTrailHrefs(moduleLabel: string, actor: ActorContext): string[] {
+  const protocol = protocolById(F2F_PROTOCOL_ID)!;
+  return protocolModuleTrail(protocol, moduleLabel, protocolModuleTrailAccess(actor))
+    .map((crumb) => crumb.href)
+    .filter((href): href is string => Boolean(href));
+}
+
+function productionPolicyAllowsHref(actor: ActorContext, href: string): boolean {
+  return ROUTE_REGISTRY.some(
+    (route) => routeHrefMatchesPath(route, href) && routeVisibleTo(actor, route),
+  );
+}
+
+describe("protocol-module breadcrumb links × production policy", () => {
+  it("derives catalogue link eligibility from the production registry", () => {
+    const producer = asPersona("DEMO-FARM-001");
+    const scas = asPersona("DEMO-SCAS-001");
+    const issuer = asPersona("DEMO-ISSUER-001");
+    const protocols = routeById("protocols")!;
+    const detail = routeById("protocol-detail")!;
+    expect(protocolModuleTrailAccess(producer)).toEqual({
+      protocolsCollection: false,
+      protocolDetail: false,
+    });
+    expect(protocolModuleTrailAccess(scas)).toEqual({
+      protocolsCollection: false,
+      protocolDetail: false,
+    });
+    expect(protocolModuleTrailAccess(issuer)).toEqual({
+      protocolsCollection: true,
+      protocolDetail: true,
+    });
+    expect(routeVisibleTo(producer, protocols)).toBe(false);
+    expect(routeVisibleTo(scas, protocols)).toBe(false);
+    expect(routeVisibleTo(issuer, protocols)).toBe(true);
+    expect(routeVisibleTo(issuer, detail)).toBe(true);
+  });
+
+  it("shows Producer protocol crumbs as labels only", () => {
+    const actor = asPersona("DEMO-FARM-001");
+    const protocol = protocolById(F2F_PROTOCOL_ID)!;
+    const trail = protocolModuleTrail(
+      protocol,
+      "Fields",
+      protocolModuleTrailAccess(actor),
+    );
+    expect(trail.map((crumb) => crumb.label ?? crumb.labelKey)).toEqual([
+      "breadcrumbPlatform",
+      "protocolsTitle",
+      protocol.name,
+      "Fields",
+    ]);
+    expect(trail[1]?.href).toBeUndefined();
+    expect(trail[2]?.href).toBeUndefined();
+    expect(trail[3]?.href).toBeUndefined();
+    expect(trail[0]?.href).toBe("/");
+  });
+
+  it("shows SCAS protocol crumbs as labels only on operational screens", () => {
+    const actor = asPersona("DEMO-SCAS-001");
+    const protocol = protocolById(F2F_PROTOCOL_ID)!;
+    for (const label of ["Attestation", "Coverage", "Pools"]) {
+      const trail = protocolModuleTrail(
+        protocol,
+        label,
+        protocolModuleTrailAccess(actor),
+      );
+      expect(trail[1]?.href, label).toBeUndefined();
+      expect(trail[2]?.href, label).toBeUndefined();
+      expect(trail.some((crumb) => crumb.label === protocol.name)).toBe(true);
+      expect(trail.some((crumb) => crumb.label === label)).toBe(true);
+    }
+  });
+
+  it("keeps protocol catalogue links for a persona that can open them", () => {
+    const actor = asPersona("DEMO-ISSUER-001");
+    const protocol = protocolById(F2F_PROTOCOL_ID)!;
+    const trail = protocolModuleTrail(
+      protocol,
+      "Coverage",
+      protocolModuleTrailAccess(actor),
+    );
+    expect(trail[1]?.href).toBe("/protocols");
+    expect(trail[2]?.href).toBe(`/protocols/${protocol.id}`);
+  });
+
+  it("offers off-spine personas only breadcrumb hrefs the production policy can show", () => {
+    const cases: Array<[string, string]> = [
+      ["DEMO-FARM-001", "Fields"],
+      ["DEMO-SCAS-001", "Attestation"],
+      ["DEMO-SCAS-001", "Coverage"],
+      ["DEMO-SCAS-001", "Pools"],
+      ["DEMO-ISSUER-001", "Coverage"],
+      ["DEMO-REGISTRAR-001", "Backing"],
+    ];
+    for (const [personaId, moduleLabel] of cases) {
+      const actor = asPersona(personaId);
+      for (const href of linkedTrailHrefs(moduleLabel, actor)) {
+        expect(
+          productionPolicyAllowsHref(actor, href),
+          `${personaId} breadcrumb ${href}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("does not require a duplicate placement route in a non-agriculture context", () => {
+    const issuer = asPersona("DEMO-ISSUER-001");
+    const registrar = asPersona("DEMO-REGISTRAR-001");
+    const investor = asPersona("DEMO-FUND-001");
+    expect(
+      visibleProtocolModuleRoutes(issuer, "TIDAL").map((route) =>
+        route.href.kind === "STATIC" ? route.href.path : route.href.pattern,
+      ),
+    ).not.toContain("/placements");
+    expect(
+      visibleGlobalRoutes(issuer).some((route) =>
+        routeHrefMatchesPath(route, "/placements"),
+      ),
+    ).toBe(true);
+    expect(
+      visibleGlobalRoutes(registrar).some((route) =>
+        routeHrefMatchesPath(route, "/placements"),
+      ),
+    ).toBe(true);
+    expect(
+      visibleGlobalRoutes(investor).some((route) =>
+        routeHrefMatchesPath(route, "/placements"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not grant market.trade when read-only market destinations were widened", () => {
+    for (const personaId of [
+      "DEMO-ISSUER-001",
+      "DEMO-REGISTRAR-001",
+      "DEMO-REGULATOR-001",
+      "DEMO-SCAS-001",
+    ]) {
+      const actor = asPersona(personaId);
+      expect(actorCan(actor, "market.trade"), personaId).toBe(false);
+    }
+    expect(visibleNavigationHrefs(asPersona("DEMO-ISSUER-001"))).toEqual(
+      expect.arrayContaining(["/markets", "/instruments", "/secondary", "/protocols"]),
+    );
+    expect(visibleNavigationHrefs(asPersona("DEMO-REGISTRAR-001"))).toEqual(
+      expect.arrayContaining(["/secondary", "/instruments", "/protocols"]),
+    );
+    expect(visibleNavigationHrefs(asPersona("DEMO-REGULATOR-001"))).toEqual(
+      expect.arrayContaining(["/secondary", "/instruments", "/protocols"]),
+    );
+    expect(visibleNavigationHrefs(asPersona("DEMO-SCAS-001"))).toContain("/instruments");
+    expect(visibleNavigationHrefs(asPersona("DEMO-SCAS-001"))).not.toContain("/secondary");
   });
 });

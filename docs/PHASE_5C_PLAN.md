@@ -1,6 +1,8 @@
 # Phase 5C — Platform Coherence / Multi-Protocol Product Foundation
 
-**Status:** Delivery plan. 5C.1 is implemented; 5C.2–5C.5 are planned and not implemented.
+**Status:** Delivery plan. 5C.1 is implemented; 5C.2A is implemented; 5C.2B is
+implemented as an incremental navigation slice; remaining hierarchy-header and
+hard-routing work is explicitly deferred; 5C.3–5C.5 remain planned.
 **Legal operator:** CommoChain Ltd.
 **Reads with:** `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md` (target canon),
 `docs/MARKET_CORE_ARCHITECTURE.md` (implementation status), `docs/DEVELOPMENT.md` (workflow).
@@ -83,7 +85,10 @@ Issuance → Market. Role-adaptive navigation so a producer, investor, registrar
 compliance officer each see a coherent path, with agriculture modules staying on the F2F protocol
 page rather than in global navigation.
 
-5C.2 is delivered in two slices. **5C.2 as a whole is not complete until 5C.2B ships.**
+5C.2 is delivered in two slices. **5C.2 as a whole is not complete.** 5C.2A and
+5C.2B have shipped, but written acceptance criteria 1 and 3 remain partial:
+hierarchy-level context is not yet on every market-core screen, and agriculture
+containment is navigational rather than a hard routing boundary.
 
 #### 5C.2A — Hierarchy spine, protocol catalogue, version route and shared context *(implemented)*
 
@@ -119,9 +124,10 @@ page rather than in global navigation.
 - All namespaces have EN/RU/KK key-set parity. The changed `marketCore` and `errors` namespaces
   also have identical key ordering; unrelated legacy namespaces were deliberately not reordered.
 
-**Not claimed by 5C.2A.** Agriculture routes remain globally reachable. Screens outside the
-hierarchy spine do not yet declare a level. Acceptance criteria 1 and 3 are therefore only
-partially met until 5C.2B.
+**Not claimed by 5C.2A.** Agriculture routes remained globally reachable by URL.
+Screens outside the hierarchy spine did not yet declare a level. Acceptance
+criteria 1 and 3 remained partial after 5C.2A; 5C.2B closed some of that gap
+navigationally and left the rest deferred (see 5C.2B).
 
 #### 5C.2B — Unified route/navigation authorization and F2F module containment *(implemented)*
 
@@ -141,25 +147,94 @@ partially met until 5C.2B.
   navigation share one policy source**.
 - **Protocol-specific containment.** Agriculture modules (fields, contracts, SCAS verification and
   attestation, matching, monitoring, documents, finance, pools, coverage, backing, issuer DACs,
-  registrar intake, primary placements) are `PROTOCOL_MODULE` entries owned by `F2F`. They are
-  rendered under a Field to Finance section and **never as global platform items**. No route was
+  registrar intake) are `PROTOCOL_MODULE` entries owned by `F2F`. They are
+  rendered under a Field to Finance section and **never as global platform items**. Issuer-facing
+  `/placements` is a protocol-neutral `PLATFORM` route: the page and service branch on existing
+  permissions, not agriculture context. No route was
   moved, renamed or deleted, so URLs and bookmarks are unchanged, and each route keeps its own
   guard. Producer, SCAS, issuer and registrar workflows retain every destination they need.
 - **Off-spine hierarchy.** `protocolModuleTrail` gives operational module screens
   (`/fields`, `/pools`, `/coverage`, `/scas`, `/backing`) a truthful
   `Commodity Chain → Protocols → Protocol → Module` trail. It is generic: the protocol record is
-  supplied by the caller, and protocol steps are omitted when the record is absent.
+  supplied by the caller, and protocol steps are omitted when the record is absent. Catalogue and
+  protocol crumbs keep their labels even when the current actor cannot open `/protocols` or the
+  protocol detail; hrefs are attached only when the production navigation policy says those
+  destinations are offered. Hiding a breadcrumb link does not change the route guard.
 - **Navigation × access matrix** (`src/lib/navigation/navigation-access.test.ts`) drives the
   production selectors and the real registry — no test-only reimplementation. It covers every
   canonical demo persona, platform-global navigation, F2F context, a non-agriculture context,
   the unauthenticated state, a missing protocol context, the organisation-type rejection case,
-  and asserts no persona gains a destination its rule denies.
+  and a breadcrumb-link × production-policy matrix. Navigation is not automatically derived from
+  the asynchronous route guards.
+
+**Criterion 1 remains partial.** Hierarchy-level context is present on the 5C.2A spine
+(`/protocols`, `/protocols/[protocolId]`, the version route, `/markets`, `/instruments`,
+`/instruments/[instrumentId]`, `/issuances`, `/issuances/[issuanceId]`, `/secondary`) and on
+the 5C.2B module screens (`/fields`, `/pools`, `/coverage`, `/scas`, `/backing`). The
+following screens still lack the intended context header. Verified from source; this list is
+the remainder, not a commitment to add headers in 5C.2B.
+
+Platform / market-core collections and desks:
+
+- `/registry`
+- `/clearing`
+- `/participants`
+- `/supervision`
+- `/audit`
+- `/portfolio`
+- `/placements`
+- `/tokens`
+- `/compliance`
+- `/compliance/checks`
+- `/compliance/eligibility`
+- `/compliance/alerts`
+- `/market`
+- `/market/[placementId]`
+- `/architecture`
+- `/regulator`
+
+Platform redirects that do not render their own header (`/ownership` → `/registry`;
+`/tokens/[symbol]` → `/instruments/[symbol]`).
+
+Field to Finance module collections not yet on `protocolModuleTrail`:
+
+- `/contracts`
+- `/monitoring`
+- `/documents`
+- `/finance`
+- `/issuer/dacs`
+- `/registrar/intake`
+- `/scas/verification`
+- `/scas/dacs`
+- `/scas/matching`
+- `/scas/monitoring`
+
+Field to Finance nested / detail screens:
+
+- `/fields/new`
+- `/fields/[fieldId]`
+- `/pools/[poolId]`
+- `/contracts/[contractId]`
+- `/monitoring/[contractId]`
+- `/documents/[contractId]`
+- `/finance/[contractId]`
+- `/issuer/dacs/[dacId]`
+- `/registrar/intake/[dacId]`
+- `/scas/dacs/[dacId]`
+- `/scas/verification/[caseId]`
+
+Admin, auth, help and onboarding screens are outside this inventory.
+
+**Criterion 3 is satisfied navigationally, not as a hard routing boundary.** Agriculture
+modules are contained within Field to Finance in navigation. Existing direct URLs and
+bookmarks remain reachable subject to their existing route guards. No redirects or route
+moves were implemented. Hiding a destination in navigation is not authorization.
 
 **Still deferred.** A fully automated *navigation ⊆ route-guard* cross-check would require the
 async server guards to expose a pure predicate; the registry mirrors the guard predicates by
 construction and the organisation-type case is pinned by test, but the two are not yet derived
-from one shared function. Hierarchy context on non-module platform screens
-(`/registry`, `/clearing`, `/participants`, `/supervision`, `/audit`) also remains open.
+from one shared function. The remaining hierarchy-header work listed under criterion 1, and
+any later hard-routing move of agriculture URLs under `/protocols/F2F/...`, remain open.
 
 **Acceptance criteria (whole of 5C.2)**
 
