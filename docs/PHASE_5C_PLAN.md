@@ -2,7 +2,9 @@
 
 **Status:** Delivery plan. 5C.1 is implemented; 5C.2A is implemented; 5C.2B is
 implemented as an incremental navigation slice; remaining hierarchy-header and
-hard-routing work is explicitly deferred; 5C.3–5C.5 remain planned.
+hard-routing work is explicitly deferred; 5C.3A domain coherence is implemented;
+5C.3B UI remains planned; 5C.4 remains planned; 5C.5 remains planned except that
+EN/RU/KK key-set parity testing already exists.
 **Legal operator:** CommoChain Ltd.
 **Reads with:** `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md` (target canon),
 `docs/MARKET_CORE_ARCHITECTURE.md` (implementation status), `docs/DEVELOPMENT.md` (workflow).
@@ -251,12 +253,65 @@ version, instrument, issuance, market or governance date.
 Join up organisation onboarding, membership and role assignment with the participant × instrument
 eligibility matrix, so that eligibility state is explainable rather than a bare flag.
 
-**Acceptance criteria**
+5C.3 is delivered in two slices. **5C.3 as a whole is not complete.** 5C.3A has
+shipped as a domain/service coherence slice. 5C.3B (eligibility and onboarding UI)
+remains planned.
+
+#### 5C.3A — Explainable eligibility domain coherence *(implemented)*
+
+Domain and service foundation only. No UI redesign, no Supabase migration, no money,
+settlement, custody, Devnet execution, or production deployment.
+
+- Market participant identity belongs to the organisation, not to an individual user.
+  Multiple active members of one trading organisation may act through the same
+  participant. Issuer organisations have no trading participant identity in this slice.
+- Membership identifies the user-to-organisation relationship through which the actor
+  operates. Demo membership IDs (`DEMO-MEM-*`) label relationships already present in
+  the demonstrator; they are not persisted by a migration.
+- Onboarding approval creates or activates organisation membership and roles only. It
+  does not insert an eligibility decision. The truthful flow remains: onboarding →
+  organisation/membership/role → participant mapping if separately established →
+  assessment → participant × instrument eligibility.
+- Assessment is strictly participant × instrument. One assessment governs one pair.
+  There is no global organisation-level `ELIGIBLE` helper. Assessment authority is
+  `COMPLIANCE_OFFICER`, which is not a trading role.
+- Stored assessed decisions (`ELIGIBLE` / `NOT_ELIGIBLE`) carry organisation,
+  membership, assessment, and a stable domain `reasonCode`. Unassessed or placeholder
+  rows (Commodity Desk, `WATER-FUTURE`, protocol investment, retail/future channel)
+  stay outside recorded assessed eligibility rather than inventing attribution.
+- `recordedAt` is `null` unless a real assessment timestamp exists. None is claimed
+  for the shipped fixtures. Evidence arrays exist and may be empty.
+- Phase 4 compliance screening (`APPROVED` / `BLOCKED` / `PENDING`) is a separate
+  product and type space. It is not Market Core instrument eligibility and is not
+  mapped onto Market Core participant IDs.
+- TypeScript `actorMaySubmitOrder` is a fail-closed UX/server precheck for the
+  secondary-market view and submit path. SQL/RPC remains the final atomic
+  authorization. Overlaying a persistent eligibility state that disagrees with the
+  assessment fails closed and does not present the old assessment as supporting the
+  new state.
+- Unimpersonated `SYSTEM_ADMIN` no longer has `market.trade`, has no participant
+  identity, and cannot submit. Demo impersonation still adopts the selected persona's
+  effective role, permissions, organisation, membership, and participant identity.
+
+**Not claimed by 5C.3A.** Eligibility and onboarding UI (`/compliance/eligibility`,
+participants matrix presentation, onboarding copy) are unchanged. Assessment records
+are TypeScript fixtures, not SQL. No expiry, suspension, or revocation workflow.
+No AFSA admission or approval claim.
+
+**Acceptance criteria (whole of 5C.3)**
 
 1. Eligibility remains participant × instrument; no global `ELIGIBLE` flag is introduced.
 2. Each eligibility state is attributable to an organisation, membership and assessment.
 3. `NOT_ASSESSED` and `POLICY_PENDING` are never presented as approval.
 4. Registrar, regulator and unimpersonated admin still cannot trade.
+
+5C.3A satisfies these as domain/service invariants. 5C.3B still owns presenting them
+in the operator UI.
+
+#### 5C.3B — Eligibility and onboarding UI *(planned)*
+
+Explain the 5C.3A model on operator surfaces without adding a second source of
+instrument truth. Out of scope for 5C.3A.
 
 ### 5C.4 — Institutional investor workspace and universal instrument shell
 
@@ -273,8 +328,11 @@ shell that works for any protocol, with protocol-specific economic basis supplie
 ### 5C.5 — Help & Support, multilingual polish, accessibility, and regression hardening
 
 Minimal Help & Support, kk/ru/en polish, accessibility passes on the market-core screens, and
-regression hardening — including an automated message-catalog parity test, which currently does
-not exist (missing keys silently fall back to English).
+regression hardening. EN/RU/KK key-set parity testing already exists
+(`src/i18n/message-parity.test.ts`): a missing key no longer fails silently in review.
+Ordering remains enforced only for the namespaces explicitly covered by the current
+test (`marketCore` and `errors`). 5C.5 still owns broader multilingual polish,
+Help & Support content, and accessibility.
 
 **Acceptance criteria**
 
