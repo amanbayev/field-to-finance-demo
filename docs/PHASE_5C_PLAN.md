@@ -3,7 +3,9 @@
 **Status:** Delivery plan. 5C.1 is implemented; 5C.2A is implemented; 5C.2B is
 implemented as an incremental navigation slice; remaining hierarchy-header and
 hard-routing work is explicitly deferred; 5C.3A domain coherence is implemented;
-5C.3B UI remains planned; 5C.4 remains planned; 5C.5 remains planned except that
+5C.3B eligibility and onboarding UI is implemented as a read-only presentation
+slice; persistence, reassessment, suspension and revocation remain outside 5C.3;
+5C.4 remains planned; 5C.5 remains planned except that
 EN/RU/KK key-set parity testing already exists.
 **Legal operator:** CommoChain Ltd.
 **Reads with:** `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md` (target canon),
@@ -254,8 +256,9 @@ Join up organisation onboarding, membership and role assignment with the partici
 eligibility matrix, so that eligibility state is explainable rather than a bare flag.
 
 5C.3 is delivered in two slices. **5C.3 as a whole is not complete.** 5C.3A has
-shipped as a domain/service coherence slice. 5C.3B (eligibility and onboarding UI)
-remains planned.
+shipped as a domain/service coherence slice. 5C.3B has shipped as a read-only
+eligibility and onboarding UI slice. Persistence, reassessment, suspension and
+revocation remain explicitly outside 5C.3.
 
 #### 5C.3A — Explainable eligibility domain coherence *(implemented)*
 
@@ -305,22 +308,66 @@ No AFSA admission or approval claim.
 **Acceptance criteria (whole of 5C.3)**
 
 1. Eligibility remains participant × instrument; no global `ELIGIBLE` flag is introduced.
-2. **Partial in 5C.3A.** Recorded assessed decisions (`ELIGIBLE` / `NOT_ELIGIBLE`) are
-   attributable to an organisation, membership and assessment. `NOT_ASSESSED` means no
-   assessment exists. `POLICY_PENDING` is currently a placeholder, not a completed
-   assessment. Attribution is not fabricated for unassessed or pending rows. Resolution
-   of unassessed/pending presentation or lifecycle remains in 5C.3B.
+2. **Presentation implemented in 5C.3B; lifecycle remains outside 5C.3.** Recorded
+   assessed decisions (`ELIGIBLE` / `NOT_ELIGIBLE`) are attributable to an
+   organisation, membership and assessment. `NOT_ASSESSED` means no assessment
+   exists. `POLICY_PENDING` is a placeholder, not a completed assessment.
+   Attribution is not fabricated for unassessed or pending rows. Operator screens
+   now present those four states through the shared presentation model. Expiry,
+   suspension, revocation, reassessment and assessment persistence remain outside
+   this phase.
 3. `NOT_ASSESSED` and `POLICY_PENDING` are never presented as approval.
 4. Registrar, regulator and unimpersonated admin still cannot trade.
 
-5C.3A satisfies criteria 1, 3 and 4 as domain/service invariants. Criterion 2 is
-satisfied for recorded assessed decisions only. 5C.3B still owns presenting them in
-the operator UI and any remaining unassessed/pending lifecycle.
+5C.3A satisfies criteria 1, 3 and 4 as domain/service invariants. 5C.3B satisfies
+the operator-presentation part of criterion 2. Persistence, reassessment,
+suspension and revocation remain outside 5C.3.
 
-#### 5C.3B — Eligibility and onboarding UI *(planned)*
+#### 5C.3B — Eligibility and onboarding UI *(implemented as a read-only slice)*
 
-Explain the 5C.3A model on operator surfaces without adding a second source of
-instrument truth. Out of scope for 5C.3A.
+Read-only operator presentation of the 5C.3A model. No second eligibility model.
+No assessment mutation workflow. No Supabase assessment table.
+
+- Shared presentation selectors in `src/lib/market-core/eligibility-presentation.ts`
+  consume `EligibilityExplanation`, `explainEligibility`, `explainActorEligibility`,
+  `explainOnboardingMarketReadiness` and `explanationAllowsTrade`. They return
+  message keys, not hardcoded English, and fail closed for unknown or inconsistent
+  data. Raw domain codes (`ELIGIBLE`, `DEMO_RECORDED_*`, `DEMO-EAS-*`, `DEMO-MEM-*`)
+  are not operator copy.
+- `/participants` keeps organisations, participant × instrument market eligibility,
+  and Phase 4 compliance screening as separate sections. Compact `DeskRow` hints
+  use localized labels. `NOT_ELIGIBLE` is not collapsed into `NOT_ASSESSED`.
+  Assessment attribution is shown only when an assessment exists. Null `recordedAt`
+  renders as date-not-claimed. Empty evidence renders as no evidence references
+  recorded.
+- `/compliance/eligibility` is a read-only compliance workspace: screening first,
+  then the market-eligibility matrix from `listInstrumentEligibilityReadModel()`.
+  The `compliance.manage` guard is unchanged. There is no Approve, Reject, Suspend,
+  Revoke, Reassess or Save control.
+- Screening (`APPROVED` / `BLOCKED` / `PENDING`) remains a separate decision from
+  instrument eligibility. Copy states that screening is not authorization to trade
+  a particular instrument.
+- `/onboarding` keeps `onboardingAction`, writes, role assignment and guards
+  unchanged. Copy states the sequence: request → membership/role → optional
+  participant mapping → optional assessment → new-order admission only for an
+  eligible participant with the required permissions. `explainOnboardingMarketReadiness`
+  is shown only when an organisation context exists.
+- `/secondary` still uses `actorMaySubmitSecondaryOrder` for `canSubmit` and
+  `actorMayCancelSecondaryOrder` for owned open orders. The page explains why
+  new-order entry is available or unavailable from that production result plus
+  `explainSecondaryActorEligibility`. Cancellation is not hidden when new-order
+  eligibility is unavailable. SQL/RPC remains the final atomic authorization.
+  Local `/secondary` still requires Supabase; `MARKET_CORE_UNAVAILABLE` is not
+  bypassed for a fake demo.
+- EN/RU/KK catalogs share the `eligibility` namespace at key-set and required
+  order parity. Focused unit tests cover presentation mapping, the participants
+  read model, the compliance workspace, onboarding copy, secondary admission
+  explanations, and operator-source raw-code checks.
+
+**Not claimed by 5C.3B.** Assessment records remain TypeScript fixtures. There is
+no create/update/revoke workflow, no expiry or suspension lifecycle, no SQL
+eligibility policy, and no change to money, matching, settlement, custody,
+registrar ownership, navigation authorization, or impersonation.
 
 ### 5C.4 — Institutional investor workspace and universal instrument shell
 

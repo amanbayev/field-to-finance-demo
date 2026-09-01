@@ -102,8 +102,20 @@ the final atomic authorization.
 
 Recorded `ELIGIBLE` / `NOT_ELIGIBLE` decisions carry organisation, membership,
 assessment and a reason code. `NOT_ASSESSED` means no assessment exists.
-`POLICY_PENDING` is a placeholder, not a completed assessment. Unassessed/pending
-presentation and lifecycle remain in 5C.3B.
+`POLICY_PENDING` is a placeholder, not a completed assessment.
+
+Phase 5C.3B presents that model on operator screens through
+`src/lib/market-core/eligibility-presentation.ts`. `/participants` and
+`/compliance/eligibility` show the participant × instrument matrix separately
+from Phase 4 screening. `/onboarding` explains that approval does not grant
+instrument eligibility. `/secondary` explains why new-order entry is available
+or unavailable from the existing `canSubmit` precheck; cancellation remains
+independent of current eligibility. Assessment records remain TypeScript
+fixtures. There is no persisted assessment table and no create, approve, reject,
+suspend, revoke or reassess workflow. Expiry and suspension lifecycle remain
+outside 5C.3. SQL/RPC remains the final authorization for persistent market
+writes. Local `/secondary` still requires Supabase and is not faked when
+`MARKET_CORE_UNAVAILABLE`.
 
 Current matrix:
 
