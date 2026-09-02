@@ -25,6 +25,7 @@ ISS-001 is an issuance of WHEAT-2027, not a token type. POOL-WHEAT-2027-01 is ba
 | Immutable `ProtocolVersion` and `Instrument → ProtocolVersion` binding (Phase 5C.1) | **IMPLEMENTED**. `ProtocolVersion` owns the versioned rule snapshot; `AssetProtocol` no longer carries a mutable copy. WHEAT-2027 binds permanently to `F2F-V1.1` (display version `1.1`). `AssetProtocol.currentVersionId` is a discovery pointer and is never used to resolve an issued instrument. `F2F-V1.1` is the first recorded version of the **demonstrator** protocol: `activatedAt` and `frozenAt` are `null` because **no formal legal or governance activation date is claimed**. Immutability is asserted by the `frozen` marker, not by a date. Water / Music Rights / Gaming Assets and the F2F Protocol Investment have **no** version. Version data and validation helpers only — a protocol rules engine and supersession workflow are Phase 8. See `docs/PHASE_5C_PLAN.md`. |
 | WheatOrder / WheatTrade / WheatMarket types | **Not created** (forbidden). |
 | Secondary matching / transacting market | **IMPLEMENTED (Preview)**. Market `MKT-WHEAT-2027-DEMO-KZT`, `phase: SECONDARY_OPEN`, `transacting: true`, LIMIT only. Stops at `AWAITING_DEVNET_SETTLEMENT`. |
+| Universal instrument shell and protocol economic-basis adapters (Phase 5C.4A) | **IMPLEMENTED**. `/instruments/[instrumentId]` renders a generic shell from canonical Market Core plus an `InstrumentEconomicBasisAdapter` selected by exact protocol id. The F2F adapter supplies WHEAT-2027 demonstrator basis and evidence. Non-issued instruments withhold offer / price / yield / term. This is not a protocol plugin engine and not 5C.4B. |
 
 ## Matching
 
@@ -190,9 +191,11 @@ Asset Protocol → SPV / Issuer → Investment Instrument → Market Core
 
 ### C. Instrument-level screens
 
-- `/instruments/WHEAT-2027` — universal sections; agriculture basis is adapter-specific
-- `/instruments/F2F-PROTOCOL-INVESTMENT` — CONCEPT / STRUCTURING · no offering · not issued · not admitted
+- `/instruments/WHEAT-2027` — universal shell; agriculture basis and token-mint proof arrive only through the F2F economic-basis adapter
+- `/instruments/F2F-PROTOCOL-INVESTMENT` — CONCEPT / STRUCTURING · no offering · not issued · not admitted; no price, yield, term or market availability
 - `/tokens/WHEAT-2027` redirects to the instrument page
+
+The generic shell (`src/components/market-core/instrument-shell-view.tsx`) must not switch on instrument id, protocol id or asset class. Identity, lifecycle, issuer, issuance, market and holdings come from `getInstrumentMarketContext`. Protocol-specific facts are an `InstrumentEconomicBasisAdapter` result. The production registry currently registers only the F2F adapter. A synthetic TIDAL / TIDE-2030 fixture exists in tests only and is not a production instrument. Compact and wide ownership views keep owned / available / reserved / pledged / blocked distinct. 5C.4B investor workspace is not implemented.
 
 ### D. Role workspaces
 
