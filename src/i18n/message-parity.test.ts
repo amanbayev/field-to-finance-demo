@@ -143,6 +143,40 @@ describe("message catalogue parity", () => {
     ).toBe(3);
   });
 
+  it("localizes phase 5c 4a shell and economics-visibility copy", () => {
+    const keys = [
+      "economicsWithheldNotIssued",
+      "basisDataUnavailable",
+      "basisUnavailableForInstrumentFamily",
+      "termsNotOffered",
+      "termsUnavailable",
+      "riskNotRecorded",
+      "riskNotOffered",
+      "noMarketRecorded",
+      "marketNotOffered",
+      "marketPhaseClosed",
+      "clearingNotRecorded",
+      "clearingNotOffered",
+      "issuanceNotRecorded",
+      "denomination",
+      "secondaryMarketOpenDemonstrator",
+      "matchingDoesNotChangeOwnership",
+      "coverageNotActive",
+      "tokenProofIsDemonstratorEvidence",
+      "holdingsNotRecorded",
+      "protocolRecordUnavailable",
+    ];
+    for (const key of keys) {
+      const values = [base, ru as unknown as Catalog, kk as unknown as Catalog].map(
+        (catalog) => catalog.marketCore?.[key],
+      );
+      for (const value of values) {
+        expect(value, `${key}`).toBeTruthy();
+      }
+      expect(new Set(values).size, `${key} must differ across en/ru/kk`).toBe(3);
+    }
+  });
+
   it("localizes both frozen states and the full rule-snapshot labels", () => {
     const keys = [
       "immutableRules",

@@ -5,6 +5,8 @@ const GENERIC_SHELL_SOURCES = [
   "src/lib/market-core/instrument-shell.ts",
   "src/lib/market-core/instrument-basis-adapter.ts",
   "src/lib/market-core/economics-visibility.ts",
+  "src/app/instruments/[instrumentId]/page.tsx",
+  "src/components/market-core/instrument-shell-view.tsx",
 ] as const;
 
 const FORBIDDEN = [
@@ -19,6 +21,10 @@ const FORBIDDEN = [
   "ON_CHAIN_DEMO_POOL_ID",
   "f2fModuleHref",
   "f2f-instrument-basis-adapter",
+  "futureWaterBasis",
+  "futureMusicBasis",
+  "instrument.id ===",
+  "assetClass ===",
 ];
 
 describe("generic instrument shell source boundaries", () => {
