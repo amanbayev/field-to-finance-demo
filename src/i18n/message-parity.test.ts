@@ -21,7 +21,7 @@ const base = en as unknown as Catalog;
  * Namespaces this PR changes. `request.ts` merges English as the base, so a
  * missing translation is silently invisible in review — it has to be a test.
  */
-const CHANGED_NAMESPACES = ["marketCore", "errors"] as const;
+const CHANGED_NAMESPACES = ["marketCore", "errors", "eligibility"] as const;
 
 describe("message catalogue parity", () => {
   const allNamespaces = Object.keys(base);

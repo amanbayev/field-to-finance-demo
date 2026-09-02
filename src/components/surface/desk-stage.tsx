@@ -53,6 +53,7 @@ export function DeskRow({
   title,
   value,
   hint,
+  block,
   active = false,
 }: {
   href?: string;
@@ -62,9 +63,11 @@ export function DeskRow({
   title: ReactNode;
   value?: ReactNode;
   hint?: ReactNode;
+  /** Block-level content rendered outside the hint `<p>` and outside any row link or button. */
+  block?: ReactNode;
   active?: boolean;
 }) {
-  const body = (
+  const heading = (
     <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 py-4 transition-colors duration-150 ease-out">
       <div className="min-w-0">
         {(index || kicker) ? (
@@ -82,29 +85,29 @@ export function DeskRow({
     </div>
   );
 
+  let interactive = heading;
   if (onSelect) {
-    return (
-      <li aria-current={active ? "true" : undefined}>
-        <button
-          type="button"
-          onClick={onSelect}
-          className="block w-full text-left hover:text-harvest"
-        >
-          {body}
-        </button>
-      </li>
+    interactive = (
+      <button
+        type="button"
+        onClick={onSelect}
+        className="block w-full text-left hover:text-harvest"
+      >
+        {heading}
+      </button>
+    );
+  } else if (href && !active) {
+    interactive = (
+      <Link href={href} className="block hover:text-harvest">
+        {heading}
+      </Link>
     );
   }
 
-  if (!href || active) {
-    return <li aria-current={active ? "page" : undefined}>{body}</li>;
-  }
-
   return (
-    <li>
-      <Link href={href} className="block hover:text-harvest">
-        {body}
-      </Link>
+    <li aria-current={onSelect ? (active ? "true" : undefined) : active ? "page" : undefined}>
+      {interactive}
+      {block ? <div className="min-w-0 max-w-2xl pb-4">{block}</div> : null}
     </li>
   );
 }
