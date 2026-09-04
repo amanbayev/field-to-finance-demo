@@ -43,6 +43,7 @@ export {
   marketCoreSnapshot,
   tradeDecision,
 } from "./market-core-service";
+export { getInstrumentShellContext } from "./instrument-shell";
 export {
   blockchainProvider,
   fxProvider,
