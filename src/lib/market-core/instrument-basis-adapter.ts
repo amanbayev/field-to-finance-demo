@@ -169,31 +169,144 @@ export function createInstrumentBasisAdapterRegistry(
     }
     byProtocol.set(adapter.protocolId, adapter);
   }
-  return {
+  return Object.freeze({
     adapters: Object.freeze([...adapters]),
     select(protocolId: string) {
       return byProtocol.get(protocolId) ?? null;
     },
-  };
+  });
 }
 
+function freezeBasisValue(value: InstrumentBasisValue): InstrumentBasisValue {
+  if (value.kind === "TEXT") {
+    return Object.freeze({ kind: "TEXT", text: value.text });
+  }
+  if (value.kind === "INTEGER") {
+    return Object.freeze({ kind: "INTEGER", value: value.value });
+  }
+  if (value.kind === "PERCENT") {
+    return Object.freeze({ kind: "PERCENT", value: value.value });
+  }
+  return Object.freeze({ kind: "MESSAGE", messageKey: value.messageKey });
+}
+
+function freezeFact(fact: InstrumentBasisFact): InstrumentBasisFact {
+  const copy: InstrumentBasisFact = {
+    id: fact.id,
+    labelKey: fact.labelKey,
+    value: freezeBasisValue(fact.value),
+    ...(fact.href !== undefined ? { href: fact.href } : {}),
+    ...(fact.category !== undefined ? { category: fact.category } : {}),
+  };
+  return Object.freeze(copy);
+}
+
+function freezeMetric(metric: InstrumentBasisMetric): InstrumentBasisMetric {
+  const copy: InstrumentBasisMetric = {
+    id: metric.id,
+    labelKey: metric.labelKey,
+    value: freezeBasisValue(metric.value),
+    ...(metric.category !== undefined ? { category: metric.category } : {}),
+  };
+  return Object.freeze(copy);
+}
+
+function freezeLink(link: InstrumentBasisLink): InstrumentBasisLink {
+  return Object.freeze({
+    id: link.id,
+    labelKey: link.labelKey,
+    href: link.href,
+  });
+}
+
+function freezeNotice(notice: InstrumentBasisNotice): InstrumentBasisNotice {
+  return Object.freeze({
+    id: notice.id,
+    messageKey: notice.messageKey,
+  });
+}
+
+function freezeTokenMintLookup(
+  lookup: OnChainTokenMintLookup,
+): OnChainTokenMintLookup {
+  const copy: OnChainTokenMintLookup = { status: lookup.status };
+  if (lookup.createSignature !== undefined) {
+    copy.createSignature = lookup.createSignature;
+  }
+  if (lookup.mintToSignature !== undefined) {
+    copy.mintToSignature = lookup.mintToSignature;
+  }
+  if (lookup.mint !== undefined) {
+    copy.mint = Object.freeze({ ...lookup.mint });
+  }
+  return Object.freeze(copy);
+}
+
+function freezeProtocolSlot(
+  slot: InstrumentProtocolSlot | null,
+): InstrumentProtocolSlot | null {
+  if (slot === null) {
+    return null;
+  }
+  if (isChainMintProofSlot(slot)) {
+    return Object.freeze({
+      rendererId: CHAIN_MINT_PROOF_RENDERER_ID,
+      registrarInventory: slot.registrarInventory,
+      lookup: freezeTokenMintLookup(slot.lookup),
+    });
+  }
+  return Object.freeze({ rendererId: slot.rendererId });
+}
+
+function freezeEvidence(
+  item: InstrumentEvidenceDescriptor,
+): InstrumentEvidenceDescriptor {
+  if (item.kind === "NOTICE") {
+    return Object.freeze({
+      kind: "NOTICE",
+      id: item.id,
+      titleKey: item.titleKey,
+      bodyKeys: Object.freeze([...item.bodyKeys]),
+    });
+  }
+  const slot = freezeProtocolSlot(item.slot);
+  return Object.freeze({
+    kind: "PROTOCOL_SLOT",
+    id: item.id,
+    slot: slot === null ? Object.freeze({ rendererId: item.slot.rendererId }) : slot,
+  });
+}
+
+/**
+ * Copy-then-freeze the owned result graph. Nested objects are new copies so
+ * adapter-owned input is not frozen by side effect.
+ */
 export function freezeInstrumentBasisResult(
   result: InstrumentBasisResult,
 ): InstrumentBasisResult {
-  if (result.kind !== "AVAILABLE") {
-    return Object.freeze({ ...result });
+  if (result.kind === "UNAVAILABLE") {
+    return Object.freeze({
+      kind: "UNAVAILABLE",
+      reasonKey: result.reasonKey,
+    });
+  }
+  if (result.kind === "WITHHELD") {
+    return Object.freeze({
+      kind: "WITHHELD",
+      reasonKey: result.reasonKey,
+    });
   }
   return Object.freeze({
     kind: "AVAILABLE",
-    facts: Object.freeze([...result.facts]),
-    metrics: Object.freeze([...result.metrics]),
-    terms: Object.freeze([...result.terms]),
-    risks: Object.freeze([...result.risks]),
-    overviewMetrics: Object.freeze([...result.overviewMetrics]),
-    links: Object.freeze([...result.links]),
-    notices: Object.freeze([...result.notices]),
-    evidence: Object.freeze([...result.evidence]),
-    protocolSlot: result.protocolSlot,
+    facts: Object.freeze(result.facts.map(freezeFact)),
+    metrics: Object.freeze(result.metrics.map(freezeMetric)),
+    terms: Object.freeze(result.terms.map(freezeFact)),
+    risks: Object.freeze(result.risks.map(freezeFact)),
+    overviewMetrics: Object.freeze(result.overviewMetrics.map(freezeMetric)),
+    links: Object.freeze(result.links.map(freezeLink)),
+    notices: Object.freeze(result.notices.map(freezeNotice)),
+    evidence: Object.freeze(result.evidence.map(freezeEvidence)),
+    protocolSlot: freezeProtocolSlot(result.protocolSlot),
   });
 }
 

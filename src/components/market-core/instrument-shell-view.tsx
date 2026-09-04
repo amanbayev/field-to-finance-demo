@@ -158,7 +158,7 @@ export function InstrumentShellView({
       {section === "ownership" ? (
         <OwnershipSection context={context} locale={locale} translate={t} />
       ) : null}
-      {section === "documents" ? <EmptyState>{t("documentsEmpty")}</EmptyState> : null}
+      {section === "documents" ? <EmptyState illustration="none">{t("documentsEmpty")}</EmptyState> : null}
       {section === "audit" ? (
         <AuditSection
           context={context}
@@ -242,7 +242,7 @@ function OverviewSection({
           ))}
         </MetricStrip>
       ) : (
-        <EmptyState>
+        <EmptyState illustration="none">
           {context.mayShowEconomics ? t("noFakeEconomics") : t("economicsWithheldNotIssued")}
         </EmptyState>
       )}
@@ -260,7 +260,7 @@ function TermsSection({
   translate: Translate;
 }) {
   if (!context.mayShowEconomics) {
-    return <EmptyState>{t("termsNotOffered")}</EmptyState>;
+    return <EmptyState illustration="none">{t("termsNotOffered")}</EmptyState>;
   }
   const adapterTerms = context.basis.kind === "AVAILABLE" ? context.basis.terms : [];
   const terms =
@@ -279,7 +279,7 @@ function TermsSection({
   if (context.basis.kind === "UNAVAILABLE" && adapterTerms.length === 0) {
     return (
       <div className="space-y-4">
-        <EmptyState>{t("termsUnavailable")}</EmptyState>
+        <EmptyState illustration="none">{t("termsUnavailable")}</EmptyState>
         <DataList items={terms.map((item) => factToItem(item, t, locale))} />
       </div>
     );
@@ -297,11 +297,11 @@ function BasisSection({
   translate: Translate;
 }) {
   if (!context.mayShowEconomics) {
-    return <EmptyState>{t("economicsWithheldNotIssued")}</EmptyState>;
+    return <EmptyState illustration="none">{t("economicsWithheldNotIssued")}</EmptyState>;
   }
   if (context.basis.kind !== "AVAILABLE") {
     return (
-      <EmptyState>
+      <EmptyState illustration="none">
         {lookupMessage(
           t,
           context.basis.kind === "UNAVAILABLE"
@@ -347,11 +347,11 @@ function RiskSection({
   translate: Translate;
 }) {
   if (!context.mayShowEconomics) {
-    return <EmptyState>{t("riskNotOffered")}</EmptyState>;
+    return <EmptyState illustration="none">{t("riskNotOffered")}</EmptyState>;
   }
   const risks = context.basis.kind === "AVAILABLE" ? context.basis.risks : [];
   if (risks.length === 0) {
-    return <EmptyState>{t("riskNotRecorded")}</EmptyState>;
+    return <EmptyState illustration="none">{t("riskNotRecorded")}</EmptyState>;
   }
   return <DataList items={risks.map((item) => factToItem(item, t, locale))} />;
 }
@@ -364,11 +364,11 @@ function MarketSection({
   translate: Translate;
 }) {
   if (!context.mayShowEconomics) {
-    return <EmptyState>{t("marketNotOffered")}</EmptyState>;
+    return <EmptyState illustration="none">{t("marketNotOffered")}</EmptyState>;
   }
   const market = context.market;
   if (!market) {
-    return <EmptyState>{t("noMarketRecorded")}</EmptyState>;
+    return <EmptyState illustration="none">{t("noMarketRecorded")}</EmptyState>;
   }
   return (
     <div className="space-y-4">
@@ -412,7 +412,7 @@ function ClearingSection({
   translate: Translate;
 }) {
   if (!context.mayShowEconomics) {
-    return <EmptyState>{t("clearingNotOffered")}</EmptyState>;
+    return <EmptyState illustration="none">{t("clearingNotOffered")}</EmptyState>;
   }
   const notices =
     context.basis.kind === "AVAILABLE"
@@ -430,7 +430,7 @@ function ClearingSection({
           </PageSection>
         ))
       ) : (
-        <EmptyState>{t("clearingNotRecorded")}</EmptyState>
+        <EmptyState illustration="none">{t("clearingNotRecorded")}</EmptyState>
       )}
     </div>
   );
@@ -448,7 +448,7 @@ function OwnershipSection({
   const holdings = context.holdings;
   if (holdings.length === 0) {
     return (
-      <EmptyState>
+      <EmptyState illustration="none">
         {context.mayShowEconomics ? t("holdingsNotRecorded") : t("noFakeEconomics")}
       </EmptyState>
     );

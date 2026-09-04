@@ -1712,6 +1712,8 @@
     "eligibleCoverage": "Допустимое покрытие",
     "issuance": "Выпуск",
     "placement": "Первичное размещение",
+    "mintedSupply": "Выпущенный объём",
+    "circulatingSupply": "Объём в обращении",
     "heldBy": "У Steppe Capital",
     "secondaryNotOpen": "Вторичный LIMIT-рынок · DEMO",
     "redemption": "Погашение",
@@ -1872,7 +1874,6 @@
     "denomination": "Номинал",
     "secondaryMarketOpenDemonstrator": "Для этого демонстрационного инструмента открыт вторичный LIMIT-рынок. Сопоставление заявок не меняет правовую собственность.",
     "matchingDoesNotChangeOwnership": "Сопоставление заявок не меняет правовую собственность. FILLED не означает SETTLED.",
-    "coverageNotActive": "Показатели покрытия для этого инструмента не зафиксированы.",
     "tokenProofIsDemonstratorEvidence": "Ончейн-доказательство токена — демонстрационное свидетельство. Это не правовая собственность и не окончательность расчётов.",
     "holdingsNotRecorded": "Владение для этого инструмента не зафиксировано.",
     "protocolRecordUnavailable": "Запись протокола недоступна."

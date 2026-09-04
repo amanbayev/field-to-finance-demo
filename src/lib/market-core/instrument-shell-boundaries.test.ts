@@ -25,6 +25,7 @@ const FORBIDDEN = [
   "futureMusicBasis",
   "instrument.id ===",
   "assetClass ===",
+  "empty-silo-light.png",
 ];
 
 describe("generic instrument shell source boundaries", () => {

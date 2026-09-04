@@ -1,24 +1,51 @@
-import { createElement } from "react";
+import {
+  cloneElement,
+  createElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { ActorContext, Permission } from "@/domain/identity";
 import { permissionsForRole } from "@/domain/identity";
 import { InstrumentShellView } from "@/components/market-core/instrument-shell-view";
-import type { InstrumentSection } from "@/domain/market-core";
+import { INSTRUMENT_SECTIONS, type InstrumentSection } from "@/domain/market-core";
 import {
   F2F_PROTOCOL_INVESTMENT_ID,
   WHEAT_INSTRUMENT_ID,
 } from "@/data/market-core/catalog";
+import { isChainMintProofSlot } from "@/lib/market-core/instrument-basis-adapter";
 import { getInstrumentShellContext } from "@/services/instrument-shell";
 import en from "../../../messages/en.json";
+
+function catalogLookup(namespace: string, key: string): string {
+  const root = (en as Record<string, unknown>)[namespace];
+  const parts = key.split(".");
+  let current: unknown = root;
+  for (const part of parts) {
+    if (!current || typeof current !== "object" || !(part in current)) {
+      return key;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+  return typeof current === "string" ? current : key;
+}
 
 vi.mock("next-intl", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next-intl")>();
   return {
     ...actual,
     useLocale: () => "en",
+    useTranslations: (namespace: string) => (key: string) =>
+      catalogLookup(namespace, key),
   };
 });
+
+vi.mock("next-intl/server", () => ({
+  getTranslations: async (namespace: string) => (key: string) =>
+    catalogLookup(namespace, key),
+}));
 
 function actor(): ActorContext {
   const permissions: Permission[] = permissionsForRole("REGISTRAR_OPERATOR");
@@ -59,6 +86,55 @@ function renderShell(
   );
 }
 
+async function materialize(node: ReactNode): Promise<ReactNode> {
+  if (node == null || typeof node === "boolean") {
+    return node;
+  }
+  if (Array.isArray(node)) {
+    return Promise.all(node.map(materialize));
+  }
+  if (!isValidElement(node)) {
+    return node;
+  }
+  const type = node.type;
+  if (typeof type === "function") {
+    const rendered = (type as (props: object) => ReactNode | Promise<ReactNode>)(
+      node.props as object,
+    );
+    return materialize(await Promise.resolve(rendered));
+  }
+  const children = (node.props as { children?: ReactNode }).children;
+  if (children === undefined) {
+    return node;
+  }
+  return cloneElement(node as ReactElement, undefined, await materialize(children));
+}
+
+async function renderDefaultShell(
+  context: NonNullable<Awaited<ReturnType<typeof getInstrumentShellContext>>>,
+  section: InstrumentSection,
+): Promise<string> {
+  const tree = createElement(InstrumentShellView, {
+    context,
+    section,
+    locale: "en",
+    translate,
+  });
+  const materialized = await materialize(tree);
+  return renderToStaticMarkup(materialized as ReactElement);
+}
+
+function sectionLinkTag(html: string, section: string): string {
+  const match = html.match(
+    new RegExp(`<a[^>]*\\?section=${section}"[^>]*>|<a[^>]*\\?section=${section}(?:&quot;)?[^>]*>`),
+  );
+  if (match) {
+    return match[0];
+  }
+  const tags = html.match(/<a\b[^>]*>/g) ?? [];
+  return tags.find((tag) => tag.includes(`?section=${section}`)) ?? "";
+}
+
 describe("universal instrument shell view", () => {
   it("renders all five ownership buckets in compact and wide layouts", async () => {
     const context = await getInstrumentShellContext(WHEAT_INSTRUMENT_ID, actor());
@@ -82,6 +158,10 @@ describe("universal instrument shell view", () => {
     expect(html).toContain("F2F-V1.1");
     expect(html).toContain("ISS-001");
     expect(html).toContain("Demo Agro Issuer Ltd");
+    expect(html).toContain("Minted supply");
+    expect(html).toContain("Circulating supply");
+    expect(html).not.toContain("Held by Steppe Capital");
+    expect(html).not.toContain(">Owned<");
     expect(html).not.toMatch(/settlement finality/i);
   });
 
@@ -138,6 +218,7 @@ describe("universal instrument shell view", () => {
     expect(html).not.toContain("Not structured.");
     expect(html).not.toContain("open subscription");
     expect(html).not.toContain("Aug–Oct 2027");
+    expect(html).not.toContain("empty-silo-light.png");
 
     const overview = renderShell(context!, "overview");
     expect(overview).toContain("CONCEPT / STRUCTURING");
@@ -158,5 +239,44 @@ describe("universal instrument shell view", () => {
     const basis = renderShell(context!, "basis");
     expect(basis).not.toContain("Agriculture-specific basis");
     expect(basis).not.toContain("POOL-WHEAT-2027-01");
+  });
+
+  it("marks exactly one section link as the current page", async () => {
+    const context = await getInstrumentShellContext(WHEAT_INSTRUMENT_ID, actor());
+    const overview = renderShell(context!, "overview");
+    const terms = renderShell(context!, "terms");
+    expect(overview.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(sectionLinkTag(overview, "overview")).toContain('aria-current="page"');
+    expect(sectionLinkTag(overview, "terms")).not.toContain("aria-current");
+    expect(terms.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(sectionLinkTag(terms, "terms")).toContain('aria-current="page"');
+    expect(sectionLinkTag(terms, "overview")).not.toContain("aria-current");
+    for (const section of INSTRUMENT_SECTIONS) {
+      expect(overview).toContain(`?section=${section}`);
+      if (section !== "overview") {
+        expect(sectionLinkTag(overview, section)).not.toContain("aria-current");
+      }
+    }
+  });
+
+  it("renders the default chainMintProof panel on audit without a custom slot renderer", async () => {
+    const context = await getInstrumentShellContext(WHEAT_INSTRUMENT_ID, actor());
+    expect(context!.basis.kind).toBe("AVAILABLE");
+    if (context!.basis.kind !== "AVAILABLE") {
+      throw new Error("expected AVAILABLE");
+    }
+    const slot = context!.basis.protocolSlot;
+    expect(slot !== null && isChainMintProofSlot(slot)).toBe(true);
+    const html = await renderDefaultShell(context!, "audit");
+    expect(html).toContain("Token-2022 mint");
+    expect(html).toContain("Not Yet Deployed");
+    expect(html).toContain(
+      "No Token-2022 mint, mint authority or issuance transaction is recorded.",
+    );
+    expect(html).toContain(
+      "On-chain token proof is demonstrator evidence. It is not legal ownership and not settlement finality.",
+    );
+    expect(html).not.toContain("Mint (Registrar)");
+    expect(html).not.toMatch(/legal book of record/i);
   });
 });

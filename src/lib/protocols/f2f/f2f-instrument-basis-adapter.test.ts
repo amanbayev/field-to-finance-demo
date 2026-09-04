@@ -119,11 +119,23 @@ describe("F2F economic-basis adapter", () => {
       kind: "INTEGER",
       value: wheatPoolCoverageFromEngine().grossVolumeTonnes,
     });
-    expect(result.overviewMetrics.find((item) => item.id === "minted")?.value).toEqual(
-      {
-        kind: "INTEGER",
-        value: 1000,
-      },
+    expect(result.overviewMetrics.find((item) => item.id === "minted")).toEqual({
+      id: "minted",
+      labelKey: "mintedSupply",
+      value: { kind: "INTEGER", value: 1000 },
+    });
+    expect(
+      result.overviewMetrics.find((item) => item.id === "circulating"),
+    ).toEqual({
+      id: "circulating",
+      labelKey: "circulatingSupply",
+      value: { kind: "INTEGER", value: 10 },
+    });
+    expect(result.overviewMetrics.map((item) => item.labelKey)).not.toContain(
+      "owned",
+    );
+    expect(result.overviewMetrics.map((item) => item.labelKey)).not.toContain(
+      "heldBy",
     );
     expect(result.terms.find((item) => item.id === "redemption")?.value).toEqual({
       kind: "MESSAGE",

@@ -183,7 +183,7 @@ async function buildWheatBasis(
     overviewMetrics: [
       {
         id: "minted",
-        labelKey: "owned",
+        labelKey: "mintedSupply",
         value: { kind: "INTEGER", value: snapshot.supply.mintedSupply },
       },
       {
@@ -193,7 +193,7 @@ async function buildWheatBasis(
       },
       {
         id: "circulating",
-        labelKey: "heldBy",
+        labelKey: "circulatingSupply",
         value: { kind: "INTEGER", value: snapshot.supply.circulating },
       },
       {

@@ -19,6 +19,9 @@ import {
   applyEconomicsVisibility,
   createInstrumentBasisAdapterRegistry,
   freezeInstrumentBasisResult,
+  isChainMintProofSlot,
+  CHAIN_MINT_PROOF_RENDERER_ID,
+  type ChainMintProofSlot,
   type InstrumentBasisResult,
   type InstrumentEconomicBasisAdapter,
 } from "./instrument-basis-adapter";
@@ -59,7 +62,7 @@ const registrarActor = actorWith(permissionsForRole("REGISTRAR_OPERATOR"));
 
 function availableResult(
   overrides: Partial<Extract<InstrumentBasisResult, { kind: "AVAILABLE" }>> = {},
-): InstrumentBasisResult {
+): Extract<InstrumentBasisResult, { kind: "AVAILABLE" }> {
   return {
     kind: "AVAILABLE",
     facts: [],
@@ -92,6 +95,11 @@ describe("adapter registry", () => {
   });
 
   it("freezes adapter results so callers cannot mutate them", () => {
+    const protocolSlot: ChainMintProofSlot = {
+      rendererId: CHAIN_MINT_PROOF_RENDERER_ID,
+      lookup: { status: "missing" },
+      registrarInventory: 990,
+    };
     const result = freezeInstrumentBasisResult(
       availableResult({
         facts: [
@@ -102,6 +110,22 @@ describe("adapter registry", () => {
             value: { kind: "TEXT", text: "12" },
           },
         ],
+        overviewMetrics: [
+          {
+            id: "minted",
+            labelKey: "mintedSupply",
+            value: { kind: "INTEGER", value: 1000 },
+          },
+        ],
+        protocolSlot,
+        evidence: [
+          {
+            kind: "NOTICE",
+            id: "primary-placement",
+            titleKey: "primaryEvidence",
+            bodyKeys: ["placementId", "notSecondaryClearing"],
+          },
+        ],
       }),
     );
     expect(Object.isFrozen(result)).toBe(true);
@@ -109,8 +133,98 @@ describe("adapter registry", () => {
       throw new Error("expected AVAILABLE");
     }
     expect(Object.isFrozen(result.facts)).toBe(true);
+    expect(Object.isFrozen(result.facts[0])).toBe(true);
+    expect(Object.isFrozen(result.overviewMetrics[0])).toBe(true);
+    expect(Object.isFrozen(result.protocolSlot)).toBe(true);
     expect(() => {
+      // Test-only: readonly types forbid mutation; this proves the runtime freeze.
       (result.facts as unknown as { id: string }[]).push({ id: "x" });
+    }).toThrow();
+    expect(() => {
+      // Test-only: attempt a property write past InstrumentBasisFact readonly.
+      (result.facts[0] as unknown as { id: string }).id = "x";
+    }).toThrow();
+    expect(() => {
+      // Test-only: attempt a nested value write past InstrumentBasisValue readonly.
+      (result.facts[0]!.value as unknown as { text: string }).text = "99";
+    }).toThrow();
+    expect(() => {
+      (result.overviewMetrics[0] as unknown as { id: string }).id = "x";
+    }).toThrow();
+    expect(() => {
+      (result.protocolSlot as unknown as { rendererId: string }).rendererId = "x";
+    }).toThrow();
+    const notice = result.evidence[0];
+    expect(Object.isFrozen(notice)).toBe(true);
+    if (notice?.kind === "NOTICE") {
+      expect(Object.isFrozen(notice.bodyKeys)).toBe(true);
+      expect(() => {
+        (notice.bodyKeys as unknown as string[]).push("x");
+      }).toThrow();
+    }
+  });
+
+  it("copies the result graph so adapter-owned objects stay unfrozen", () => {
+    const value = { kind: "TEXT" as const, text: "12" };
+    const fact = {
+      id: "price",
+      labelKey: "price",
+      value,
+      category: "PRICE" as const,
+    };
+    const lookup: { status: "missing" | "found" | "unavailable" } = {
+      status: "missing",
+    };
+    const protocolSlot: ChainMintProofSlot = {
+      rendererId: CHAIN_MINT_PROOF_RENDERER_ID,
+      lookup,
+      registrarInventory: 990,
+    };
+    const bodyKeys = ["placementId"];
+    const incoming = availableResult({
+      facts: [fact],
+      protocolSlot,
+      evidence: [
+        {
+          kind: "NOTICE",
+          id: "primary-placement",
+          titleKey: "primaryEvidence",
+          bodyKeys,
+        },
+      ],
+    });
+    const result = freezeInstrumentBasisResult(incoming);
+    fact.id = "mutated";
+    value.text = "99";
+    lookup.status = "found";
+    bodyKeys.push("extra");
+    if (result.kind !== "AVAILABLE") {
+      throw new Error("expected AVAILABLE");
+    }
+    expect(result.facts[0]?.id).toBe("price");
+    expect(result.facts[0]?.value).toEqual({ kind: "TEXT", text: "12" });
+    expect(Object.isFrozen(fact)).toBe(false);
+    expect(Object.isFrozen(value)).toBe(false);
+    expect(Object.isFrozen(lookup)).toBe(false);
+    expect(Object.isFrozen(incoming.facts)).toBe(false);
+    const copiedSlot = result.protocolSlot;
+    if (copiedSlot && isChainMintProofSlot(copiedSlot)) {
+      expect(copiedSlot.lookup.status).toBe("missing");
+    }
+    const notice = result.evidence[0];
+    if (notice?.kind === "NOTICE") {
+      expect(notice.bodyKeys).toEqual(["placementId"]);
+    }
+  });
+
+  it("keeps the adapter registry closed from callers", () => {
+    const f2f = createF2fInstrumentBasisAdapter();
+    const registry = createInstrumentBasisAdapterRegistry([f2f]);
+    expect(Object.isFrozen(registry)).toBe(true);
+    expect(Object.isFrozen(registry.adapters)).toBe(true);
+    expect(Object.isFrozen(f2f)).toBe(false);
+    expect(() => {
+      (registry.adapters as unknown as unknown[]).push({});
     }).toThrow();
   });
 });
@@ -194,6 +308,32 @@ describe("canonical shell context", () => {
     expect(shell!.instrument.issuanceId).toBe("ISS-001");
     expect(shell!.mayShowEconomics).toBe(true);
     expect(shell!.versionHref).toBe("/protocols/F2F/versions/F2F-V1.1");
+    expect(shell!.basis.kind).toBe("AVAILABLE");
+    if (shell!.basis.kind === "AVAILABLE") {
+      expect(Object.isFrozen(shell!.basis)).toBe(true);
+      expect(Object.isFrozen(shell!.basis.facts)).toBe(true);
+      expect(Object.isFrozen(shell!.basis.facts[0])).toBe(true);
+      expect(Object.isFrozen(shell!.basis.overviewMetrics[0])).toBe(true);
+      expect(Object.isFrozen(shell!.basis.protocolSlot)).toBe(true);
+      expect(
+        shell!.basis.overviewMetrics.find((item) => item.id === "minted")
+          ?.labelKey,
+      ).toBe("mintedSupply");
+      expect(
+        shell!.basis.overviewMetrics.find((item) => item.id === "circulating")
+          ?.labelKey,
+      ).toBe("circulatingSupply");
+      expect(shell!.basis.overviewMetrics.map((item) => item.labelKey)).not.toContain(
+        "owned",
+      );
+      expect(shell!.basis.overviewMetrics.map((item) => item.labelKey)).not.toContain(
+        "heldBy",
+      );
+      const wheatSlot = shell!.basis.protocolSlot;
+      if (wheatSlot && isChainMintProofSlot(wheatSlot)) {
+        expect(Object.isFrozen(wheatSlot.lookup)).toBe(true);
+      }
+    }
   });
 
   it("returns null for an unknown instrument", async () => {

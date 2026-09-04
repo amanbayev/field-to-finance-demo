@@ -1712,6 +1712,8 @@
     "eligibleCoverage": "Жарамды қамту",
     "issuance": "Шығарылым",
     "placement": "Бастапқы орналастыру",
+    "mintedSupply": "Шығарылған ұсыныс",
+    "circulatingSupply": "Айналымдағы ұсыныс",
     "heldBy": "Steppe Capital-да",
     "secondaryNotOpen": "Екінші LIMIT нарығы · DEMO",
     "redemption": "Өтеу",
@@ -1872,7 +1874,6 @@
     "denomination": "Атаулы құн",
     "secondaryMarketOpenDemonstrator": "Бұл демонстрациялық құрал үшін қайталама LIMIT нарығы ашық. Өтінімдерді сәйкестендіру заңды меншікті өзгертпейді.",
     "matchingDoesNotChangeOwnership": "Өтінімдерді сәйкестендіру заңды меншікті өзгертпейді. FILLED дегені SETTLED емес.",
-    "coverageNotActive": "Бұл құрал үшін жабу көрсеткіштері тіркелмеген.",
     "tokenProofIsDemonstratorEvidence": "Ончейн токен дәлелі — демонстрациялық куәлік. Бұл заңды меншік емес және есеп айырысудың түпкіліктілігі емес.",
     "holdingsNotRecorded": "Бұл құрал бойынша иелік тіркелмеген.",
     "protocolRecordUnavailable": "Хаттама жазбасы қолжетімді емес."
