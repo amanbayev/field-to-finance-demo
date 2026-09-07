@@ -525,6 +525,13 @@ Potential channels:
 
 A new frontend, wallet or partner integration is a channel / adapter, not a new market or new source of instrument truth.
 
+The **institutional investor workspace** (`/portfolio`) is a portal channel over Market Core
+holdings, eligibility, orders, reservations and recorded executions. It is not a
+second instrument catalogue, a wallet, a cash ledger, or a valuation engine. Phase 5C.4B
+implemented that channel. Live order and execution rows still depend on the existing
+secondary-market book; when that book is unavailable the workspace says so instead of
+labelling fixture data as a live account.
+
 ---
 
 ## 17. Cross-cutting auditability

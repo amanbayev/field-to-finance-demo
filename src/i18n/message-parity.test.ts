@@ -21,7 +21,7 @@ const base = en as unknown as Catalog;
  * Namespaces this PR changes. `request.ts` merges English as the base, so a
  * missing translation is silently invisible in review — it has to be a test.
  */
-const CHANGED_NAMESPACES = ["marketCore", "errors", "eligibility"] as const;
+const CHANGED_NAMESPACES = ["marketCore", "errors", "eligibility", "portfolio"] as const;
 
 describe("message catalogue parity", () => {
   const allNamespaces = Object.keys(base);
@@ -176,6 +176,36 @@ describe("message catalogue parity", () => {
       }
       expect(new Set(values).size, `${key} must differ across en/ru/kk`).toBe(3);
     }
+  });
+
+  it("localizes phase 5c 4b investor workspace copy", () => {
+    const keys = [
+      "title",
+      "intro",
+      "overviewTitle",
+      "holdingsTitle",
+      "eligibilityTitle",
+      "ordersTitle",
+      "executionsTitle",
+      "lifecycleAwaitingDevnetSettlement",
+      "noValuation",
+      "cancellationIndependent",
+      "ordersUnavailable",
+      "executionsUnavailable",
+    ];
+    for (const key of keys) {
+      const values = [base, ru as unknown as Catalog, kk as unknown as Catalog].map(
+        (catalog) => catalog.portfolio?.[key],
+      );
+      for (const value of values) {
+        expect(value, `portfolio.${key}`).toBeTruthy();
+      }
+      expect(new Set(values).size, `portfolio.${key} must differ across en/ru/kk`).toBe(3);
+    }
+    const titles = [base, ru as unknown as Catalog, kk as unknown as Catalog].map(
+      (catalog) => catalog.marketCore?.investorWorkspaceTitle,
+    );
+    expect(new Set(titles).size).toBe(3);
   });
 
   it("keeps Kazakh placement-supply labels as volume, not offering", () => {

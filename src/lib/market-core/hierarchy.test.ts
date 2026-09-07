@@ -15,6 +15,7 @@ import {
   marketTrail,
   marketsTrail,
   platformTrail,
+  portfolioTrail,
   protocolModuleTrail,
   protocolTrail,
   protocolVersionHref,
@@ -121,6 +122,7 @@ describe("breadcrumb trails — visible labels and hrefs", () => {
     expect(labels(instrumentsTrail())).toEqual(["Commodity Chain", "Instruments"]);
     expect(labels(issuancesTrail())).toEqual(["Commodity Chain", "Issuances"]);
     expect(labels(marketsTrail())).toEqual(["Commodity Chain", "Markets"]);
+    expect(labels(portfolioTrail())).toEqual(["Commodity Chain", "Investor workspace"]);
   });
 
   it("builds the protocol trail with correct hrefs", () => {
@@ -222,6 +224,7 @@ describe("breadcrumb trails — visible labels and hrefs", () => {
       instrumentsTrail(),
       issuancesTrail(),
       marketsTrail(),
+      portfolioTrail(),
       protocolTrail(TIDAL_PROTOCOL),
       protocolVersionTrail(TIDAL_PROTOCOL, TIDAL_VERSION),
       instrumentTrail(TIDAL_INSTRUMENT, TIDAL_PROTOCOL, TIDAL_VERSION),
