@@ -106,10 +106,10 @@ export interface DemoResetPlanInput {
   /**
    * Identity of the Golden Path run instance whose rows would be cleared. It
    * is the identifier of a distinct run, never a fingerprint of the actor who
-   * asked: one operator may hold Run A and later Run B. No run registry exists
-   * to issue one yet, so production callers pass null and the plan resolves to
-   * INCOMPLETE. A blank or whitespace value establishes no scope and is
-   * treated as absent.
+   * asked: one operator may hold Run A and later Run B. Issuance is not wired,
+   * so a dry-run that cannot read a current run passes null and the plan
+   * resolves to INCOMPLETE. A blank or whitespace value establishes no scope
+   * and is treated as absent.
    */
   runId?: string | null;
   manifest?: DemoResetManifest;
