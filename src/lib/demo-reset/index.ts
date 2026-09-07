@@ -32,21 +32,30 @@ export {
 } from "./policy";
 
 export type {
+  DemoResetEstablishedRunScope,
+  DemoResetRunContext,
+  DemoResetRunInstance,
+  DemoResetRunLookup,
+  DemoResetRunPrecondition,
   DemoResetRunScope,
+  DemoResetRunScopeGap,
   DemoResetRunScopeRefusal,
-} from "./run-ownership";
+  DemoResetRunStore,
+  DemoResetUnestablishedRunScope,
+} from "./run-scope";
 export {
-  DEMO_RESET_RUN_ID_SCHEME,
+  DEMO_RESET_RUN_SCOPE_GAPS,
   DEMO_RESET_RUN_SCOPE_REFUSALS,
-  demoResetRunId,
-  isDemoResetRunId,
+  isDemoResetRunInstanceId,
+  resolveDemoResetRunContext,
   resolveDemoResetRunScope,
-} from "./run-ownership";
+} from "./run-scope";
 
 export type {
   DemoResetCategory,
   DemoResetDisposition,
   DemoResetManifest,
+  DemoResetRowScope,
   DemoResetScopeBasis,
   DemoResetSubsystem,
 } from "./manifest";
@@ -55,6 +64,7 @@ export {
   categoriesByDisposition,
   manifestCategoryIds,
   overlappingManifestObjects,
+  provablyDisjointRowScopes,
   unscopedClearedCategories,
 } from "./manifest";
 
@@ -82,11 +92,18 @@ export {
 } from "./inventory";
 
 export type {
+  DemoResetCountRequest,
+  DemoResetCountScope,
   DemoResetInventoryRead,
+  DemoResetReadableObject,
   DemoResetRowCount,
   DemoResetRowCountSource,
 } from "./inventory-reader";
-export { readDemoResetInventory } from "./inventory-reader";
+export {
+  DEMO_RESET_READABLE_OBJECTS,
+  readDemoResetInventory,
+  readableObject,
+} from "./inventory-reader";
 
 export type {
   DemoResetDryRunPlan,

@@ -8,18 +8,14 @@
  *
  * There is deliberately **no executing path**: no endpoint, no server action,
  * no command, and no database, Auth, Storage or chain client. A dry-run
- * changes nothing. GP-01 adds the run-ownership schema and a scoped inventory
- * reader; GP-02 adds confirmed execution.
+ * changes nothing. The remaining GP-01 work is the run registry and the
+ * row-level isolation the reader needs; GP-02 adds confirmed execution.
  *
- * The dry-run composition runs in one fixed order, and each stage is a gate
- * rather than a hint to the next one:
- *
- *   trusted actor -> runtime and actor policy -> run ownership
- *     -> inventory read -> planner
- *
- * A refusal at any stage returns immediately. The inventory reader is not
- * called once ownership is refused, and the planner is not called once the
- * read is refused, so a denied request reaches neither.
+ * Two compositions live here on purpose. `composeDemoResetDryRun` takes every
+ * dependency explicitly and is the internal wiring and test seam;
+ * `planDemoDatasetV2ResetDryRunForActor` is what a request-facing caller uses
+ * and fixes the manifest, the run store and the count source, so no request
+ * can choose them.
  *
  * See `docs/DEMO_GOLDEN_PATH_V2.md` §9.
  */
@@ -32,6 +28,7 @@ import {
   evaluateDemoResetDryRunPolicy,
   planDemoResetDryRun,
   readDemoResetInventory,
+  resolveDemoResetRunContext,
   resolveDemoResetRunScope,
   unavailableDemoResetInventory,
   type DemoResetActorFacts,
@@ -40,7 +37,10 @@ import {
   type DemoResetEnvironmentSignals,
   type DemoResetManifest,
   type DemoResetRowCountSource,
+  type DemoResetRunContext,
+  type DemoResetRunLookup,
   type DemoResetRunScope,
+  type DemoResetRunStore,
 } from "@/lib/demo-reset";
 
 /**
@@ -85,107 +85,121 @@ export function authorizeDemoResetDryRun(
 }
 
 /**
- * Plans the reset without establishing a run and without observing anything.
+ * The dry-run seen from outside: a refusal, or a plan.
  *
- * Every category is reported unavailable and no run scope is claimed, so the
- * plan resolves to `INCOMPLETE` rather than presenting an empty environment as
- * ready. This is the shape of a dry-run with no reader attached; the
- * ownership-aware path is `planDemoDatasetV2ResetDryRunForActor`.
+ * `DENIED` means the request asserted something untrue — a forbidden runtime,
+ * an actor without authority, a run that is not this actor's. It carries the
+ * authorization so an operator still sees every refusal, and no plan, because
+ * there is nothing legitimate to plan over.
  *
- * It takes no inventory or run identifier from its caller on purpose. An
- * inventory supplied from outside would be presented as observed, and a run
- * identifier supplied from outside would establish scope that nothing has
- * proven. Both are decided by the composition below instead.
- */
-export function planDemoDatasetV2ResetDryRun(
-  actor: ActorContext,
-): DemoResetDryRunPlan {
-  return planDemoResetDryRun({
-    authorization: authorizeDemoResetDryRun(actor),
-    inventory: unavailableDemoResetInventory(
-      "RUN_SCOPED_INVENTORY_SOURCE_ABSENT",
-    ),
-    runId: null,
-  });
-}
-
-/**
- * The dry-run seen from outside: a refusal, or a plan over an observed
- * inventory for a run the actor is proven to own.
- *
- * `DENIED` carries the authorization so an operator still sees every runtime
- * and actor refusal, and the single run-scope reason. It carries no plan,
- * because there is nothing legitimate to plan over.
+ * `PLANNED` covers both a proven run and the ordinary case where the server
+ * simply has no run to offer. The second is not a refusal: the request was
+ * legitimate, so it earns a plan, but that plan carries no run identifier and
+ * resolves to `INCOMPLETE`. Reporting "no run instance has been issued" as a
+ * denial would misdescribe a healthy environment that nobody has started a
+ * Golden Path run in.
  */
 export type DemoResetDryRunOutcome =
   | {
       kind: "DENIED";
       authorization: DemoResetDryRunAuthorization;
-      runScope: Extract<DemoResetRunScope, { kind: "NOT_ESTABLISHED" }>;
+      runScope: Extract<DemoResetRunScope, { kind: "REFUSED" }>;
     }
   | {
       kind: "PLANNED";
       authorization: DemoResetDryRunAuthorization;
-      runScope: Extract<DemoResetRunScope, { kind: "ESTABLISHED" }>;
+      runScope: Exclude<DemoResetRunScope, { kind: "REFUSED" }>;
       plan: DemoResetDryRunPlan;
-      /** Declared objects the reader queried. Empty when it queried none. */
+      /** Approved objects the reader queried. Empty when it queried none. */
       objectsRead: readonly string[];
     };
 
 /**
- * Composes the dry-run for one trusted actor.
+ * Asks trusted state which run this operator currently holds.
  *
- * `actor` is an `ActorContext`, which callers obtain from `requireActor()` or
- * a `requirePermission(...)` guard — that is, from a verified session, never
- * from a request body. `claimedRunId` is the opposite: it models an untrusted
- * value, is typed `unknown`, and can only ever cause a refusal, because the
- * run this actor owns is derived server-side either way.
- *
- * No database-backed count source is wired here. Against the shipped manifest
- * the reader has nothing it may truthfully count, so passing one would add a
- * dependency that is never exercised; `source` is the seam the remaining
- * GP-01 run-isolation work fills in.
+ * A store that throws is reported `UNAVAILABLE`, never as "no run": a failure
+ * to answer must not read as an answer, and it must not surface a database
+ * message into an operator-facing result either.
  */
-export async function planDemoDatasetV2ResetDryRunForActor(
-  actor: ActorContext,
-  options?: {
-    /** Untrusted. Compared against the derived run, never used as a lookup. */
-    claimedRunId?: unknown;
-    source?: DemoResetRowCountSource | null;
-    manifest?: DemoResetManifest;
-    /** Injected clock, so an observation instant is reproducible in a test. */
-    now?: () => string;
-  },
-): Promise<DemoResetDryRunOutcome> {
-  const authorization = authorizeDemoResetDryRun(actor);
-
-  const runScope = resolveDemoResetRunScope({
-    authorization,
-    claimedRunId: options?.claimedRunId,
-  });
-  if (runScope.kind !== "ESTABLISHED") {
-    return Object.freeze({ kind: "DENIED" as const, authorization, runScope });
+async function lookUpRunInstance(
+  store: DemoResetRunStore | null,
+  context: DemoResetRunContext,
+): Promise<DemoResetRunLookup | null> {
+  if (!store) {
+    return null;
   }
+  try {
+    return await store.currentRunInstance(context);
+  } catch {
+    return { kind: "UNAVAILABLE" };
+  }
+}
 
-  const read = await readDemoResetInventory({
-    scope: runScope,
-    source: options?.source ?? null,
-    manifest: options?.manifest,
-    now: options?.now,
-  });
-  // Unreachable while the scope is established, and handled rather than
-  // asserted away: the reader owns that decision, so a future reason to refuse
-  // a read must deny here instead of reaching the planner.
-  if (read.kind !== "READ") {
+/**
+ * The dry-run composition, with every dependency explicit.
+ *
+ * This is the internal wiring seam and the surface tests drive. It is not
+ * request-facing: `manifest`, `store` and `source` are capabilities, and a
+ * value derived from a request must never choose them. The production entry
+ * point below is what a route or server action calls, and it fixes all three.
+ *
+ * The order is fixed and each stage is a gate rather than a hint to the next:
+ *
+ *   trusted actor -> runtime and actor policy -> run instance
+ *     -> inventory read -> planner
+ *
+ * The run store sits behind the same policy that gates the database, so a
+ * refused environment or an unauthorized actor reaches neither. A run that is
+ * refused returns before the reader, and a read that is refused returns before
+ * the planner.
+ */
+export async function composeDemoResetDryRun(input: {
+  actor: ActorContext;
+  /** Untrusted. Compared against the recorded run, never used as a lookup. */
+  claimedRunId?: unknown;
+  store?: DemoResetRunStore | null;
+  source?: DemoResetRowCountSource | null;
+  manifest?: DemoResetManifest;
+  /** Injected clock, so an observation instant is reproducible in a test. */
+  now?: () => string;
+}): Promise<DemoResetDryRunOutcome> {
+  const authorization = authorizeDemoResetDryRun(input.actor);
+  const manifest = input.manifest;
+
+  // Gate the store on the same decision the resolver makes, so run state is
+  // never consulted for a request that is about to be refused anyway.
+  const precondition = resolveDemoResetRunContext(authorization);
+  if (precondition.kind !== "READY") {
     return Object.freeze({
       kind: "DENIED" as const,
       authorization,
       runScope: Object.freeze({
-        kind: "NOT_ESTABLISHED" as const,
-        refusal: read.refusal,
+        kind: "REFUSED" as const,
+        refusal: precondition.refusal,
       }),
     });
   }
+
+  const runScope = resolveDemoResetRunScope({
+    authorization,
+    lookup: await lookUpRunInstance(input.store ?? null, precondition.context),
+    claimedRunId: input.claimedRunId,
+  });
+  if (runScope.kind === "REFUSED") {
+    return Object.freeze({ kind: "DENIED" as const, authorization, runScope });
+  }
+
+  // Without an established run there is nothing the reader may scope a count
+  // to, so it is not called at all and the inventory stays a stated absence.
+  const read =
+    runScope.kind === "ESTABLISHED"
+      ? await readDemoResetInventory({
+          scope: runScope,
+          source: input.source ?? null,
+          manifest,
+          now: input.now,
+        })
+      : null;
 
   return Object.freeze({
     kind: "PLANNED" as const,
@@ -193,11 +207,60 @@ export async function planDemoDatasetV2ResetDryRunForActor(
     runScope,
     plan: planDemoResetDryRun({
       authorization,
-      inventory: read.inventory,
-      runId: runScope.runId,
-      manifest: options?.manifest,
-      generatedAt: options?.now?.(),
+      inventory:
+        read?.kind === "READ"
+          ? read.inventory
+          : unavailableDemoResetInventory(
+              "RUN_SCOPED_INVENTORY_SOURCE_ABSENT",
+              manifest,
+            ),
+      runId: runScope.kind === "ESTABLISHED" ? runScope.runId : null,
+      manifest,
+      generatedAt: input.now?.(),
     }),
-    objectsRead: read.objectsRead,
+    objectsRead: read?.kind === "READ" ? read.objectsRead : Object.freeze([]),
+  });
+}
+
+/**
+ * No trusted run registry exists yet (`docs/DEMO_GOLDEN_PATH_V2.md` §9.3), so
+ * production has nothing to resolve a run instance from and fails closed: the
+ * scope is never established and the plan stays `INCOMPLETE`. Wiring a store
+ * is the remaining GP-01 work, not a gap to be papered over by inventing an
+ * identifier here.
+ */
+const PRODUCTION_RUN_STORE: DemoResetRunStore | null = null;
+
+/**
+ * No database-backed count source is wired either. Against the shipped
+ * manifest every database category is `NOT_SCOPABLE`, so the reader has
+ * nothing it may truthfully count and a source would never be exercised.
+ */
+const PRODUCTION_ROW_COUNT_SOURCE: DemoResetRowCountSource | null = null;
+
+/**
+ * The production dry-run for one trusted actor.
+ *
+ * `actor` is an `ActorContext`, which callers obtain from `requireActor()` or
+ * a `requirePermission(...)` guard — that is, from a verified session, never
+ * from a request body. `claimedRunId` is the opposite: it models an untrusted
+ * value, is typed `unknown`, and can only ever cause a refusal, because the
+ * run is read from trusted state either way.
+ *
+ * Those are the only two inputs, and that is the point. The manifest, the run
+ * store and the count source are fixed here rather than accepted from the
+ * caller, so no request can choose which objects are in scope, which state is
+ * trusted, or which tables are read. A caller that needs to substitute them is
+ * a test, and it uses `composeDemoResetDryRun` directly.
+ */
+export function planDemoDatasetV2ResetDryRunForActor(
+  actor: ActorContext,
+  options?: { claimedRunId?: unknown },
+): Promise<DemoResetDryRunOutcome> {
+  return composeDemoResetDryRun({
+    actor,
+    claimedRunId: options?.claimedRunId,
+    store: PRODUCTION_RUN_STORE,
+    source: PRODUCTION_ROW_COUNT_SOURCE,
   });
 }

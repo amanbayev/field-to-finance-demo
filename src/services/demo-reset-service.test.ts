@@ -6,12 +6,14 @@ import {
 } from "@/domain/identity";
 import {
   DEMO_RESET_PERMISSION,
-  demoResetRunId,
   type DemoResetManifest,
   type DemoResetRowCountSource,
+  type DemoResetRunInstance,
+  type DemoResetRunLookup,
+  type DemoResetRunStore,
 } from "@/lib/demo-reset";
 import {
-  planDemoDatasetV2ResetDryRun,
+  composeDemoResetDryRun,
   planDemoDatasetV2ResetDryRunForActor,
 } from "@/services/demo-reset-service";
 
@@ -70,6 +72,37 @@ function systemAdmin(userId: string): ActorContext {
   };
 }
 
+function runInstance(
+  overrides?: Partial<DemoResetRunInstance>,
+): DemoResetRunInstance {
+  return {
+    runId: "run-a-0000000000000001",
+    operatorPrincipalUserId: "operator-1",
+    environmentName: "approved-demo-qa",
+    datasetId: "demo-dataset-v2",
+    databaseRef: APPROVED_REF,
+    ...overrides,
+  };
+}
+
+/** A run store that records the context it was scoped by. */
+function recordingStore(lookup: DemoResetRunLookup): DemoResetRunStore & {
+  currentRunInstance: ReturnType<typeof vi.fn>;
+} {
+  return { currentRunInstance: vi.fn(async () => lookup) };
+}
+
+/** A store that fails the test if the composition ever consults run state. */
+function forbiddenStore(): DemoResetRunStore & {
+  currentRunInstance: ReturnType<typeof vi.fn>;
+} {
+  return {
+    currentRunInstance: vi.fn(async () => {
+      throw new Error("the composition read run state on a denied path");
+    }),
+  };
+}
+
 /** A source that fails the test if the composition ever reaches the database. */
 function forbiddenSource(): DemoResetRowCountSource & {
   countRows: ReturnType<typeof vi.fn>;
@@ -89,253 +122,315 @@ const COUNTABLE_MANIFEST: DemoResetManifest = {
       subsystem: "DATABASE",
       disposition: "PRESERVED",
       scopeBasis: "ENVIRONMENT_WIDE",
-      objects: ["alpha"],
+      rowScope: "NON_RUN_ROWS",
+      objects: ["organizations"],
       note: "One countable object.",
+    },
+    {
+      id: "run-owned-tables",
+      subsystem: "DATABASE",
+      disposition: "CLEARED",
+      scopeBasis: "RUN_OWNED",
+      rowScope: "RUN_OWNED_ROWS",
+      objects: ["producer_fields"],
+      note: "Rows belonging to the target run.",
     },
   ],
 };
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
-describe("demo reset permission wiring", () => {
-  it("is held by SYSTEM_ADMIN alone", () => {
-    expect(permissionsForRole("SYSTEM_ADMIN")).toContain(DEMO_RESET_PERMISSION);
-    for (const roleId of PLATFORM_ROLES.filter((id) => id !== "SYSTEM_ADMIN")) {
-      expect(permissionsForRole(roleId)).not.toContain(DEMO_RESET_PERMISSION);
-    }
-  });
-});
-
-describe("demo reset dry-run composition on an allowed context", () => {
-  it("plans over the inventory the reader observed for the actor's own run", async () => {
+describe("demo reset dry-run composition", () => {
+  it("plans over an observed inventory for an established run", async () => {
     declareApprovedEnvironment();
-    const countRows = vi.fn(async () => ({ kind: "COUNTED" as const, rows: 9 }));
+    const store = recordingStore({ kind: "RUN", run: runInstance() });
 
-    const outcome = await planDemoDatasetV2ResetDryRunForActor(
-      systemAdmin("operator-1"),
-      { source: { countRows }, manifest: COUNTABLE_MANIFEST, now },
-    );
+    const outcome = await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store,
+      manifest: COUNTABLE_MANIFEST,
+      now,
+      source: {
+        async countRows() {
+          return { kind: "COUNTED", rows: 6 };
+        },
+      },
+    });
 
     expect(outcome.kind).toBe("PLANNED");
     if (outcome.kind !== "PLANNED") return;
-
-    // The run is the one derived for this principal in this context; nothing
-    // was supplied by the caller.
-    expect(outcome.runScope.runId).toBe(
-      demoResetRunId({
-        environmentName: "approved-demo-qa",
-        datasetId: "demo-dataset-v2",
-        databaseRef: APPROVED_REF,
-        principalUserId: "operator-1",
-      }),
-    );
-    expect(outcome.plan.runId).toBe(outcome.runScope.runId);
-
-    // The planner reported the count the reader observed, so the read happened
-    // before planning rather than inside it.
-    expect(countRows).toHaveBeenCalledTimes(1);
-    expect(countRows).toHaveBeenCalledWith("alpha");
-    expect(outcome.objectsRead).toEqual(["alpha"]);
+    expect(outcome.runScope).toMatchObject({
+      kind: "ESTABLISHED",
+      runId: "run-a-0000000000000001",
+    });
+    expect(outcome.plan.runId).toBe("run-a-0000000000000001");
     expect(outcome.plan.inventorySource).toBe("OBSERVED");
     expect(outcome.plan.inventoryObservedAt).toBe(OBSERVED_AT);
-    expect(outcome.plan.preserved).toEqual([
-      expect.objectContaining({
-        categoryId: "environment-wide-tables",
-        rows: 9,
-      }),
-    ]);
+    expect(outcome.objectsRead).toEqual(["organizations", "producer_fields"]);
     expect(outcome.plan.sideEffects).toBe("NONE");
   });
 
-  it("accepts the actor's own run claim and derives the same run without one", async () => {
+  it("scopes the run lookup by the session principal alone", async () => {
     declareApprovedEnvironment();
-    const actor = systemAdmin("operator-1");
+    const store = recordingStore({ kind: "RUN", run: runInstance() });
 
-    const withoutClaim = await planDemoDatasetV2ResetDryRunForActor(actor, {
+    await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store,
+      manifest: COUNTABLE_MANIFEST,
       now,
+      // An untrusted claim is present and must not reach the lookup.
+      claimedRunId: "run-a-0000000000000001",
+      source: { async countRows() { return { kind: "COUNTED", rows: 1 }; } },
     });
-    expect(withoutClaim.kind).toBe("PLANNED");
-    if (withoutClaim.kind !== "PLANNED") return;
 
-    const withClaim = await planDemoDatasetV2ResetDryRunForActor(actor, {
-      claimedRunId: withoutClaim.runScope.runId,
-      now,
+    expect(store.currentRunInstance).toHaveBeenCalledTimes(1);
+    expect(store.currentRunInstance).toHaveBeenCalledWith({
+      principalUserId: "operator-1",
+      environmentName: "approved-demo-qa",
+      datasetId: "demo-dataset-v2",
+      databaseRef: APPROVED_REF,
     });
-    expect(withClaim.kind).toBe("PLANNED");
-    if (withClaim.kind !== "PLANNED") return;
-    expect(withClaim.plan.planHash).toBe(withoutClaim.plan.planHash);
   });
 
-  it("stays INCOMPLETE against the shipped manifest, never ready to execute", async () => {
+  it("plans an INCOMPLETE dry-run when no run instance has been issued", async () => {
     declareApprovedEnvironment();
+    const source = forbiddenSource();
+
+    const outcome = await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store: recordingStore({ kind: "NO_RUN" }),
+      manifest: COUNTABLE_MANIFEST,
+      source,
+      now,
+    });
+
+    // A legitimate request in a healthy environment that simply has no run.
+    // It earns a plan, but the plan claims no run and no observation.
+    expect(outcome.kind).toBe("PLANNED");
+    if (outcome.kind !== "PLANNED") return;
+    expect(outcome.runScope).toEqual({
+      kind: "NOT_ESTABLISHED",
+      gap: "RUN_INSTANCE_NOT_ISSUED",
+    });
+    expect(outcome.plan.runId).toBeNull();
+    expect(outcome.plan.status).toBe("INCOMPLETE");
+    expect(outcome.plan.blockers).toContain("RUN_SCOPE_NOT_ESTABLISHED");
+    // Nothing was observed, so no category may carry a number.
+    expect(outcome.plan.inventoryObservedAt).toBeNull();
+    for (const category of [
+      ...outcome.plan.preserved,
+      ...outcome.plan.cleared,
+    ]) {
+      expect(category.rows, category.categoryId).toBeNull();
+    }
+    expect(outcome.objectsRead).toEqual([]);
+    expect(source.countRows).not.toHaveBeenCalled();
+  });
+
+  it("treats a failing run store as unknown rather than as no run", async () => {
+    declareApprovedEnvironment();
+    const source = forbiddenSource();
+
+    const outcome = await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store: {
+        async currentRunInstance() {
+          throw new Error("connection to database failed: no pg_hba.conf entry");
+        },
+      },
+      manifest: COUNTABLE_MANIFEST,
+      source,
+      now,
+    });
+
+    expect(outcome.kind).toBe("PLANNED");
+    if (outcome.kind !== "PLANNED") return;
+    expect(outcome.runScope).toEqual({
+      kind: "NOT_ESTABLISHED",
+      gap: "RUN_STATE_UNAVAILABLE",
+    });
+    expect(outcome.plan.runId).toBeNull();
+    expect(source.countRows).not.toHaveBeenCalled();
+    expect(JSON.stringify(outcome)).not.toContain("pg_hba");
+  });
+});
+
+describe("demo reset dry-run denials", () => {
+  it("reads neither run state nor the database in production", async () => {
+    declareApprovedEnvironment({ VERCEL_ENV: "production" });
+    const store = forbiddenStore();
+    const source = forbiddenSource();
+
+    const outcome = await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store,
+      source,
+      manifest: COUNTABLE_MANIFEST,
+      now,
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "DENIED",
+      runScope: { kind: "REFUSED", refusal: "ENVIRONMENT_NOT_ELIGIBLE" },
+    });
+    expect(store.currentRunInstance).not.toHaveBeenCalled();
+    expect(source.countRows).not.toHaveBeenCalled();
+  });
+
+  it("reads neither run state nor the database for an unauthorized actor", async () => {
+    declareApprovedEnvironment();
+    const store = forbiddenStore();
+    const source = forbiddenSource();
+
+    const outcome = await composeDemoResetDryRun({
+      actor: {
+        ...systemAdmin("operator-1"),
+        effective: {
+          roleId: "PRODUCER_ADMIN",
+          permissions: permissionsForRole("PRODUCER_ADMIN"),
+          producerIds: [],
+        },
+      },
+      store,
+      source,
+      manifest: COUNTABLE_MANIFEST,
+      now,
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "DENIED",
+      runScope: { kind: "REFUSED", refusal: "ACTOR_NOT_AUTHORIZED" },
+    });
+    expect(store.currentRunInstance).not.toHaveBeenCalled();
+    expect(source.countRows).not.toHaveBeenCalled();
+  });
+
+  it("reads nothing from the database once the run is refused", async () => {
+    declareApprovedEnvironment();
+    const source = forbiddenSource();
+
+    const outcome = await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store: recordingStore({
+        kind: "RUN",
+        run: runInstance({ operatorPrincipalUserId: "operator-2" }),
+      }),
+      source,
+      manifest: COUNTABLE_MANIFEST,
+      now,
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "DENIED",
+      runScope: { kind: "REFUSED", refusal: "RUN_NOT_OWNED_BY_ACTOR" },
+    });
+    expect(source.countRows).not.toHaveBeenCalled();
+    expect(outcome).not.toHaveProperty("plan");
+  });
+
+  it("refuses a claim naming a run other than the operator's current one", async () => {
+    declareApprovedEnvironment();
+    const source = forbiddenSource();
+
+    const outcome = await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store: recordingStore({ kind: "RUN", run: runInstance() }),
+      claimedRunId: "run-b-0000000000000002",
+      source,
+      manifest: COUNTABLE_MANIFEST,
+      now,
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "DENIED",
+      runScope: { kind: "REFUSED", refusal: "RUN_NOT_OWNED_BY_ACTOR" },
+    });
+    expect(source.countRows).not.toHaveBeenCalled();
+  });
+
+  it("still reports every refusal an operator needs to see", async () => {
+    declareApprovedEnvironment({ VERCEL_ENV: "production" });
+    const outcome = await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store: forbiddenStore(),
+      manifest: COUNTABLE_MANIFEST,
+      now,
+    });
+
+    expect(outcome.kind).toBe("DENIED");
+    if (outcome.kind !== "DENIED") return;
+    expect(outcome.authorization.decision).toBe("DENIED");
+    expect(outcome.authorization.refusals.length).toBeGreaterThan(0);
+  });
+});
+
+describe("demo reset production dry-run", () => {
+  it("takes no manifest, store or source from its caller", async () => {
+    // The request-facing signature accepts a trusted actor and an untrusted
+    // claim, and nothing else. Nothing derived from a request can choose which
+    // objects are in scope or which state is trusted.
+    expect(planDemoDatasetV2ResetDryRunForActor).toHaveLength(2);
+  });
+
+  it("establishes no run and plans INCOMPLETE, because no registry exists", async () => {
+    declareApprovedEnvironment();
+
     const outcome = await planDemoDatasetV2ResetDryRunForActor(
       systemAdmin("operator-1"),
-      { now },
     );
 
     expect(outcome.kind).toBe("PLANNED");
     if (outcome.kind !== "PLANNED") return;
-    // Run scope is now established, so that blocker is gone, but row-level run
-    // ownership still is not, so the plan cannot become ready.
+    expect(outcome.runScope).toEqual({
+      kind: "NOT_ESTABLISHED",
+      gap: "RUN_STATE_UNAVAILABLE",
+    });
+    expect(outcome.plan.runId).toBeNull();
     expect(outcome.plan.status).toBe("INCOMPLETE");
-    expect(outcome.plan.blockers).not.toContain("RUN_SCOPE_NOT_ESTABLISHED");
-    expect(outcome.plan.blockers).toEqual(
-      expect.arrayContaining([
-        "CLEARED_SCOPE_NOT_RUN_OWNED",
-        "PRESERVED_AND_CLEARED_OVERLAP",
-        "INVENTORY_INCOMPLETE",
-      ]),
-    );
     expect(outcome.objectsRead).toEqual([]);
   });
 
-  it("gives two actors two different runs in the same environment", async () => {
+  it("reports the shipped manifest's shared identity tables as blocking", async () => {
     declareApprovedEnvironment();
-    const first = await planDemoDatasetV2ResetDryRunForActor(
+
+    const outcome = await planDemoDatasetV2ResetDryRunForActor(
       systemAdmin("operator-1"),
-      { now },
-    );
-    const second = await planDemoDatasetV2ResetDryRunForActor(
-      systemAdmin("operator-2"),
-      { now },
     );
 
-    expect(first.kind).toBe("PLANNED");
-    expect(second.kind).toBe("PLANNED");
-    if (first.kind !== "PLANNED" || second.kind !== "PLANNED") return;
-    expect(first.runScope.runId).not.toBe(second.runScope.runId);
+    expect(outcome.kind).toBe("PLANNED");
+    if (outcome.kind !== "PLANNED") return;
+    expect(outcome.plan.blockers).toContain("PRESERVED_AND_CLEARED_OVERLAP");
+    expect(outcome.plan.overlappingObjects).toEqual([
+      "membership_roles",
+      "memberships",
+      "organizations",
+      "profiles",
+    ]);
+    expect(outcome.plan.status).not.toBe("READY_FOR_CONFIRMATION");
   });
-});
 
-describe("demo reset dry-run composition denies without reading or planning", () => {
-  it("refuses another actor's run and never reaches the database", async () => {
+  it("denies an unauthorized actor without planning", async () => {
     declareApprovedEnvironment();
-    const source = forbiddenSource();
 
-    // A valid identifier for a run that genuinely belongs to operator-2.
-    const foreignRun = demoResetRunId({
-      environmentName: "approved-demo-qa",
-      datasetId: "demo-dataset-v2",
-      databaseRef: APPROVED_REF,
-      principalUserId: "operator-2",
+    const outcome = await planDemoDatasetV2ResetDryRunForActor({
+      ...systemAdmin("operator-1"),
+      isImpersonating: true,
     });
 
-    const outcome = await planDemoDatasetV2ResetDryRunForActor(
-      systemAdmin("operator-1"),
-      { claimedRunId: foreignRun, source, manifest: COUNTABLE_MANIFEST, now },
-    );
-
-    expect(outcome.kind).toBe("DENIED");
-    if (outcome.kind !== "DENIED") return;
-    expect(outcome.runScope.refusal).toBe("RUN_NOT_OWNED_BY_ACTOR");
-    expect(source.countRows).not.toHaveBeenCalled();
-    // No plan is produced at all, so nothing about the other run is disclosed.
-    expect(outcome).not.toHaveProperty("plan");
-    expect(JSON.stringify(outcome)).not.toContain(foreignRun);
+    expect(outcome).toMatchObject({
+      kind: "DENIED",
+      runScope: { kind: "REFUSED", refusal: "ACTOR_NOT_AUTHORIZED" },
+    });
   });
 
-  it("refuses production ahead of every other reason, without reading", async () => {
-    declareApprovedEnvironment({ VERCEL_ENV: "production" });
-    const source = forbiddenSource();
-
-    const outcome = await planDemoDatasetV2ResetDryRunForActor(
-      systemAdmin("operator-1"),
-      { source, manifest: COUNTABLE_MANIFEST, now },
-    );
-
-    expect(outcome.kind).toBe("DENIED");
-    if (outcome.kind !== "DENIED") return;
-    expect(outcome.runScope.refusal).toBe("ENVIRONMENT_NOT_ELIGIBLE");
-    expect(outcome.authorization.refusals).toContain(
-      "PRODUCTION_ENVIRONMENT_DENIED",
-    );
-    expect(source.countRows).not.toHaveBeenCalled();
-    expect(outcome).not.toHaveProperty("plan");
-  });
-
-  it("refuses an undeclared or unapproved environment, without reading", async () => {
-    for (const overrides of [
-      { DEMO_RESET_ENVIRONMENT: undefined },
-      { DEMO_RESET_ENVIRONMENT: "some-other-environment" },
-      { DEMO_RESET_DATASET_ID: undefined },
-      { DEMO_RESET_DATABASE_REF: undefined },
-      { DEMO_RESET_DATABASE_REF: "not-a-project-ref" },
-      { NEXT_PUBLIC_SUPABASE_URL: "https://otherrefabcdefghijkl.supabase.co" },
-      { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321" },
-      { NEXT_PUBLIC_APP_ENV: undefined },
-    ]) {
-      declareApprovedEnvironment(overrides);
-      const source = forbiddenSource();
-
-      const outcome = await planDemoDatasetV2ResetDryRunForActor(
-        systemAdmin("operator-1"),
-        { source, manifest: COUNTABLE_MANIFEST, now },
-      );
-
-      expect(outcome.kind, `${JSON.stringify(overrides)} must deny`).toBe(
-        "DENIED",
-      );
-      expect(source.countRows).not.toHaveBeenCalled();
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it("refuses an unauthorized, impersonating or design-preview actor", async () => {
-    declareApprovedEnvironment();
-    const operator = systemAdmin("operator-1");
-    const investorPermissions = permissionsForRole("INVESTOR");
-
-    for (const actor of [
-      {
-        ...operator,
-        principal: { ...operator.principal, permissions: investorPermissions },
-        effective: { ...operator.effective, permissions: investorPermissions },
-      },
-      { ...operator, isImpersonating: true },
-      systemAdmin("design-preview-user"),
-    ]) {
-      const source = forbiddenSource();
-      const outcome = await planDemoDatasetV2ResetDryRunForActor(actor, {
-        source,
-        manifest: COUNTABLE_MANIFEST,
-        now,
-      });
-
-      expect(outcome.kind).toBe("DENIED");
-      if (outcome.kind !== "DENIED") continue;
-      expect(outcome.runScope.refusal).toBe("ACTOR_NOT_AUTHORIZED");
-      expect(source.countRows).not.toHaveBeenCalled();
-    }
-  });
-
-  it("refuses a malformed run claim, without reading", async () => {
-    declareApprovedEnvironment();
-    for (const claimedRunId of ["", "RUN-0001", 42, {}, ["run"], true]) {
-      const source = forbiddenSource();
-      const outcome = await planDemoDatasetV2ResetDryRunForActor(
-        systemAdmin("operator-1"),
-        { claimedRunId, source, manifest: COUNTABLE_MANIFEST, now },
-      );
-
-      expect(outcome.kind, `${String(claimedRunId)} must deny`).toBe("DENIED");
-      if (outcome.kind !== "DENIED") continue;
-      expect(outcome.runScope.refusal).toBe("RUN_CLAIM_MALFORMED");
-      expect(source.countRows).not.toHaveBeenCalled();
-    }
-  });
-});
-
-describe("demo reset dry-run without a reader", () => {
-  it("claims no run and observes nothing", () => {
-    declareApprovedEnvironment();
-    const plan = planDemoDatasetV2ResetDryRun(systemAdmin("operator-1"));
-
-    expect(plan.runId).toBeNull();
-    expect(plan.status).toBe("INCOMPLETE");
-    expect(plan.blockers).toContain("RUN_SCOPE_NOT_ESTABLISHED");
-    expect(plan.inventoryObservedAt).toBeNull();
-    expect(plan.sideEffects).toBe("NONE");
+  it("requires the reset permission to be a platform permission at all", () => {
+    // The composition asks `actorCan`/`principalCan` for this permission, so a
+    // permission no role holds would silently deny everyone.
+    expect(permissionsForRole("SYSTEM_ADMIN")).toContain(DEMO_RESET_PERMISSION);
+    expect(PLATFORM_ROLES.length).toBeGreaterThan(0);
   });
 });

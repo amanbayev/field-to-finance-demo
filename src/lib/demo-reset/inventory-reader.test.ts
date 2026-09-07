@@ -1,130 +1,110 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DemoResetEnvironmentSignals } from "@/lib/demo-reset/environment";
-import {
-  countedRows,
-  inventoryGaps,
-  invalidObservations,
-} from "@/lib/demo-reset/inventory";
-import {
-  readDemoResetInventory,
-  type DemoResetRowCount,
-  type DemoResetRowCountSource,
-} from "@/lib/demo-reset/inventory-reader";
+import { countedRows, inventoryGaps } from "@/lib/demo-reset/inventory";
 import {
   DEMO_DATASET_V2_RESET_MANIFEST,
   type DemoResetManifest,
 } from "@/lib/demo-reset/manifest";
 import {
-  evaluateDemoResetDryRunPolicy,
-  type DemoResetActorFacts,
-} from "@/lib/demo-reset/policy";
-import {
-  resolveDemoResetRunScope,
-  type DemoResetRunScope,
-} from "@/lib/demo-reset/run-ownership";
+  DEMO_RESET_READABLE_OBJECTS,
+  readDemoResetInventory,
+  readableObject,
+  type DemoResetCountRequest,
+  type DemoResetRowCount,
+  type DemoResetRowCountSource,
+} from "@/lib/demo-reset/inventory-reader";
+import type {
+  DemoResetEstablishedRunScope,
+  DemoResetRunScope,
+} from "@/lib/demo-reset/run-scope";
 
 const APPROVED_REF = "examplerefabcdefghij";
-const OBSERVED_AT = "2026-09-07T12:00:00.000Z";
+const OBSERVED_AT = "2026-09-07T00:00:00.000Z";
+
 const now = () => OBSERVED_AT;
 
-const ELIGIBLE_SIGNALS: DemoResetEnvironmentSignals = {
-  nodeEnv: "production",
-  vercel: "1",
-  vercelEnv: "preview",
-  publicAppEnv: "demo",
-  declaredEnvironment: "approved-demo-qa",
-  declaredDatasetId: "demo-dataset-v2",
-  declaredDatabaseRef: APPROVED_REF,
-  observedSupabaseUrl: `https://${APPROVED_REF}.supabase.co`,
+const ESTABLISHED: DemoResetEstablishedRunScope = {
+  kind: "ESTABLISHED",
+  runId: "run-a-0000000000000001",
+  operatorPrincipalUserId: "operator-1",
+  environmentName: "approved-demo-qa",
+  datasetId: "demo-dataset-v2",
+  databaseRef: APPROVED_REF,
 };
-
-const AUTHORIZED_ACTOR: DemoResetActorFacts = {
-  principalUserId: "operator-1",
-  effectiveHoldsPermission: true,
-  principalHoldsPermission: true,
-  isImpersonating: false,
-  isDesignPreviewActor: false,
-};
-
-function scopeFor(overrides?: {
-  signals?: Partial<DemoResetEnvironmentSignals>;
-  actor?: Partial<DemoResetActorFacts>;
-  claimedRunId?: unknown;
-}): DemoResetRunScope {
-  return resolveDemoResetRunScope({
-    authorization: evaluateDemoResetDryRunPolicy({
-      signals: { ...ELIGIBLE_SIGNALS, ...overrides?.signals },
-      actor: { ...AUTHORIZED_ACTOR, ...overrides?.actor },
-    }),
-    claimedRunId: overrides?.claimedRunId,
-  });
-}
-
-const ALLOWED_SCOPE = scopeFor();
 
 /**
- * A manifest built to exercise every branch of the reader. The shipped
- * manifest has no countable database category, which is itself asserted below.
+ * Objects are real table names from the shipped manifest, because the reader
+ * may only touch names that manifest declares.
  */
 const MIXED_MANIFEST: DemoResetManifest = {
-  datasetContract: "test-contract",
+  datasetContract: "synthetic-mixed",
   categories: [
     {
-      id: "environment-wide-tables",
+      id: "environment-wide",
       subsystem: "DATABASE",
       disposition: "PRESERVED",
       scopeBasis: "ENVIRONMENT_WIDE",
-      objects: ["alpha", "beta"],
-      note: "Two countable objects.",
+      rowScope: "NON_RUN_ROWS",
+      objects: ["organizations", "profiles"],
+      note: "Whole-environment by declaration.",
     },
     {
-      id: "declares-no-objects",
+      id: "run-owned",
+      subsystem: "DATABASE",
+      disposition: "CLEARED",
+      scopeBasis: "RUN_OWNED",
+      rowScope: "RUN_OWNED_ROWS",
+      objects: ["producer_fields"],
+      note: "Rows belonging to the target run.",
+    },
+    {
+      id: "no-objects",
       subsystem: "DATABASE",
       disposition: "PRESERVED",
       scopeBasis: "ENVIRONMENT_WIDE",
+      rowScope: "NOT_APPLICABLE",
       objects: [],
-      note: "Covers no database rows by declaration.",
+      note: "Declares its objects exhaustively and names none.",
     },
     {
       id: "not-scopable",
       subsystem: "DATABASE",
       disposition: "CLEARED",
       scopeBasis: "NOT_SCOPABLE",
-      objects: ["gamma"],
+      rowScope: "NOT_EXPRESSIBLE",
+      objects: ["app_audit_events"],
       note: "Needs run isolation that does not exist.",
     },
     {
-      id: "claims-run-ownership",
-      subsystem: "DATABASE",
-      disposition: "CLEARED",
-      scopeBasis: "RUN_OWNED",
-      objects: ["delta"],
-      note: "Claims run ownership without a run-scoped source.",
-    },
-    {
-      id: "storage-objects",
+      id: "storage",
       subsystem: "STORAGE",
       disposition: "CLEARED",
       scopeBasis: "ENVIRONMENT_WIDE",
-      objects: ["a-bucket"],
+      rowScope: "NOT_APPLICABLE",
+      objects: ["field-documents"],
       note: "Not observable by a row count.",
     },
   ],
 };
 
+function manifestOf(
+  ...categories: DemoResetManifest["categories"]
+): DemoResetManifest {
+  return { datasetContract: "synthetic", categories };
+}
+
 /**
- * A source that records every object it was asked for and refuses every other
+ * A source that records every request it was asked for and refuses every other
  * property access, so a test proves not only which reads happened but that the
  * reader reached for no other capability.
  */
 function recordingSource(
   answers: Readonly<Record<string, DemoResetRowCount>>,
-): { source: DemoResetRowCountSource; asked: string[] } {
-  const asked: string[] = [];
+): { source: DemoResetRowCountSource; asked: DemoResetCountRequest[] } {
+  const asked: DemoResetCountRequest[] = [];
   const target = {
-    async countRows(object: string): Promise<DemoResetRowCount> {
-      asked.push(object);
-      return answers[object] ?? { kind: "UNREADABLE" };
+    async countRows(request: DemoResetCountRequest): Promise<DemoResetRowCount> {
+      asked.push(request);
+      return answers[request.object] ?? { kind: "UNREADABLE" };
     },
   };
   const source = new Proxy(target, {
@@ -149,352 +129,333 @@ function forbiddenSource(): DemoResetRowCountSource & {
   };
 }
 
-describe("demo reset inventory reader on an allowed context", () => {
-  it("counts environment-wide categories and refuses to guess the rest", async () => {
+describe("demo reset readable objects", () => {
+  it("allows exactly the database objects the shipped manifest declares", () => {
+    const declared = new Set(
+      DEMO_DATASET_V2_RESET_MANIFEST.categories
+        .filter((category) => category.subsystem === "DATABASE")
+        .flatMap((category) => [...category.objects]),
+    );
+    expect(new Set(DEMO_RESET_READABLE_OBJECTS)).toEqual(declared);
+    expect(readableObject("producer_fields")).toBe("producer_fields");
+  });
+
+  it("refuses a name the manifest never declared", () => {
+    for (const name of [
+      "auth.users",
+      "pg_catalog.pg_tables",
+      "organizations; drop table profiles",
+      "field-documents",
+      "",
+    ]) {
+      expect(readableObject(name), name).toBeNull();
+    }
+  });
+
+  it("cannot be widened by an injected manifest", async () => {
+    // A manifest is data. It may describe categories freely, and still cannot
+    // hand the reader a table the shipped manifest does not declare.
     const { source, asked } = recordingSource({
-      alpha: { kind: "COUNTED", rows: 7 },
-      beta: { kind: "COUNTED", rows: 5 },
-    });
-
-    const read = await readDemoResetInventory({
-      scope: ALLOWED_SCOPE,
-      source,
-      manifest: MIXED_MANIFEST,
-      now,
-    });
-
-    expect(read.kind).toBe("READ");
-    if (read.kind !== "READ") return;
-
-    expect(read.inventory).toEqual({
-      source: "OBSERVED",
-      observedAt: OBSERVED_AT,
-      categories: {
-        "environment-wide-tables": { kind: "COUNTED", rows: 12 },
-        "declares-no-objects": { kind: "COUNTED", rows: 0 },
-        "not-scopable": {
-          kind: "UNAVAILABLE",
-          reason: "RUN_SCOPED_INVENTORY_SOURCE_ABSENT",
-        },
-        "claims-run-ownership": {
-          kind: "UNAVAILABLE",
-          reason: "RUN_SCOPED_INVENTORY_SOURCE_ABSENT",
-        },
-        "storage-objects": {
-          kind: "UNAVAILABLE",
-          reason: "SUBSYSTEM_NOT_READABLE",
-        },
-      },
-    });
-
-    // Only the environment-wide database objects were touched. A run-scoped
-    // category is never counted environment-wide, and a storage bucket is
-    // never counted at all.
-    expect(asked).toEqual(["alpha", "beta"]);
-    expect(read.objectsRead).toEqual(["alpha", "beta"]);
-  });
-
-  it("reads nothing against the shipped manifest, because nothing is run-scoped yet", async () => {
-    const source = forbiddenSource();
-    const read = await readDemoResetInventory({
-      scope: ALLOWED_SCOPE,
-      source,
-      now,
-    });
-
-    expect(read.kind).toBe("READ");
-    if (read.kind !== "READ") return;
-    expect(source.countRows).not.toHaveBeenCalled();
-    expect(read.objectsRead).toEqual([]);
-
-    // Every database category in the shipped manifest needs run isolation, so
-    // the honest report is unavailable rather than an empty environment.
-    expect(countedRows(read.inventory, "origination-business")).toBeNull();
-    expect(
-      inventoryGaps(read.inventory, DEMO_DATASET_V2_RESET_MANIFEST).map(
-        (gap) => gap.categoryId,
-      ),
-    ).toContain("market-core-business");
-    expect(
-      invalidObservations(read.inventory, DEMO_DATASET_V2_RESET_MANIFEST),
-    ).toEqual([]);
-  });
-
-  it("reports an unavailable category as unknown rather than as zero", async () => {
-    const { source } = recordingSource({
-      alpha: { kind: "COUNTED", rows: 4 },
-      beta: { kind: "UNREADABLE" },
+      secrets: { kind: "COUNTED", rows: 99 },
     });
     const read = await readDemoResetInventory({
-      scope: ALLOWED_SCOPE,
+      scope: ESTABLISHED,
       source,
-      manifest: MIXED_MANIFEST,
       now,
+      manifest: manifestOf({
+        id: "smuggled",
+        subsystem: "DATABASE",
+        disposition: "CLEARED",
+        scopeBasis: "ENVIRONMENT_WIDE",
+        rowScope: "NOT_APPLICABLE",
+        objects: ["secrets"],
+        note: "A table nobody approved.",
+      }),
     });
 
+    expect(asked).toEqual([]);
     expect(read.kind).toBe("READ");
     if (read.kind !== "READ") return;
-    // Not the partial sum of 4: one unreadable object makes the whole category
-    // unknown, because a partial count would understate it.
-    expect(read.inventory.categories["environment-wide-tables"]).toEqual({
+    expect(read.inventory.categories.smuggled).toEqual({
       kind: "UNAVAILABLE",
       reason: "SUBSYSTEM_NOT_READABLE",
     });
-    expect(countedRows(read.inventory, "environment-wide-tables")).toBeNull();
   });
+});
 
-  it("reports a category the manifest expects but the record omits", async () => {
+describe("demo reset inventory reader scoping", () => {
+  it("asks for run-owned rows in the run's scope and nothing wider", async () => {
+    const { source, asked } = recordingSource({
+      organizations: { kind: "COUNTED", rows: 4 },
+      profiles: { kind: "COUNTED", rows: 3 },
+      producer_fields: { kind: "COUNTED", rows: 9 },
+    });
+
     const read = await readDemoResetInventory({
-      scope: ALLOWED_SCOPE,
-      manifest: { ...MIXED_MANIFEST, categories: [] },
+      scope: ESTABLISHED,
+      source,
+      manifest: MIXED_MANIFEST,
       now,
     });
 
+    // The scope travels with every request, so a source is never left to infer
+    // which rows were meant.
+    expect(asked).toEqual([
+      { object: "organizations", scope: { kind: "ENVIRONMENT" } },
+      { object: "profiles", scope: { kind: "ENVIRONMENT" } },
+      { object: "producer_fields", scope: { kind: "RUN", run: ESTABLISHED } },
+    ]);
+
     expect(read.kind).toBe("READ");
     if (read.kind !== "READ") return;
-    expect(
-      inventoryGaps(read.inventory, MIXED_MANIFEST).map((gap) => gap.reason),
-    ).toEqual(
-      Array(MIXED_MANIFEST.categories.length).fill("CATEGORY_NOT_ENUMERATED"),
-    );
+    expect(countedRows(read.inventory, "environment-wide")).toBe(7);
+    expect(countedRows(read.inventory, "run-owned")).toBe(9);
   });
 
-  it("treats a missing source as no access rather than as no objects", async () => {
+  it("carries the proven run, not a bare identifier", async () => {
+    const { source, asked } = recordingSource({
+      producer_fields: { kind: "COUNTED", rows: 1 },
+    });
+    await readDemoResetInventory({
+      scope: ESTABLISHED,
+      source,
+      now,
+      manifest: manifestOf(MIXED_MANIFEST.categories[1]),
+    });
+
+    const [request] = asked;
+    expect(request.scope.kind).toBe("RUN");
+    if (request.scope.kind !== "RUN") return;
+    // Environment, dataset and database travel with the run, so a source
+    // cannot count a run it was never shown the context for.
+    expect(request.scope.run).toEqual({
+      kind: "ESTABLISHED",
+      runId: "run-a-0000000000000001",
+      operatorPrincipalUserId: "operator-1",
+      environmentName: "approved-demo-qa",
+      datasetId: "demo-dataset-v2",
+      databaseRef: APPROVED_REF,
+    });
+  });
+
+  it("never presents an environment-wide number as a run's number", async () => {
+    // A source that ignores the scope and counts the whole table is exactly
+    // the accident this guards. The reader still reports what it asked for, so
+    // the mismatch is visible in the request rather than hidden in the answer.
+    const { source, asked } = recordingSource({
+      producer_fields: { kind: "COUNTED", rows: 5000 },
+    });
+    await readDemoResetInventory({
+      scope: ESTABLISHED,
+      source,
+      now,
+      manifest: manifestOf(MIXED_MANIFEST.categories[1]),
+    });
+    expect(asked).toHaveLength(1);
+    expect(asked[0].scope).not.toEqual({ kind: "ENVIRONMENT" });
+    expect(asked[0].scope).toMatchObject({
+      kind: "RUN",
+      run: { runId: "run-a-0000000000000001" },
+    });
+  });
+
+  it("refuses a category it cannot bound to the run at all", async () => {
+    const source = forbiddenSource();
     const read = await readDemoResetInventory({
-      scope: ALLOWED_SCOPE,
+      scope: ESTABLISHED,
+      source,
+      now,
+      manifest: manifestOf(MIXED_MANIFEST.categories[3]),
+    });
+
+    expect(source.countRows).not.toHaveBeenCalled();
+    expect(read.kind).toBe("READ");
+    if (read.kind !== "READ") return;
+    expect(read.inventory.categories["not-scopable"]).toEqual({
+      kind: "UNAVAILABLE",
+      reason: "RUN_SCOPED_INVENTORY_SOURCE_ABSENT",
+    });
+    expect(countedRows(read.inventory, "not-scopable")).toBeNull();
+  });
+
+  it("counts an exhaustively empty category as zero and reads nothing", async () => {
+    const { source, asked } = recordingSource({});
+    const read = await readDemoResetInventory({
+      scope: ESTABLISHED,
+      source,
+      now,
+      manifest: manifestOf(MIXED_MANIFEST.categories[2]),
+    });
+    expect(asked).toEqual([]);
+    expect(read.kind).toBe("READ");
+    if (read.kind !== "READ") return;
+    expect(countedRows(read.inventory, "no-objects")).toBe(0);
+  });
+
+  it("reports a non-database subsystem as unavailable", async () => {
+    const source = forbiddenSource();
+    const read = await readDemoResetInventory({
+      scope: ESTABLISHED,
+      source,
+      now,
+      manifest: manifestOf(MIXED_MANIFEST.categories[4]),
+    });
+    expect(source.countRows).not.toHaveBeenCalled();
+    expect(read.kind).toBe("READ");
+    if (read.kind !== "READ") return;
+    expect(read.inventory.categories.storage).toEqual({
+      kind: "UNAVAILABLE",
+      reason: "SUBSYSTEM_NOT_READABLE",
+    });
+  });
+
+  it("records the observation instant and the objects it queried", async () => {
+    const { source } = recordingSource({
+      producer_fields: { kind: "COUNTED", rows: 2 },
+    });
+    const read = await readDemoResetInventory({
+      scope: ESTABLISHED,
+      source,
+      now,
+      manifest: manifestOf(MIXED_MANIFEST.categories[1]),
+    });
+    expect(read.kind).toBe("READ");
+    if (read.kind !== "READ") return;
+    expect(read.inventory.source).toBe("OBSERVED");
+    expect(read.inventory.observedAt).toBe(OBSERVED_AT);
+    expect(read.objectsRead).toEqual(["producer_fields"]);
+  });
+
+  it("records no observation instant when the clock is not one", async () => {
+    const read = await readDemoResetInventory({
+      scope: ESTABLISHED,
+      manifest: manifestOf(MIXED_MANIFEST.categories[2]),
+      now: () => "yesterday",
+    });
+    expect(read.kind).toBe("READ");
+    if (read.kind !== "READ") return;
+    expect(read.inventory.observedAt).toBeNull();
+  });
+});
+
+describe("demo reset inventory reader on a denied or runless scope", () => {
+  const blocked: DemoResetRunScope[] = [
+    { kind: "REFUSED", refusal: "ENVIRONMENT_NOT_ELIGIBLE" },
+    { kind: "REFUSED", refusal: "ACTOR_NOT_AUTHORIZED" },
+    { kind: "REFUSED", refusal: "RUN_NOT_OWNED_BY_ACTOR" },
+    { kind: "REFUSED", refusal: "RUN_CONTEXT_MISMATCH" },
+    { kind: "NOT_ESTABLISHED", gap: "RUN_INSTANCE_NOT_ISSUED" },
+    { kind: "NOT_ESTABLISHED", gap: "RUN_STATE_UNAVAILABLE" },
+  ];
+
+  it("issues no request at all", async () => {
+    for (const scope of blocked) {
+      const source = forbiddenSource();
+      const read = await readDemoResetInventory({
+        scope,
+        source,
+        manifest: MIXED_MANIFEST,
+        now,
+      });
+      expect(read, JSON.stringify(scope)).toEqual({
+        kind: "NOT_READ",
+        scope,
+      });
+      expect(source.countRows, JSON.stringify(scope)).not.toHaveBeenCalled();
+    }
+  });
+
+  it("cannot produce a run-owned observation without an established run", async () => {
+    // Even against a source that would happily answer, there is no scope to
+    // ask in, so there is no observation to report.
+    const { source, asked } = recordingSource({
+      producer_fields: { kind: "COUNTED", rows: 12 },
+    });
+    const read = await readDemoResetInventory({
+      scope: { kind: "NOT_ESTABLISHED", gap: "RUN_INSTANCE_NOT_ISSUED" },
+      source,
+      now,
+      manifest: manifestOf(MIXED_MANIFEST.categories[1]),
+    });
+    expect(asked).toEqual([]);
+    expect(read.kind).toBe("NOT_READ");
+  });
+});
+
+describe("demo reset inventory reader fail-closed behaviour", () => {
+  it("does not turn a missing source into an absence of rows", async () => {
+    const read = await readDemoResetInventory({
+      scope: ESTABLISHED,
       source: null,
       manifest: MIXED_MANIFEST,
       now,
     });
-
     expect(read.kind).toBe("READ");
     if (read.kind !== "READ") return;
-    expect(read.inventory.categories["environment-wide-tables"]).toEqual({
-      kind: "UNAVAILABLE",
-      reason: "SUBSYSTEM_NOT_READABLE",
-    });
+    expect(countedRows(read.inventory, "environment-wide")).toBeNull();
+    expect(countedRows(read.inventory, "run-owned")).toBeNull();
     expect(read.objectsRead).toEqual([]);
   });
-});
 
-describe("demo reset inventory reader on inconsistent answers", () => {
-  // A real source can hand back a null, a string or a failed aggregate where a
-  // number is expected, so the declared type is re-checked rather than trusted.
-  const brokenCounts: readonly unknown[] = [
-    { kind: "COUNTED", rows: -1 },
-    { kind: "COUNTED", rows: Number.NaN },
-    { kind: "COUNTED", rows: Number.POSITIVE_INFINITY },
-    { kind: "COUNTED", rows: 1.5 },
-    { kind: "COUNTED", rows: "12" },
-    { kind: "COUNTED", rows: null },
-    { kind: "COUNTED" },
-  ];
+  it("reports an unreadable, throwing or uninterpretable answer as a gap", async () => {
+    const cases: Array<[DemoResetRowCount, string]> = [
+      [{ kind: "UNREADABLE" }, "SUBSYSTEM_NOT_READABLE"],
+      [{ kind: "COUNTED", rows: -1 } as DemoResetRowCount, "OBSERVATION_COUNT_INVALID"],
+      [{ kind: "COUNTED", rows: 1.5 } as DemoResetRowCount, "OBSERVATION_COUNT_INVALID"],
+      [{ kind: "COUNTED" } as DemoResetRowCount, "OBSERVATION_COUNT_INVALID"],
+      [{ kind: "SOMETHING_ELSE" } as unknown as DemoResetRowCount, "OBSERVATION_NOT_INTERPRETABLE"],
+    ];
 
-  it("records an uninterpretable count as a defect, never as a number", async () => {
-    for (const broken of brokenCounts) {
-      const { source } = recordingSource({
-        alpha: broken as DemoResetRowCount,
-        beta: { kind: "COUNTED", rows: 1 },
-      });
+    for (const [answer, reason] of cases) {
+      const { source } = recordingSource({ producer_fields: answer });
       const read = await readDemoResetInventory({
-        scope: ALLOWED_SCOPE,
+        scope: ESTABLISHED,
         source,
-        manifest: MIXED_MANIFEST,
         now,
+        manifest: manifestOf(MIXED_MANIFEST.categories[1]),
       });
-
       expect(read.kind).toBe("READ");
-      if (read.kind !== "READ") return;
-      expect(
-        read.inventory.categories["environment-wide-tables"],
-        `${JSON.stringify(broken)} must be a defect`,
-      ).toEqual({ kind: "UNAVAILABLE", reason: "OBSERVATION_COUNT_INVALID" });
+      if (read.kind !== "READ") continue;
+      expect(read.inventory.categories["run-owned"], reason).toEqual({
+        kind: "UNAVAILABLE",
+        reason,
+      });
     }
   });
 
-  it("records an unknown observation kind as uninterpretable", async () => {
-    const { source } = recordingSource({
-      alpha: { kind: "MYSTERY" } as unknown as DemoResetRowCount,
-    });
+  it("swallows a thrown source error rather than leaking it", async () => {
     const read = await readDemoResetInventory({
-      scope: ALLOWED_SCOPE,
-      source,
-      manifest: MIXED_MANIFEST,
+      scope: ESTABLISHED,
       now,
-    });
-
-    expect(read.kind).toBe("READ");
-    if (read.kind !== "READ") return;
-    expect(read.inventory.categories["environment-wide-tables"]).toEqual({
-      kind: "UNAVAILABLE",
-      reason: "OBSERVATION_NOT_INTERPRETABLE",
-    });
-  });
-
-  it("refuses a total that cannot be represented exactly", async () => {
-    const { source } = recordingSource({
-      alpha: { kind: "COUNTED", rows: Number.MAX_SAFE_INTEGER },
-      beta: { kind: "COUNTED", rows: 2 },
-    });
-    const read = await readDemoResetInventory({
-      scope: ALLOWED_SCOPE,
-      source,
-      manifest: MIXED_MANIFEST,
-      now,
-    });
-
-    expect(read.kind).toBe("READ");
-    if (read.kind !== "READ") return;
-    expect(read.inventory.categories["environment-wide-tables"]).toEqual({
-      kind: "UNAVAILABLE",
-      reason: "OBSERVATION_COUNT_INVALID",
-    });
-  });
-
-  it("turns a throwing source into an unavailable category, not a crash", async () => {
-    const source: DemoResetRowCountSource = {
-      async countRows() {
-        throw new Error("connection refused for user postgres");
+      manifest: manifestOf(MIXED_MANIFEST.categories[1]),
+      source: {
+        async countRows() {
+          throw new Error("password authentication failed for user postgres");
+        },
       },
-    };
-    const read = await readDemoResetInventory({
-      scope: ALLOWED_SCOPE,
-      source,
-      manifest: MIXED_MANIFEST,
-      now,
     });
-
     expect(read.kind).toBe("READ");
     if (read.kind !== "READ") return;
-    expect(read.inventory.categories["environment-wide-tables"]).toEqual({
+    const gaps = inventoryGaps(read.inventory);
+    expect(JSON.stringify(gaps)).not.toContain("password");
+    expect(read.inventory.categories["run-owned"]).toEqual({
       kind: "UNAVAILABLE",
       reason: "SUBSYSTEM_NOT_READABLE",
     });
-    // The thrown detail is not carried into the record an operator would see.
-    expect(JSON.stringify(read.inventory)).not.toContain("postgres");
   });
 
-  it("records an unusable observation time as absent rather than inventing one", async () => {
-    for (const instant of [
-      "",
-      "not-a-time",
-      "2026-02-30T00:00:00Z",
-      "2026-09-07T25:00:00Z",
-    ]) {
-      const read = await readDemoResetInventory({
-        scope: ALLOWED_SCOPE,
-        manifest: MIXED_MANIFEST,
-        now: () => instant,
-      });
-      expect(read.kind).toBe("READ");
-      if (read.kind !== "READ") return;
-      expect(
-        read.inventory.observedAt,
-        `${instant} must not be accepted`,
-      ).toBeNull();
-    }
-  });
-});
-
-describe("demo reset inventory reader on a denied context", () => {
-  it("does not touch the database when the runtime is production", async () => {
+  it("reads nothing at all against the shipped manifest", async () => {
+    // Every database category there is NOT_SCOPABLE, so there is no honest
+    // count to take and the reader issues no query.
     const source = forbiddenSource();
     const read = await readDemoResetInventory({
-      scope: scopeFor({ signals: { vercelEnv: "production" } }),
+      scope: ESTABLISHED,
       source,
-      manifest: MIXED_MANIFEST,
       now,
     });
-
-    expect(read).toEqual({
-      kind: "NOT_READ",
-      refusal: "ENVIRONMENT_NOT_ELIGIBLE",
-    });
     expect(source.countRows).not.toHaveBeenCalled();
-  });
-
-  it("does not touch the database when the environment is unknown or unapproved", async () => {
-    for (const signals of [
-      { nodeEnv: undefined },
-      { declaredEnvironment: undefined },
-      { declaredEnvironment: "some-other-environment" },
-      { vercel: "0" },
-    ]) {
-      const source = forbiddenSource();
-      const read = await readDemoResetInventory({
-        scope: scopeFor({ signals }),
-        source,
-        manifest: MIXED_MANIFEST,
-        now,
-      });
-
-      expect(read.kind, `${JSON.stringify(signals)} must not be read`).toBe(
-        "NOT_READ",
-      );
-      expect(source.countRows).not.toHaveBeenCalled();
-    }
-  });
-
-  it("does not touch the database for an unapproved dataset or database", async () => {
-    for (const signals of [
-      { declaredDatasetId: undefined },
-      { declaredDatabaseRef: undefined },
-      { declaredDatabaseRef: "not-a-project-ref" },
-      { observedSupabaseUrl: "https://otherrefabcdefghijkl.supabase.co" },
-      { observedSupabaseUrl: "http://127.0.0.1:54321" },
-    ]) {
-      const source = forbiddenSource();
-      const read = await readDemoResetInventory({
-        scope: scopeFor({ signals }),
-        source,
-        manifest: MIXED_MANIFEST,
-        now,
-      });
-
-      expect(read).toEqual({
-        kind: "NOT_READ",
-        refusal: "ENVIRONMENT_NOT_ELIGIBLE",
-      });
-      expect(source.countRows).not.toHaveBeenCalled();
-    }
-  });
-
-  it("does not touch the database when the run belongs to another actor", async () => {
-    const source = forbiddenSource();
-    const read = await readDemoResetInventory({
-      scope: scopeFor({ claimedRunId: `run-${"0".repeat(64)}` }),
-      source,
-      manifest: MIXED_MANIFEST,
-      now,
-    });
-
-    expect(read).toEqual({
-      kind: "NOT_READ",
-      refusal: "RUN_NOT_OWNED_BY_ACTOR",
-    });
-    expect(source.countRows).not.toHaveBeenCalled();
-  });
-
-  it("does not touch the database for an unauthorized actor or a malformed claim", async () => {
-    for (const overrides of [
-      { actor: { principalHoldsPermission: false } },
-      { actor: { isImpersonating: true } },
-      { actor: { isDesignPreviewActor: true } },
-      { actor: { principalUserId: "  " } },
-      { claimedRunId: "RUN-0001" },
-    ]) {
-      const source = forbiddenSource();
-      const read = await readDemoResetInventory({
-        scope: scopeFor(overrides),
-        source,
-        manifest: MIXED_MANIFEST,
-        now,
-      });
-
-      expect(read.kind, `${JSON.stringify(overrides)} must not be read`).toBe(
-        "NOT_READ",
-      );
-      expect(source.countRows).not.toHaveBeenCalled();
-    }
+    expect(read.kind).toBe("READ");
+    if (read.kind !== "READ") return;
+    expect(read.objectsRead).toEqual([]);
   });
 });

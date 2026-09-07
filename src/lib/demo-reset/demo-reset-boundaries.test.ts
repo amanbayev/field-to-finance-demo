@@ -87,7 +87,7 @@ describe("demo reset has no executing deletion path", () => {
       "manifest.ts",
       "plan.ts",
       "policy.ts",
-      "run-ownership.ts",
+      "run-scope.ts",
     ]);
     expect(existsSync(SERVICE)).toBe(true);
   });
@@ -131,18 +131,54 @@ describe("demo reset has no executing deletion path", () => {
     // The source is a parameter, so the reader cannot reach ambient state and
     // a test can prove it was never invoked.
     expect(source).toContain("source?: DemoResetRowCountSource | null");
-    expect(source).toContain("countRows(object: string)");
+    expect(source).toContain(
+      "countRows(request: DemoResetCountRequest): Promise<DemoResetRowCount>",
+    );
     expect(source, "table access in the reader").not.toContain(".from(");
     expect(source, "query builder in the reader").not.toContain(".select(");
   });
 
-  it("derives run ownership server-side and never looks a run up", () => {
-    const source = readFileSync(`${LIB_DIR}/run-ownership.ts`, "utf8");
+  it("makes the run scope unavoidable for a run-owned count", () => {
+    const source = readFileSync(READER, "utf8");
+    // A `RUN` request carries the proven scope itself, so the type cannot be
+    // satisfied by a scope that was refused or never established.
+    expect(source).toContain(
+      'kind: "RUN"; readonly run: DemoResetEstablishedRunScope',
+    );
+    // Only allowlisted names reach a source, so an injected manifest cannot
+    // widen what the reader may physically touch.
+    expect(source).toContain("readableObject(name)");
+    expect(source.replace(/\s/g, "")).toContain(
+      "source.countRows({object,scope})",
+    );
+  });
+
+  it("resolves a run instance from trusted state and never looks one up by claim", () => {
+    const source = readFileSync(`${LIB_DIR}/run-scope.ts`, "utf8");
     // The claim is typed `unknown` and only ever compared, never used as a key.
     expect(source).toContain("claimedRunId?: unknown");
-    expect(source).toContain('return notEstablished("RUN_NOT_OWNED_BY_ACTOR")');
+    expect(source).toContain('return refused("RUN_NOT_OWNED_BY_ACTOR")');
+    // The port answers "which run does this operator hold", so no method takes
+    // a caller-supplied identifier and none can become a lookup oracle.
+    expect(source).toContain(
+      "currentRunInstance(context: DemoResetRunContext)",
+    );
     expect(source, "run lookup").not.toContain(".from(");
     expect(source, "run lookup").not.toContain(".eq(");
+  });
+
+  it("mints no run identifier of its own", () => {
+    // A derived or locally minted identifier would be a fingerprint of the
+    // actor and the context, not a run: one operator would hold the same one
+    // forever, and Run B could never differ from Run A. The identifier has to
+    // come from trusted state, so nothing here may invent one.
+    for (const file of [`${LIB_DIR}/run-scope.ts`, SERVICE]) {
+      const source = executableSource(file);
+      expect(source, `crypto in ${file}`).not.toContain("node:crypto");
+      expect(source, `identifier minted in ${file}`).not.toMatch(
+        /randomUUID|createHash|Math\.random/,
+      );
+    }
   });
 
   it("exposes no server action, route handler or page", () => {
@@ -186,14 +222,52 @@ describe("demo reset has no executing deletion path", () => {
 
   it("denies before reading, and hands the planner an already-read inventory", () => {
     const source = executableSource(SERVICE);
-    const ownership = source.indexOf("resolveDemoResetRunScope(");
-    const read = source.indexOf("readDemoResetInventory(");
-    expect(ownership, "ownership is resolved").toBeGreaterThan(-1);
-    expect(read, "inventory is read").toBeGreaterThan(-1);
-    // Ownership is established before any read is attempted.
-    expect(ownership).toBeLessThan(read);
-    expect(source).toContain("if (runScope.kind !== ");
-    // The planner is given the observed inventory; it never reaches for one.
-    expect(source.replace(/\s/g, "")).toContain("inventory:read.inventory,");
+    // Indexed inside the composition body, so a helper's definition earlier in
+    // the file cannot be mistaken for its call site.
+    const body = source.slice(
+      source.indexOf("export async function composeDemoResetDryRun"),
+    );
+    const precondition = body.indexOf("resolveDemoResetRunContext(");
+    const lookup = body.indexOf("lookUpRunInstance(");
+    const scope = body.indexOf("resolveDemoResetRunScope(");
+    const read = body.indexOf("readDemoResetInventory(");
+    for (const [name, index] of Object.entries({
+      precondition,
+      lookup,
+      scope,
+      read,
+    })) {
+      expect(index, `${name} is present`).toBeGreaterThan(-1);
+    }
+    // Policy gates the run store, and the run gates the database.
+    expect(precondition).toBeLessThan(lookup);
+    expect(lookup).toBeLessThan(read);
+    expect(scope).toBeLessThan(read);
+    // A refused run returns before the reader. Read from the raw file, since
+    // `executableSource` blanks the string literal being matched.
+    expect(readFileSync(SERVICE, "utf8")).toContain(
+      'if (runScope.kind === "REFUSED")',
+    );
+    // The planner is given the inventory the reader produced, and a stated
+    // absence when there was no read. It never reaches for one itself.
+    expect(body.replace(/\s/g, "")).toContain(
+      "?read.inventory:unavailableDemoResetInventory(",
+    );
+  });
+
+  it("fixes the manifest, run store and count source in the production entry", () => {
+    const source = executableSource(SERVICE);
+    // A request-facing caller supplies a trusted actor and an untrusted claim,
+    // and cannot choose which objects are in scope or which state is trusted.
+    expect(source.replace(/\s/g, "")).toContain(
+      "options?:{claimedRunId?:unknown},",
+    );
+    expect(source).toContain("store: PRODUCTION_RUN_STORE");
+    expect(source).toContain("source: PRODUCTION_ROW_COUNT_SOURCE");
+    // No run registry exists, so production resolves no run rather than
+    // inventing one.
+    expect(source).toContain(
+      "const PRODUCTION_RUN_STORE: DemoResetRunStore | null = null",
+    );
   });
 });
