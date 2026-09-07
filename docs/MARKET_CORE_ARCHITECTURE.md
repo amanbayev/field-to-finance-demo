@@ -278,7 +278,9 @@ Alignment is by **name / content**, not identical timestamps. Do not rewrite alr
 
 ## Secondary DvP
 
-`agricultural_market` currently exposes only `initialize_market` and `settle_primary_placement`. Primary DvP takes WHEAT from the Registrar ATA and DEMO-KZT from the primary investor, paying the issuer settlement owner. It cannot atomically move WHEAT seller→buyer and DEMO-KZT buyer→seller. A new `settle_secondary_dvp` instruction and programme redeploy are required. No deploy is performed in 5B.1.
+Primary DvP takes WHEAT from the Registrar ATA and DEMO-KZT from the primary investor, paying the issuer settlement owner. It cannot atomically move WHEAT seller→buyer and DEMO-KZT buyer→seller.
+
+`settle_secondary_dvp` exists in source: `solana/programs/agricultural_market/src/lib.rs`, `src/instructions/settle_secondary_dvp.rs`, and the checked-in IDL `src/adapters/blockchain/solana/agricultural_market.json`, which lists `initialize_market`, `settle_primary_placement` and `settle_secondary_dvp`. Source presence is not deployment: whether the programme deployed at `9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst` exposes the instruction is **not verified** here, and a checked-in IDL is not proof of deployed bytecode. Verifying the deployed programme, and redeploying if it lags, remains an operator-authorized step. No deploy was performed in 5B.1, and the instruction has never been executed as real settlement.
 
 Grain Desk (`GRAIN-DESK` / `DEMO-TRADER-001`) has **no** mapped Solana wallet and **no** WHEAT / DEMO-KZT ATA. Those accounts must not be fabricated. Creating them is a state-changing 5B.2 preparation step.
 
