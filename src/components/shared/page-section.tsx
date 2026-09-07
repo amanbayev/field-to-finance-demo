@@ -37,32 +37,69 @@ export function EmptyState({
   body,
   action,
   children,
+  illustration = "silo",
 }: {
   kicker?: string;
   title?: string;
   body?: string;
   action?: ReactNode;
   children?: ReactNode;
+  illustration?: "silo" | "none";
 }) {
+  const illustrated = illustration === "silo";
   return (
-    <div className="relative min-h-[240px] overflow-hidden">
-      <CinematicImage
-        src="/media/empty-silo-light.png"
-        alt=""
-        className="absolute inset-0"
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/78 to-background/30" />
+    <div
+      className={cn(
+        "relative min-h-[240px] overflow-hidden",
+        !illustrated && "border border-border bg-background",
+      )}
+    >
+      {illustrated ? (
+        <>
+          <CinematicImage
+            src="/media/empty-silo-light.png"
+            alt=""
+            className="absolute inset-0"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/78 to-background/30" />
+        </>
+      ) : null}
       <div className="relative flex min-h-[240px] flex-col justify-end px-6 py-10 sm:px-8">
-        {kicker ? <p className="label-caps text-harvest">{kicker}</p> : null}
+        {kicker ? (
+          <p className={cn("label-caps", illustrated ? "text-harvest" : "text-muted-foreground")}>
+            {kicker}
+          </p>
+        ) : null}
         {title ? (
-          <h3 className="mt-2 max-w-lg font-heading text-2xl leading-tight text-bone sm:text-3xl">
+          <h3
+            className={cn(
+              "mt-2 max-w-lg font-heading text-2xl leading-tight sm:text-3xl",
+              illustrated ? "text-bone" : "text-foreground",
+            )}
+          >
             {title}
           </h3>
         ) : null}
-        {body ? <p className="mt-3 max-w-lg text-sm leading-relaxed text-straw">{body}</p> : null}
+        {body ? (
+          <p
+            className={cn(
+              "mt-3 max-w-lg text-sm leading-relaxed",
+              illustrated ? "text-straw" : "text-muted-foreground",
+            )}
+          >
+            {body}
+          </p>
+        ) : null}
         {action ? <div className="mt-6">{action}</div> : null}
         {!title && !body ? (
-          <div className="max-w-lg text-sm leading-relaxed text-bone">{children}</div>
+          <div
+            className={cn(
+              "max-w-lg text-sm leading-relaxed",
+              illustrated ? "text-bone" : "text-foreground",
+            )}
+          >
+            {children}
+          </div>
         ) : null}
       </div>
     </div>

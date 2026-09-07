@@ -5,7 +5,8 @@ implemented as an incremental navigation slice; remaining hierarchy-header and
 hard-routing work is explicitly deferred; 5C.3A domain coherence is implemented;
 5C.3B eligibility and onboarding UI is implemented as a read-only presentation
 slice; persistence, reassessment, suspension and revocation remain outside 5C.3;
-5C.4 remains planned; 5C.5 remains planned except that
+5C.4A universal instrument shell is implemented; 5C.4B investor workspace remains
+planned; 5C.4 as a whole is not complete; 5C.5 remains planned except that
 EN/RU/KK key-set parity testing already exists.
 **Legal operator:** CommoChain Ltd.
 **Reads with:** `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md` (target canon),
@@ -374,12 +375,54 @@ registrar ownership, navigation authorization, or impersonation.
 An institutional investor workspace over the existing Market Core, and one universal instrument
 shell that works for any protocol, with protocol-specific economic basis supplied by an adapter.
 
+**5C.4 as a whole is not complete.** 5C.4A has shipped the universal instrument shell and
+protocol economic-basis adapter boundary. 5C.4B (institutional investor workspace) remains
+planned.
+
 **Acceptance criteria**
 
 1. The instrument shell renders for a non-agriculture instrument without agriculture code paths.
 2. The workspace reads Market Core only; it introduces no second source of instrument truth.
 3. Holdings continue to show owned / available / reserved / pledged / blocked distinctly.
 4. No offer, price, yield or term is shown for structuring or concept instruments.
+
+#### 5C.4A — Universal instrument shell and protocol economic-basis adapter *(implemented)*
+
+Presentation/read-model slice only. No investor workspace, no new production instrument, no
+Water / Music / Gaming issuance, no protocol DSL or plugin engine, no SQL, no money, no
+matching or settlement change.
+
+- Canonical shell context (`resolveInstrumentShell` / `getInstrumentShellContext`) is a typed
+  read model over Market Core. `getInstrumentMarketContext` remains the authoritative
+  instrument record. The shell does not duplicate the catalogue.
+- Protocol-specific economic basis, evidence, links and disclaimers come from an explicit
+  `InstrumentEconomicBasisAdapter` selected by exact `protocolId`. There is no F2F fallback
+  for unknown protocols. Duplicate adapters for one protocol fail closed.
+- The Field-to-Finance adapter owns WHEAT-2027 demonstrator facts (placement, coverage, SCAS,
+  pool, DAC/monitoring links, token mint proof slot). The generic page and shell do not
+  import those services or branch on WHEAT / agriculture / F2F.
+- Token mint proof is a typed `chainMintProof` protocol slot, not a WHEAT conditional. This
+  is a code-level adapter boundary, not Phase 8.
+- Central lifecycle policy withholds offer, price, yield, term, subscription, redemption
+  promise and market availability for `STRUCTURING`, `CONCEPT`, `FUTURE` and unrecognised
+  statuses. Non-issued instruments do not invoke economic adapters. An over-eager adapter
+  cannot bypass the filter.
+- Production `/instruments/F2F-PROTOCOL-INVESTMENT` shows not offered / not issued / not
+  admitted, with no use-of-proceeds or possible-model terms as an offering.
+- Wide and compact ownership presentation keep owned, available, reserved, pledged and
+  blocked distinct.
+- Synthetic non-agriculture proof (TIDAL / TIDE-2030) exists in tests only. It is not in the
+  production catalogue. Missing adapters render unavailable, not F2F.
+
+**Not claimed by 5C.4A.** No institutional investor workspace. No new production protocol,
+version, instrument, issuance, market, price, yield or term. No persistence, money, client
+balances, matching, settlement, custody, Devnet execution, or production deployment. This is
+not a configurable protocol engine.
+
+#### 5C.4B — Institutional investor workspace *(planned)*
+
+Workspace over existing Market Core holdings, orders and eligibility. Must not invent a
+second instrument catalogue or imply live balances.
 
 ### 5C.5 — Help & Support, multilingual polish, accessibility, and regression hardening
 

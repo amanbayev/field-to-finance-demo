@@ -143,6 +143,54 @@ describe("message catalogue parity", () => {
     ).toBe(3);
   });
 
+  it("localizes phase 5c 4a shell and economics-visibility copy", () => {
+    const keys = [
+      "economicsWithheldNotIssued",
+      "basisDataUnavailable",
+      "basisUnavailableForInstrumentFamily",
+      "termsNotOffered",
+      "termsUnavailable",
+      "riskNotRecorded",
+      "riskNotOffered",
+      "noMarketRecorded",
+      "marketNotOffered",
+      "marketPhaseClosed",
+      "clearingNotRecorded",
+      "clearingNotOffered",
+      "issuanceNotRecorded",
+      "denomination",
+      "secondaryMarketOpenDemonstrator",
+      "matchingDoesNotChangeOwnership",
+      "mintedSupply",
+      "circulatingSupply",
+      "tokenProofIsDemonstratorEvidence",
+      "holdingsNotRecorded",
+      "protocolRecordUnavailable",
+    ];
+    for (const key of keys) {
+      const values = [base, ru as unknown as Catalog, kk as unknown as Catalog].map(
+        (catalog) => catalog.marketCore?.[key],
+      );
+      for (const value of values) {
+        expect(value, `${key}`).toBeTruthy();
+      }
+      expect(new Set(values).size, `${key} must differ across en/ru/kk`).toBe(3);
+    }
+  });
+
+  it("keeps Kazakh placement-supply labels as volume, not offering", () => {
+    const minted = kk.marketCore.mintedSupply;
+    const circulating = kk.marketCore.circulatingSupply;
+    expect(minted).toBe("Шығарылған көлем");
+    expect(circulating).toBe("Айналымдағы көлем");
+    expect(minted).not.toContain("ұсыныс");
+    expect(circulating).not.toContain("ұсыныс");
+    expect(minted).not.toBe(en.marketCore.mintedSupply);
+    expect(circulating).not.toBe(en.marketCore.circulatingSupply);
+    expect(minted).not.toBe(ru.marketCore.mintedSupply);
+    expect(circulating).not.toBe(ru.marketCore.circulatingSupply);
+  });
+
   it("localizes both frozen states and the full rule-snapshot labels", () => {
     const keys = [
       "immutableRules",

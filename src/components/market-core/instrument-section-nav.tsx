@@ -22,6 +22,7 @@ export function InstrumentSectionNav({
         <Link
           key={section}
           href={`/instruments/${instrumentId}?section=${section}`}
+          aria-current={active === section ? "page" : undefined}
           className={cn(
             "px-2 py-1 text-xs tracking-wide",
             active === section

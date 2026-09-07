@@ -10,8 +10,8 @@ export function DataList({
           key={`${item.label}-${index}`}
           className="flex items-baseline justify-between gap-4 border-b border-harvest/15 py-2.5"
         >
-          <dt className="label-caps shrink-0">{item.label}</dt>
-          <dd className="text-right text-sm font-medium text-foreground">{item.value}</dd>
+            <dt className="label-caps min-w-0 break-words">{item.label}</dt>
+            <dd className="min-w-0 text-right text-sm font-medium text-foreground">{item.value}</dd>
         </div>
       ))}
     </dl>

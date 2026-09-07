@@ -361,6 +361,13 @@ ProtocolAdapter
 
 Use typed protocol modules and adapters rather than asset-name conditionals in generic market services.
 
+Phase 5C.4A implements an explicit **presentation** adapter for instrument economic basis
+(`InstrumentEconomicBasisAdapter`). It may explain protocol-specific basis, metrics, notices,
+links and evidence. It must not redefine instrument identity, lifecycle, protocol-version
+binding, market state or holdings, authorize trading, or become a second catalogue. Selection
+is by exact protocol id with no default F2F fallback. This is not the Phase 8 Protocol Engine:
+there is no DSL, plugin loader, fee engine or version supersession workflow.
+
 ---
 
 ## 10. Protocol Engine
