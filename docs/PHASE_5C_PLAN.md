@@ -5,10 +5,10 @@ implemented as an incremental navigation slice; remaining hierarchy-header and
 hard-routing work is explicitly deferred; 5C.3A domain coherence is implemented;
 5C.3B eligibility and onboarding UI is implemented as a read-only presentation
 slice; persistence, reassessment, suspension and revocation remain outside 5C.3;
-5C.4A universal instrument shell is implemented; 5C.4B investor workspace remains
-planned and is defined below; 5C.4 as a whole is not complete; 5C.5 remains
-planned except that EN/RU/KK key-set parity testing already exists. The
-post-5C.4B sequence in §5 is planning only.
+5C.4A universal instrument shell is implemented; 5C.4B investor workspace is
+implemented; 5C.4 as a whole is complete against its four documented acceptance
+criteria; 5C.5 remains planned except that EN/RU/KK key-set parity testing
+already exists. The post-5C.4B sequence in §5 is planning only.
 **Legal operator:** CommoChain Ltd.
 **Reads with:** `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md` (target canon),
 `docs/MARKET_CORE_ARCHITECTURE.md` (implementation status), `docs/DEVELOPMENT.md` (workflow).
@@ -176,9 +176,11 @@ navigationally and left the rest deferred (see 5C.2B).
 **Criterion 1 remains partial.** Hierarchy-level context is present on the 5C.2A spine
 (`/protocols`, `/protocols/[protocolId]`, the version route, `/markets`, `/instruments`,
 `/instruments/[instrumentId]`, `/issuances`, `/issuances/[issuanceId]`, `/secondary`) and on
-the 5C.2B module screens (`/fields`, `/pools`, `/coverage`, `/scas`, `/backing`). The
-following screens still lack the intended context header. Verified from source; this list is
-the remainder, not a commitment to add headers in 5C.2B.
+the 5C.2B module screens (`/fields`, `/pools`, `/coverage`, `/scas`, `/backing`).
+`/portfolio` received the platform-level `MarketCoreContextHeader` in 5C.4B; it is
+an investor workspace, not an F2F protocol module. The following screens still
+lack the intended context header. Verified from source; this list is the
+remainder, not a commitment to add headers in 5C.2B.
 
 Platform / market-core collections and desks:
 
@@ -187,7 +189,6 @@ Platform / market-core collections and desks:
 - `/participants`
 - `/supervision`
 - `/audit`
-- `/portfolio`
 - `/placements`
 - `/tokens`
 - `/compliance`
@@ -376,9 +377,11 @@ registrar ownership, navigation authorization, or impersonation.
 An institutional investor workspace over the existing Market Core, and one universal instrument
 shell that works for any protocol, with protocol-specific economic basis supplied by an adapter.
 
-**5C.4 as a whole is not complete.** 5C.4A has shipped the universal instrument shell and
-protocol economic-basis adapter boundary. 5C.4B (institutional investor workspace) remains
-planned.
+**5C.4 as a whole is complete** against the four acceptance criteria below. 5C.4A
+shipped the universal instrument shell and protocol economic-basis adapter
+boundary. 5C.4B shipped the institutional investor workspace over canonical
+Market Core sources. Remaining design, Help & Support and accessibility polish
+belong to 5C.5, not to a fifth 5C.4 slice.
 
 **Acceptance criteria**
 
@@ -415,54 +418,73 @@ matching or settlement change.
 - Synthetic non-agriculture proof (TIDAL / TIDE-2030) exists in tests only. It is not in the
   production catalogue. Missing adapters render unavailable, not F2F.
 
-**Not claimed by 5C.4A.** No institutional investor workspace. No new production protocol,
-version, instrument, issuance, market, price, yield or term. No persistence, money, client
-balances, matching, settlement, custody, Devnet execution, or production deployment. This is
-not a configurable protocol engine.
+**Not claimed by 5C.4A.** No new production protocol, version, instrument, issuance,
+market, price, yield or term. No persistence, money, client balances, matching,
+settlement, custody, Devnet execution, or production deployment. This is not a
+configurable protocol engine. The investor workspace is 5C.4B.
 
-#### 5C.4B — Institutional investor workspace *(planned)*
+#### 5C.4B — Institutional investor workspace *(implemented)*
 
-Replace the current F2F-oriented `/portfolio` page with a truthful, multi-protocol
-**institutional investor workspace** over canonical Market Core sources. This slice is
-not yet implemented.
+`/portfolio` is now a truthful, multi-protocol **institutional investor workspace**
+over canonical Market Core sources. It is a portal inspection surface, not a
+wallet, cash account, custody system, valuation or P&L engine, settlement-finality
+dashboard, new trading terminal, or a second instrument or position catalogue.
+Phase 5C.4A’s universal instrument shell remains the canonical instrument-details
+path. Order submit and cancel stay on `/secondary`.
 
-It is an investor workspace and portfolio inspection surface. It is not a wallet, cash
-account, custody system, valuation or P&L engine, settlement-finality dashboard, new
-trading terminal, or a second instrument or position catalogue. Phase 5C.4A’s universal
-instrument shell remains the canonical instrument-details path.
-
-**Intended sources.** Actor and participant identity from existing helpers
+**Canonical sources.** Actor and participant identity from existing helpers
 (`participantIdForActor`, organisation, membership). Holdings from scoped
-`listHoldings`. Instrument, protocol and protocol-version records from
-`getInstrumentMarketContext` / `resolveGoverningProtocolVersion` with no current-version
-fallback for an unbound instrument. Eligibility from Phase 5C.3
-`explainActorEligibility` / `presentEligibilityExplanation` / `presentNewOrderAdmission`.
-Open orders, reservations, trades and working overlays from the existing secondary-market
-repository when that live book is available. The existing `portfolio-service` is an F2F
-placement/wallet read model; 5C.4B must not blindly extend it.
+`listHoldings({ holderReference })`. Instrument, protocol and protocol-version
+records from `getInstrumentMarketContext` with no current-version fallback for an
+unbound instrument. Eligibility from Phase 5C.3 `explainActorEligibility` /
+`presentEligibilityExplanation` / `presentNewOrderAdmission`. Open orders,
+reservations, trades and working overlays from `fetchPersistentEngineState` when
+that live book is available; `MARKET_CORE_UNAVAILABLE` renders a localized
+unavailable state for orders and executions without substituting fixture data
+labelled live. Composition is `composeInvestorWorkspace` plus presentation
+selectors; the page does not recalculate holdings buckets or eligibility.
 
-**Intended `/portfolio` sections.** Non-monetary operational summary (instrument,
-protocol, open-order, reservation-attention and execution-lifecycle counts — never a
+**Authorization.** The production `portfolio.read.own` guard is unchanged.
+Holdings, orders, reservations and trades are scoped to the effective
+participant. Missing or inconsistent attribution fail closed. Unimpersonated
+`SYSTEM_ADMIN` receives no investor portfolio. Impersonation uses the selected
+persona. Navigation visibility is not authorization. Trader personas still lack
+`portfolio.read.own` and are not granted it here.
+
+**`/portfolio` sections.** Non-monetary operational summary (instrument, protocol,
+open-order, reservation-attention and execution-lifecycle counts — never a
 portfolio total). Holdings grouped Protocol → Instrument with owned / available /
-reserved / pledged / blocked kept distinct. Eligibility and new-order readiness only,
-without coupling cancellation of an owned order to current eligibility. Participant-owned
-open and partially filled orders with reservation linkage. Recorded executions and
-clearing states without translating an incomplete demonstrator lifecycle into settled,
-final, paid or custodied. Navigation links to the instrument shell, `/secondary` and
-existing market surfaces where production navigation policy already offers them.
+reserved / pledged / blocked kept distinct. Eligibility and new-order readiness
+only; cancellation of an owned order is not coupled to current eligibility. Open
+and partially filled orders with reservation linkage. Recorded executions and
+clearing states without translating MATCHED / CLEARING_READY /
+AWAITING_DEVNET_SETTLEMENT into settled, final, paid or custodied. Links to the
+instrument shell, `/secondary` and `/markets` where production navigation policy
+already offers them.
 
-**Intended constraints.** Retain `portfolio.read.own`. Scope every holding, order,
-reservation and trade to the effective participant; fail closed on missing or
-inconsistent attribution; unimpersonated `SYSTEM_ADMIN` receives no investor portfolio;
-impersonation uses the selected persona. No F2F / WHEAT / persona conditionals in generic
-workspace code. Synthetic non-agriculture proof (TIDAL / TIDE-2030) in tests only. No
-SQL, migrations, seed resets or fallback persistence. Unavailable live sources render a
-localized unavailable state rather than substituting fixture data labelled live. No cash
-balance, withdrawable balance, DEMO-KZT-as-money, NAV, P&L, yield, executable liquidity,
-AFSA approval, or custody/settlement finality.
+**Verified limitations.** The live book still requires the existing Supabase-backed
+secondary-market repository; when it is unavailable, holdings and eligibility from
+the canonical register remain visible and orders/executions show a truthful
+unavailable state. Local design-preview verification of `DEMO-FUND-001` on
+`/portfolio` showed that canonical-register provenance path (orders and
+executions unavailable) because the live book could not be loaded. Trader,
+platform-admin and registrar design-preview personas receive HTTP 403 and no
+workspace. The F2F `portfolio-service` remains for the investor dashboard
+widget and is leftover debt, not the workspace source. No SQL, migrations, seed
+resets, Demo Dataset V2, money ledger, CLOB, NEGO deals, or design-system
+replacement shipped in this slice. Synthetic TIDAL / TIDE-2030 proof exists in
+tests only and is not in the production catalogue.
 
-5C.4 as a whole remains incomplete until this slice lands and the four acceptance
-criteria above are demonstrably satisfied.
+**Not claimed by 5C.4B.** No cash balance, withdrawable balance, DEMO-KZT-as-money,
+NAV, P&L, yield, executable liquidity, AFSA approval, custody finality, or
+settlement finality. This PR does not rename the GitHub repository, replace
+current demo data, or start Exchange Core / Phase 6–8 work.
+
+The four 5C.4 acceptance criteria above are satisfied: (1) the 5C.4A shell still
+renders a non-agriculture instrument without agriculture code paths; (2) the
+workspace reads Market Core only; (3) both the shell and the workspace keep the
+five holdings buckets distinct; (4) structuring and concept instruments still
+withhold offer, price, yield and term.
 
 ### 5C.5 — Help & Support, multilingual polish, accessibility, and regression hardening
 
@@ -470,7 +492,7 @@ Minimal Help & Support, kk/ru/en polish, accessibility passes on the market-core
 regression hardening. EN/RU/KK key-set parity testing already exists
 (`src/i18n/message-parity.test.ts`): a missing key no longer fails silently in review.
 Ordering remains enforced only for the namespaces explicitly covered by the current
-test (`marketCore`, `errors` and `eligibility`). 5C.5 still owns broader multilingual polish,
+test (`marketCore`, `errors`, `eligibility` and `portfolio`). 5C.5 still owns broader multilingual polish,
 Help & Support content, and accessibility.
 
 **Acceptance criteria**
