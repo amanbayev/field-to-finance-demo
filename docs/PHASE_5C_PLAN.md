@@ -439,9 +439,11 @@ records from `getInstrumentMarketContext` with no current-version fallback for a
 unbound instrument. Eligibility from Phase 5C.3 `explainActorEligibility` /
 `presentEligibilityExplanation` / `presentNewOrderAdmission`. Open orders,
 reservations, trades and working overlays from `fetchPersistentEngineState` when
-that live book is available; `MARKET_CORE_UNAVAILABLE` renders a localized
-unavailable state for orders and executions without substituting fixture data
-labelled live. Composition is `composeInvestorWorkspace` plus presentation
+that live book is available. Orders and executions render a localized unavailable
+state — never fixture data labelled live — whenever that activity cannot be read
+and scoped: any failure of the live-book fetch, of which `MARKET_CORE_UNAVAILABLE`
+is one message and not the only one, or an effective actor with no mapped
+participant identity to scope activity to. Composition is `composeInvestorWorkspace` plus presentation
 selectors; the page does not recalculate holdings buckets or eligibility.
 
 **Authorization.** The production `portfolio.read.own` guard is unchanged.
@@ -561,13 +563,17 @@ tests. Assertions must not be weakened to make a failing test pass.
 
 ## 5. Agreed sequence after 5C.4B *(planning only)*
 
-This sequence is not implementation in Phase 5C.4B. Recording it here does not start any
-of these workstreams.
+Recording this sequence starts no workstream. Only the item explicitly marked as
+in progress has begun.
 
-1. **Platform and repository naming migration.** Current candidate name:
-   `commochain-platform`. This plan does not rename the GitHub repository.
-2. **Demo Dataset V2** with reproducible, safe reset/seed tooling. This plan does not
-   replace current demo data.
+1. **Demo Golden Path V2** — one end-to-end run created through the UI from a clean
+   business state, including Demo Dataset V2 and its reproducible, safe reset/seed
+   tooling. Contract and stage plan: `docs/DEMO_GOLDEN_PATH_V2.md`. *In progress at
+   GP-00 / GP-01: contract, environment policy and read-only reset planning only. No
+   reset execution path and no replacement of current demo data has shipped.*
+2. **Platform and repository naming migration**, after Golden Path V2 acceptance.
+   Current candidate name: `commochain-platform`. Not started; this plan does not
+   rename the GitHub repository.
 3. **Phase 5C.5** — design, UX, i18n and accessibility polish. This plan does not
    replace the design system.
 4. **Exchange Core** — CLOB / order book, market operations and negotiated (NEGO) deals.
@@ -575,3 +581,18 @@ of these workstreams.
 5. **Money ledger and pre-trade risk** (Phase 6). Not implemented here.
 6. **Clearing and real DvP** (Phase 7). Not implemented here.
 7. **Protocol Engine** (Phase 8). Not implemented here.
+
+---
+
+## 6. Retained backlog carried into Golden Path V2
+
+These items are known, deliberately unfixed, and each carries a closing stage from
+`docs/DEMO_GOLDEN_PATH_V2.md`. Recording them is not a claim that they are fixed.
+
+| # | Item | Closing stage |
+| --- | --- | --- |
+| 1 | A rejected working overlay can still keep canonical values while `holdingsProvenance` reports `CANONICAL_WITH_WORKING_OVERLAY` (`src/lib/market-core/investor-workspace.ts`). Correct before final provenance acceptance. | GP-14B |
+| 2 | Unavailable-activity wording in 5C.4B named `MARKET_CORE_UNAVAILABLE` as the only cause, while `getInvestorWorkspace` also renders activity unavailable for an actor with no mapped participant identity and for any other live-book failure message. | Fixed in GP-00 |
+| 3 | Guarded `generateMetadata` on a 403 route has no explicit access regression test. | GP-03 |
+| 4 | No direct null test for `protocolModuleTrailAccess(null)`. | GP-03 |
+| 5 | Legacy F2F `portfolio-service` still backs the investor dashboard widget (`src/components/dashboard/role-dashboard.tsx`). Unify the source before new-investor acceptance. | GP-14B |

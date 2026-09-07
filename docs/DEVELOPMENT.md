@@ -79,19 +79,26 @@ Before domain or platform changes, read:
 1. `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md`
 2. `docs/MARKET_CORE_ARCHITECTURE.md`
 
-Current sequencing after Phase 5B:
+Current sequencing after Phase 5C.4B:
 
-1. **Phase 5C — Platform Coherence / Multi-Protocol Product Foundation**: coherent
-   institutional/investor UX, Protocols-to-Instruments information architecture,
-   role-aware onboarding and eligibility, minimal Help & Support, and immutable
-   `Instrument → ProtocolVersion` binding.
-2. **Phase 6 — Money & Settlement**: bank-confirmed funding, cash subledger, reserves,
-   holds, withdrawals, reconciliation, and explicit client-money controls.
-3. **Phase 7 — Real DvP**: execute and prove the real delivery-versus-payment path.
-4. **Phase 8 — Protocol Engine**: configurable protocol lifecycle and governance.
+1. **Demo Golden Path V2** — one end-to-end run created through the UI from a clean
+   business state, including Demo Dataset V2 reset/seed tooling. Read
+   `docs/DEMO_GOLDEN_PATH_V2.md` before touching demo data, seeding, environment
+   gating or the origination-to-placement flow. Only the GP-00 contract and the
+   read-only GP-01 reset planning exist today; there is no reset execution path.
+2. **Platform and repository naming migration**, after Golden Path V2 acceptance. Not
+   started.
+3. **Phase 5C.5** — design, UX, i18n and accessibility polish.
+4. **Exchange Core** — CLOB / order book, market operations and negotiated deals.
+5. **Phase 6 — Money & Settlement**: bank-confirmed funding, cash subledger, reserves,
+   holds, withdrawals, reconciliation, explicit client-money controls, and pre-trade
+   risk.
+6. **Phase 7 — Real DvP**: execute and prove the real delivery-versus-payment path.
+7. **Phase 8 — Protocol Engine**: configurable protocol lifecycle and governance.
 
-Do not pull Phase 6–8 functionality into Phase 5C or label prepared/future behavior as
-implemented.
+Do not pull Exchange Core or Phase 6–8 functionality into Golden Path V2, and do not
+label prepared or future behavior as implemented. Phase 5C slice detail and the
+retained backlog live in `docs/PHASE_5C_PLAN.md`.
 
 ## 5. Validation
 
