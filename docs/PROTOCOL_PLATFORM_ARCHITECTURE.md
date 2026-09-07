@@ -525,6 +525,11 @@ Potential channels:
 
 A new frontend, wallet or partner integration is a channel / adapter, not a new market or new source of instrument truth.
 
+The intended **institutional investor workspace** is a portal channel over Market Core
+holdings, eligibility, orders, reservations and recorded executions. It must not become a
+second instrument catalogue, a wallet, a cash ledger, or a valuation engine. Phase 5C.4B
+is the planned delivery of that channel; it is not implemented by this document.
+
 ---
 
 ## 17. Cross-cutting auditability

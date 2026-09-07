@@ -6,8 +6,9 @@ hard-routing work is explicitly deferred; 5C.3A domain coherence is implemented;
 5C.3B eligibility and onboarding UI is implemented as a read-only presentation
 slice; persistence, reassessment, suspension and revocation remain outside 5C.3;
 5C.4A universal instrument shell is implemented; 5C.4B investor workspace remains
-planned; 5C.4 as a whole is not complete; 5C.5 remains planned except that
-EN/RU/KK key-set parity testing already exists.
+planned and is defined below; 5C.4 as a whole is not complete; 5C.5 remains
+planned except that EN/RU/KK key-set parity testing already exists. The
+post-5C.4B sequence in §5 is planning only.
 **Legal operator:** CommoChain Ltd.
 **Reads with:** `docs/PROTOCOL_PLATFORM_ARCHITECTURE.md` (target canon),
 `docs/MARKET_CORE_ARCHITECTURE.md` (implementation status), `docs/DEVELOPMENT.md` (workflow).
@@ -421,8 +422,47 @@ not a configurable protocol engine.
 
 #### 5C.4B — Institutional investor workspace *(planned)*
 
-Workspace over existing Market Core holdings, orders and eligibility. Must not invent a
-second instrument catalogue or imply live balances.
+Replace the current F2F-oriented `/portfolio` page with a truthful, multi-protocol
+**institutional investor workspace** over canonical Market Core sources. This slice is
+not yet implemented.
+
+It is an investor workspace and portfolio inspection surface. It is not a wallet, cash
+account, custody system, valuation or P&L engine, settlement-finality dashboard, new
+trading terminal, or a second instrument or position catalogue. Phase 5C.4A’s universal
+instrument shell remains the canonical instrument-details path.
+
+**Intended sources.** Actor and participant identity from existing helpers
+(`participantIdForActor`, organisation, membership). Holdings from scoped
+`listHoldings`. Instrument, protocol and protocol-version records from
+`getInstrumentMarketContext` / `resolveGoverningProtocolVersion` with no current-version
+fallback for an unbound instrument. Eligibility from Phase 5C.3
+`explainActorEligibility` / `presentEligibilityExplanation` / `presentNewOrderAdmission`.
+Open orders, reservations, trades and working overlays from the existing secondary-market
+repository when that live book is available. The existing `portfolio-service` is an F2F
+placement/wallet read model; 5C.4B must not blindly extend it.
+
+**Intended `/portfolio` sections.** Non-monetary operational summary (instrument,
+protocol, open-order, reservation-attention and execution-lifecycle counts — never a
+portfolio total). Holdings grouped Protocol → Instrument with owned / available /
+reserved / pledged / blocked kept distinct. Eligibility and new-order readiness only,
+without coupling cancellation of an owned order to current eligibility. Participant-owned
+open and partially filled orders with reservation linkage. Recorded executions and
+clearing states without translating an incomplete demonstrator lifecycle into settled,
+final, paid or custodied. Navigation links to the instrument shell, `/secondary` and
+existing market surfaces where production navigation policy already offers them.
+
+**Intended constraints.** Retain `portfolio.read.own`. Scope every holding, order,
+reservation and trade to the effective participant; fail closed on missing or
+inconsistent attribution; unimpersonated `SYSTEM_ADMIN` receives no investor portfolio;
+impersonation uses the selected persona. No F2F / WHEAT / persona conditionals in generic
+workspace code. Synthetic non-agriculture proof (TIDAL / TIDE-2030) in tests only. No
+SQL, migrations, seed resets or fallback persistence. Unavailable live sources render a
+localized unavailable state rather than substituting fixture data labelled live. No cash
+balance, withdrawable balance, DEMO-KZT-as-money, NAV, P&L, yield, executable liquidity,
+AFSA approval, or custody/settlement finality.
+
+5C.4 as a whole remains incomplete until this slice lands and the four acceptance
+criteria above are demonstrably satisfied.
 
 ### 5C.5 — Help & Support, multilingual polish, accessibility, and regression hardening
 
@@ -494,3 +534,22 @@ git diff --check
 
 Domain, authorization, matching, settlement and origination behaviour changes require regression
 tests. Assertions must not be weakened to make a failing test pass.
+
+---
+
+## 5. Agreed sequence after 5C.4B *(planning only)*
+
+This sequence is not implementation in Phase 5C.4B. Recording it here does not start any
+of these workstreams.
+
+1. **Platform and repository naming migration.** Current candidate name:
+   `commochain-platform`. This plan does not rename the GitHub repository.
+2. **Demo Dataset V2** with reproducible, safe reset/seed tooling. This plan does not
+   replace current demo data.
+3. **Phase 5C.5** — design, UX, i18n and accessibility polish. This plan does not
+   replace the design system.
+4. **Exchange Core** — CLOB / order book, market operations and negotiated (NEGO) deals.
+   Not implemented here.
+5. **Money ledger and pre-trade risk** (Phase 6). Not implemented here.
+6. **Clearing and real DvP** (Phase 7). Not implemented here.
+7. **Protocol Engine** (Phase 8). Not implemented here.

@@ -26,6 +26,7 @@ ISS-001 is an issuance of WHEAT-2027, not a token type. POOL-WHEAT-2027-01 is ba
 | WheatOrder / WheatTrade / WheatMarket types | **Not created** (forbidden). |
 | Secondary matching / transacting market | **IMPLEMENTED (Preview)**. Market `MKT-WHEAT-2027-DEMO-KZT`, `phase: SECONDARY_OPEN`, `transacting: true`, LIMIT only. Stops at `AWAITING_DEVNET_SETTLEMENT`. |
 | Universal instrument shell and protocol economic-basis adapters (Phase 5C.4A) | **IMPLEMENTED**. `/instruments/[instrumentId]` renders a generic shell from canonical Market Core plus an `InstrumentEconomicBasisAdapter` selected by exact protocol id. The F2F adapter supplies WHEAT-2027 demonstrator basis and evidence. Non-issued instruments withhold offer / price / yield / term. This is not a protocol plugin engine and not 5C.4B. |
+| Institutional investor workspace (Phase 5C.4B) | **PLANNED**. `/portfolio` is still the F2F placement/wallet read model (`portfolio-service`). 5C.4B will replace that page with a participant-scoped workspace over Market Core holdings, eligibility, orders, reservations and recorded executions. It will not be a wallet, cash account, valuation engine or settlement-finality dashboard. See `docs/PHASE_5C_PLAN.md`. |
 
 ## Matching
 
@@ -195,7 +196,7 @@ Asset Protocol → SPV / Issuer → Investment Instrument → Market Core
 - `/instruments/F2F-PROTOCOL-INVESTMENT` — CONCEPT / STRUCTURING · no offering · not issued · not admitted; no price, yield, term or market availability
 - `/tokens/WHEAT-2027` redirects to the instrument page
 
-The generic shell (`src/components/market-core/instrument-shell-view.tsx`) must not switch on instrument id, protocol id or asset class. Identity, lifecycle, issuer, issuance, market and holdings come from `getInstrumentMarketContext`. Protocol-specific facts are an `InstrumentEconomicBasisAdapter` result. The production registry currently registers only the F2F adapter. A synthetic TIDAL / TIDE-2030 fixture exists in tests only and is not a production instrument. Compact and wide ownership views keep owned / available / reserved / pledged / blocked distinct. 5C.4B investor workspace is not implemented.
+The generic shell (`src/components/market-core/instrument-shell-view.tsx`) must not switch on instrument id, protocol id or asset class. Identity, lifecycle, issuer, issuance, market and holdings come from `getInstrumentMarketContext`. Protocol-specific facts are an `InstrumentEconomicBasisAdapter` result. The production registry currently registers only the F2F adapter. A synthetic TIDAL / TIDE-2030 fixture exists in tests only and is not a production instrument. Compact and wide ownership views keep owned / available / reserved / pledged / blocked distinct. 5C.4B investor workspace is planned and not implemented: `/portfolio` remains the F2F-oriented `portfolio-service` surface until that slice lands.
 
 ### D. Role workspaces
 
