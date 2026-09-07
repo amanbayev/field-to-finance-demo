@@ -306,6 +306,26 @@ describe("demo reset dry-run planner", () => {
     );
   });
 
+  it("refuses a non-existent calendar date as the observation time", () => {
+    const plan = planDemoResetDryRun({
+      authorization: allowedAuthorization(),
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "RUN-1",
+      inventory: {
+        source: "OBSERVED",
+        observedAt: "2026-02-30T00:00:00Z",
+        categories: {
+          kept: { kind: "COUNTED", rows: 12 },
+          "run-rows": { kind: "COUNTED", rows: 3 },
+        },
+      },
+    });
+    expect(plan.status).not.toBe("READY_FOR_CONFIRMATION");
+    expect(plan.status).toBe("BLOCKED");
+    expect(plan.blockers).toContain("INVENTORY_TIME_NOT_ESTABLISHED");
+    expect(plan.inventoryObservedAt).toBeNull();
+  });
+
   it("refuses an observation time that is not a real instant", () => {
     const plan = planDemoResetDryRun({
       authorization: allowedAuthorization(),

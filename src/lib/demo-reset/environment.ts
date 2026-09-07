@@ -34,6 +34,13 @@ export type DemoResetEnvironmentName =
  */
 const NODE_ENV_VALUES = ["development", "production", "test"] as const;
 const VERCEL_ENV_VALUES = ["production", "preview", "development"] as const;
+/**
+ * Vercel sets `VERCEL=1` on its build and runtime environments. That is the
+ * only value this contract accepts as evidence of a Vercel deployment: `"0"`,
+ * `"mystery"` or any other string is an environment this contract cannot
+ * attribute, not a deployment flag to coerce into a boolean.
+ */
+const VERCEL_VALUES = ["1"] as const;
 const PUBLIC_APP_ENV_VALUES = [
   "demo",
   "development",
@@ -263,6 +270,9 @@ function resolveRuntimeSignals(
     return unknownRuntime(looksDeployed, "RUNTIME_SIGNALS_NOT_DECLARED");
   }
   if (!isOneOf(NODE_ENV_VALUES, nodeEnv)) {
+    return unknownRuntime(looksDeployed, "RUNTIME_SIGNALS_NOT_RECOGNISED");
+  }
+  if (vercel !== undefined && !isOneOf(VERCEL_VALUES, vercel)) {
     return unknownRuntime(looksDeployed, "RUNTIME_SIGNALS_NOT_RECOGNISED");
   }
   if (vercelEnv !== undefined && !isOneOf(VERCEL_ENV_VALUES, vercelEnv)) {

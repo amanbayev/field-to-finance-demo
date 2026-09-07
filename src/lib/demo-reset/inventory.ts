@@ -80,14 +80,53 @@ export function isValidRowCount(value: unknown): value is number {
 }
 
 const OBSERVED_AT_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?Z$/;
 
-/** An observation instant must be an ISO 8601 UTC timestamp of a real date. */
+/**
+ * An observation instant must be an ISO 8601 UTC timestamp of a real date:
+ * `YYYY-MM-DDTHH:MM:SSZ`, optionally with one to three fractional digits.
+ *
+ * `Date.parse` is not sufficient. It silently normalises a non-existent date —
+ * `2026-02-30T00:00:00Z` becomes 2 March and `2026-02-29T00:00:00Z` becomes
+ * 1 March — so a reader that emitted a corrupt date would be reported as
+ * having observed a real instant. The calendar components are therefore
+ * compared against the UTC date they produce, and the time components are
+ * bounded explicitly because a minute or second overflow can normalise inside
+ * the same day and escape that comparison.
+ */
 export function isObservationInstant(value: unknown): value is string {
-  if (typeof value !== "string" || !OBSERVED_AT_PATTERN.test(value)) {
+  if (typeof value !== "string") {
     return false;
   }
-  return Number.isFinite(Date.parse(value));
+  const match = OBSERVED_AT_PATTERN.exec(value);
+  if (!match) {
+    return false;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return false;
+  }
+  // Leap seconds are not representable, so 60 is rejected rather than rolled.
+  if (hour > 23 || minute > 59 || second > 59) {
+    return false;
+  }
+
+  const utc = Date.UTC(year, month - 1, day, hour, minute, second);
+  if (!Number.isFinite(utc)) {
+    return false;
+  }
+  const normalised = new Date(utc);
+  return (
+    normalised.getUTCFullYear() === year &&
+    normalised.getUTCMonth() === month - 1 &&
+    normalised.getUTCDate() === day
+  );
 }
 
 export type DemoResetObservationTime =

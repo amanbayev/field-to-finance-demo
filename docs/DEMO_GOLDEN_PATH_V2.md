@@ -287,9 +287,12 @@ A `NEXT_PUBLIC_*` flag is never sufficient — nor is `NODE_ENV` alone. The impl
 
 - runtime signals that classify the environment against a **closed table**. `NODE_ENV`, `VERCEL`,
   `VERCEL_ENV` and `NEXT_PUBLIC_APP_ENV` must be present where the table needs them and carry
-  recognised values. Missing signals, an unrecognised value, `VERCEL` without `VERCEL_ENV` or the
-  reverse, and a Vercel runtime that is not `preview` all resolve to `UNKNOWN` and refuse. There is
-  no permissive default: the classifier never assumes `development` because it was told nothing;
+  recognised values. `VERCEL` is checked by value, not by presence: only `1`, the value Vercel
+  sets, is accepted as a deployment, so `VERCEL=0` and any other string refuse. Missing signals, an
+  unrecognised value, `VERCEL` without `VERCEL_ENV` or the reverse, and a Vercel runtime that is
+  not `preview` all resolve to `UNKNOWN` and refuse. A local run with no `VERCEL` variable stays
+  valid. There is no permissive default: the classifier never assumes `development` because it was
+  told nothing;
 - an explicitly declared environment name from a closed allow-list;
 - a declared dataset identifier;
 - a declared database identity in Supabase project-ref form;
@@ -342,6 +345,11 @@ observation kind it does not know, and a claimed count with no valid observation
 substitutes zero for a broken count or the current clock for a missing observation time, because a
 substituted value would misreport the environment. A blank or whitespace run identifier
 establishes no scope.
+
+An observation time is validated by calendar component, not by `Date.parse`, which silently
+normalises a non-existent date: `2026-02-30T00:00:00Z` would become 2 March and
+`2026-02-29T00:00:00Z` would become 1 March. A date that does not exist is refused rather than
+moved, while the supported format — ISO 8601 UTC with optional milliseconds — is unchanged.
 
 ### 9.3.1 Counts are not proof that the row set is unchanged
 

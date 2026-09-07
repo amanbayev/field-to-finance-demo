@@ -72,6 +72,14 @@ describe("observation instant validation", () => {
     expect(isObservationInstant("2026-09-07T00:00:00Z")).toBe(true);
   });
 
+  it("accepts an ordinary date and the supported fractional seconds", () => {
+    expect(isObservationInstant("2026-09-07T14:35:09Z")).toBe(true);
+    expect(isObservationInstant("2026-09-07T14:35:09.1Z")).toBe(true);
+    expect(isObservationInstant("2026-09-07T14:35:09.12Z")).toBe(true);
+    expect(isObservationInstant("2026-09-07T14:35:09.123Z")).toBe(true);
+    expect(isObservationInstant("2026-12-31T23:59:59.999Z")).toBe(true);
+  });
+
   it("rejects prose, offsets, impossible dates and non-strings", () => {
     expect(isObservationInstant("yesterday")).toBe(false);
     expect(isObservationInstant("2026-09-07")).toBe(false);
@@ -79,6 +87,30 @@ describe("observation instant validation", () => {
     expect(isObservationInstant("2026-13-45T00:00:00.000Z")).toBe(false);
     expect(isObservationInstant(null)).toBe(false);
     expect(isObservationInstant(1_757_000_000_000)).toBe(false);
+  });
+
+  it("rejects 30 February instead of normalising it to March", () => {
+    // Date.parse("2026-02-30T00:00:00Z") silently yields 2 March.
+    expect(new Date(Date.parse("2026-02-30T00:00:00Z")).toISOString()).toBe(
+      "2026-03-02T00:00:00.000Z",
+    );
+    expect(isObservationInstant("2026-02-30T00:00:00Z")).toBe(false);
+  });
+
+  it("rejects 29 February in a non-leap year and accepts it in a leap year", () => {
+    expect(isObservationInstant("2026-02-29T00:00:00Z")).toBe(false);
+    expect(isObservationInstant("2100-02-29T00:00:00Z")).toBe(false);
+    expect(isObservationInstant("2024-02-29T12:00:00.000Z")).toBe(true);
+    expect(isObservationInstant("2000-02-29T00:00:00Z")).toBe(true);
+  });
+
+  it("rejects other non-existent days and out-of-range times", () => {
+    expect(isObservationInstant("2026-04-31T00:00:00Z")).toBe(false);
+    expect(isObservationInstant("2026-09-00T00:00:00Z")).toBe(false);
+    expect(isObservationInstant("2026-00-09T00:00:00Z")).toBe(false);
+    expect(isObservationInstant("2026-09-07T24:00:00Z")).toBe(false);
+    expect(isObservationInstant("2026-09-07T00:60:00Z")).toBe(false);
+    expect(isObservationInstant("2026-09-07T00:00:60Z")).toBe(false);
   });
 
   it("separates a valid, an absent and an invalid observation time", () => {

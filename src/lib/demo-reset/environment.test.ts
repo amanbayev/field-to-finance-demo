@@ -210,6 +210,56 @@ describe("demo reset environment contract", () => {
     expect(resolution.refusals).toContain("RUNTIME_SIGNALS_NOT_RECOGNISED");
   });
 
+  it("refuses VERCEL=\"0\" while every other signal is valid", () => {
+    const resolution = resolveDemoResetEnvironment(
+      approvedQaSignals({ vercel: "0" }),
+    );
+    expect(resolution.eligible).toBe(false);
+    expect(resolution.environmentClass).toBe("UNKNOWN");
+    expect(resolution.refusals).toContain("RUNTIME_SIGNALS_NOT_RECOGNISED");
+  });
+
+  it("refuses an unrecognised VERCEL value while every other signal is valid", () => {
+    const resolution = resolveDemoResetEnvironment(
+      approvedQaSignals({ vercel: "mystery" }),
+    );
+    expect(resolution.eligible).toBe(false);
+    expect(resolution.environmentClass).toBe("UNKNOWN");
+    expect(resolution.refusals).toContain("RUNTIME_SIGNALS_NOT_RECOGNISED");
+  });
+
+  it("accepts the supported deployed preview contract, VERCEL=\"1\"", () => {
+    const resolution = resolveDemoResetEnvironment(
+      approvedQaSignals({ vercel: "1" }),
+    );
+    expect(resolution.eligible).toBe(true);
+    expect(resolution.environmentClass).toBe("APPROVED_DEMO");
+    expect(resolution.refusals).toEqual([]);
+  });
+
+  it("accepts local development with no VERCEL variable at all", () => {
+    const resolution = resolveDemoResetEnvironment({
+      nodeEnv: "development",
+      publicAppEnv: "demo",
+      declaredEnvironment: "local-development",
+      declaredDatasetId: "demo-dataset-v2",
+      declaredDatabaseRef: APPROVED_REF,
+      observedSupabaseUrl: `https://${APPROVED_REF}.supabase.co`,
+    });
+    expect(resolution.eligible).toBe(true);
+    expect(resolution.environmentName).toBe("local-development");
+    expect(resolution.refusals).toEqual([]);
+  });
+
+  it("keeps the production denial ahead of an unrecognised VERCEL value", () => {
+    const resolution = resolveDemoResetEnvironment(
+      approvedQaSignals({ vercel: "mystery", vercelEnv: "production" }),
+    );
+    expect(resolution.eligible).toBe(false);
+    expect(resolution.environmentClass).toBe("PRODUCTION");
+    expect(resolution.refusals).toContain("PRODUCTION_ENVIRONMENT_DENIED");
+  });
+
   it("refuses VERCEL_ENV without VERCEL, and VERCEL without VERCEL_ENV", () => {
     const missingVercel = resolveDemoResetEnvironment(
       approvedQaSignals({ vercel: undefined, nodeEnv: "development" }),
