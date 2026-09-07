@@ -131,6 +131,13 @@ export function issuancesTrail(): HierarchyCrumb[] {
   ];
 }
 
+export function portfolioTrail(): HierarchyCrumb[] {
+  return [
+    platformCrumb(platformHref()),
+    { level: "PLATFORM", labelKey: "investorWorkspaceTitle" },
+  ];
+}
+
 export function protocolTrail(protocol: AssetProtocol): HierarchyCrumb[] {
   return [
     platformCrumb(platformHref()),

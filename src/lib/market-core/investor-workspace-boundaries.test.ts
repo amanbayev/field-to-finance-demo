@@ -5,6 +5,8 @@ const GENERIC_WORKSPACE_SOURCES = [
   "src/lib/market-core/investor-workspace.ts",
   "src/lib/market-core/investor-workspace-presentation.ts",
   "src/services/investor-workspace.ts",
+  "src/components/market-core/investor-workspace-view.tsx",
+  "src/app/portfolio/page.tsx",
 ] as const;
 
 const FORBIDDEN = [
@@ -24,6 +26,8 @@ const FORBIDDEN = [
   "DEMO-TRADER-001",
   "instrument.id ===",
   "assetClass ===",
+  "portfolio-service",
+  "getInvestorPortfolio",
 ] as const;
 
 describe("generic investor workspace source boundaries", () => {
@@ -34,5 +38,13 @@ describe("generic investor workspace source boundaries", () => {
         expect(source, `${token} in ${file}`).not.toContain(token);
       }
     }
+  });
+
+  it("keeps the production portfolio.read.own page guard", () => {
+    const source = readFileSync("src/app/portfolio/page.tsx", "utf8");
+    expect(source).toContain('requirePermission("portfolio.read.own")');
+    expect(source).toContain("getInvestorWorkspace");
+    expect(source).toContain("InvestorWorkspaceView");
+    expect(source).toContain("workspace.kind === \"DENIED\"");
   });
 });
