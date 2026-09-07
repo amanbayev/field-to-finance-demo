@@ -178,6 +178,19 @@ describe("message catalogue parity", () => {
     }
   });
 
+  it("keeps Kazakh placement-supply labels as volume, not offering", () => {
+    const minted = kk.marketCore.mintedSupply;
+    const circulating = kk.marketCore.circulatingSupply;
+    expect(minted).toBe("Шығарылған көлем");
+    expect(circulating).toBe("Айналымдағы көлем");
+    expect(minted).not.toContain("ұсыныс");
+    expect(circulating).not.toContain("ұсыныс");
+    expect(minted).not.toBe(en.marketCore.mintedSupply);
+    expect(circulating).not.toBe(en.marketCore.circulatingSupply);
+    expect(minted).not.toBe(ru.marketCore.mintedSupply);
+    expect(circulating).not.toBe(ru.marketCore.circulatingSupply);
+  });
+
   it("localizes both frozen states and the full rule-snapshot labels", () => {
     const keys = [
       "immutableRules",
