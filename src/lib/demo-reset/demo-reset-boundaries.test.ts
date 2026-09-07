@@ -16,6 +16,13 @@ const LIB_DIR = "src/lib/demo-reset";
 const SERVICE = "src/services/demo-reset-service.ts";
 
 /**
+ * Observing an environment is an I/O boundary, so the inventory reader is the
+ * one module allowed to be asynchronous. Every other module stays synchronous,
+ * which is what keeps `await` — and therefore any client call — out of them.
+ */
+const READER = `${LIB_DIR}/inventory-reader.ts`;
+
+/**
  * Comments and string literals legitimately discuss deletion, so the scan
  * runs against executable source only.
  */
@@ -74,11 +81,13 @@ describe("demo reset has no executing deletion path", () => {
     ).toEqual([
       "environment.ts",
       "index.ts",
+      "inventory-reader.ts",
       "inventory.ts",
       "legacy-fixture-fallback.ts",
       "manifest.ts",
       "plan.ts",
       "policy.ts",
+      "run-ownership.ts",
     ]);
     expect(existsSync(SERVICE)).toBe(true);
   });
@@ -107,12 +116,33 @@ describe("demo reset has no executing deletion path", () => {
     }
   });
 
-  it("keeps the pure modules free of any asynchronous boundary", () => {
-    for (const file of libSources()) {
+  it("keeps every module but the inventory reader free of an asynchronous boundary", () => {
+    const pure = libSources().filter((file) => file !== READER);
+    expect(pure).not.toContain(READER);
+    for (const file of pure) {
       const source = executableSource(file);
       expect(source, `async in ${file}`).not.toMatch(/\basync\b/);
       expect(source, `await in ${file}`).not.toMatch(/\bawait\b/);
     }
+  });
+
+  it("gives the inventory reader one injected read capability and no other", () => {
+    const source = readFileSync(READER, "utf8");
+    // The source is a parameter, so the reader cannot reach ambient state and
+    // a test can prove it was never invoked.
+    expect(source).toContain("source?: DemoResetRowCountSource | null");
+    expect(source).toContain("countRows(object: string)");
+    expect(source, "table access in the reader").not.toContain(".from(");
+    expect(source, "query builder in the reader").not.toContain(".select(");
+  });
+
+  it("derives run ownership server-side and never looks a run up", () => {
+    const source = readFileSync(`${LIB_DIR}/run-ownership.ts`, "utf8");
+    // The claim is typed `unknown` and only ever compared, never used as a key.
+    expect(source).toContain("claimedRunId?: unknown");
+    expect(source).toContain('return notEstablished("RUN_NOT_OWNED_BY_ACTOR")');
+    expect(source, "run lookup").not.toContain(".from(");
+    expect(source, "run lookup").not.toContain(".eq(");
   });
 
   it("exposes no server action, route handler or page", () => {
@@ -147,8 +177,10 @@ describe("demo reset has no executing deletion path", () => {
   });
 
   it("defaults the production inventory to unavailable rather than empty", () => {
-    expect(readFileSync(SERVICE, "utf8")).toContain(
-      'unavailableDemoResetInventory("RUN_SCOPED_INVENTORY_SOURCE_ABSENT")',
+    // Whitespace-insensitive so that reformatting the call cannot silently
+    // retire the guard.
+    expect(readFileSync(SERVICE, "utf8").replace(/\s/g, "")).toContain(
+      'unavailableDemoResetInventory("RUN_SCOPED_INVENTORY_SOURCE_ABSENT"',
     );
   });
 });

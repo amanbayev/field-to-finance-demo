@@ -32,6 +32,18 @@ export {
 } from "./policy";
 
 export type {
+  DemoResetRunScope,
+  DemoResetRunScopeRefusal,
+} from "./run-ownership";
+export {
+  DEMO_RESET_RUN_ID_SCHEME,
+  DEMO_RESET_RUN_SCOPE_REFUSALS,
+  demoResetRunId,
+  isDemoResetRunId,
+  resolveDemoResetRunScope,
+} from "./run-ownership";
+
+export type {
   DemoResetCategory,
   DemoResetDisposition,
   DemoResetManifest,
@@ -68,6 +80,13 @@ export {
   isValidRowCount,
   unavailableDemoResetInventory,
 } from "./inventory";
+
+export type {
+  DemoResetInventoryRead,
+  DemoResetRowCount,
+  DemoResetRowCountSource,
+} from "./inventory-reader";
+export { readDemoResetInventory } from "./inventory-reader";
 
 export type {
   DemoResetDryRunPlan,
