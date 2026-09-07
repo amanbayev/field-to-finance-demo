@@ -73,6 +73,7 @@ export const PERMISSIONS = [
   "admin.organizations",
   "admin.roles",
   "admin.demo_personas",
+  "admin.demo_reset",
   "audit.read",
 ] as const;
 
