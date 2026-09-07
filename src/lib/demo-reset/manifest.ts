@@ -172,8 +172,14 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     objects: ["registrar_registered_ownership"],
     note:
       "The legal book of record. Clearing it is a demo-environment action " +
-      "only, and requires the app.registrar_sync guard rather than a plain " +
-      "delete.",
+      "only. Per 20260823200000_registrar_book_and_live_proof.sql the table " +
+      "has RLS enabled, all privileges revoked from public, anon and " +
+      "authenticated, and select/insert/update/delete granted to service_role " +
+      "alone, so deletion needs that server credential. app.registrar_sync is " +
+      "unrelated: it gates UPDATE OF owned on market_core_holdings. The sync " +
+      "trigger fires only on insert or update of registered_quantity, so " +
+      "deleting rows here leaves market_core_holdings.owned stale and both " +
+      "must be cleared in one pass.",
   },
   {
     id: "application-audit",

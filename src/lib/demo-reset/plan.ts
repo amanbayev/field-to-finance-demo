@@ -7,7 +7,8 @@
  * path anywhere in this module.
  *
  * The planner fails closed. It reaches `READY_FOR_CONFIRMATION` only when the
- * actor and environment are authorized, the run scope is established, every
+ * actor and environment are authorized, the inventory was genuinely observed
+ * and every observation is interpretable, the run scope is established, every
  * cleared category is run-owned, no object is both preserved and cleared, and
  * every category was actually observed. At the audited baseline none of the
  * scope conditions hold, so the honest outcome is `INCOMPLETE`.
@@ -17,7 +18,11 @@
 
 import { createHash } from "node:crypto";
 import {
+  countClaimedCategoryIds,
+  countedRows,
+  invalidObservations,
   inventoryGaps,
+  inventoryObservationTime,
   type DemoResetInventory,
   type DemoResetInventoryGap,
 } from "./inventory";
@@ -34,6 +39,8 @@ import type { DemoResetDryRunAuthorization, DemoResetRefusal } from "./policy";
 export const DEMO_RESET_PLAN_BLOCKERS = [
   "NOT_AUTHORIZED",
   "INVENTORY_NOT_OBSERVED",
+  "INVENTORY_OBSERVATION_INVALID",
+  "INVENTORY_TIME_NOT_ESTABLISHED",
   "RUN_SCOPE_NOT_ESTABLISHED",
   "CLEARED_SCOPE_NOT_RUN_OWNED",
   "PRESERVED_AND_CLEARED_OVERLAP",
@@ -43,9 +50,9 @@ export const DEMO_RESET_PLAN_BLOCKERS = [
 export type DemoResetPlanBlocker = (typeof DEMO_RESET_PLAN_BLOCKERS)[number];
 
 /**
- * `BLOCKED` is a refusal: authority, environment or inventory provenance is
- * wrong. `INCOMPLETE` means the request was legitimate but the plan cannot be
- * proven safe yet.
+ * `BLOCKED` is a refusal: authority, environment, or inventory provenance and
+ * integrity are wrong. `INCOMPLETE` means the request was legitimate but the
+ * plan cannot be proven safe yet.
  */
 export type DemoResetDryRunStatus =
   | "READY_FOR_CONFIRMATION"
@@ -57,7 +64,7 @@ export interface DemoResetPlanCategory {
   subsystem: DemoResetCategory["subsystem"];
   scopeBasis: DemoResetCategory["scopeBasis"];
   objects: readonly string[];
-  /** Null when the inventory did not establish a count. Never coerced to 0. */
+  /** Null when the inventory did not establish a usable count. Never 0 or NaN. */
   rows: number | null;
   note: string;
 }
@@ -77,7 +84,10 @@ export interface DemoResetDryRunPlan {
   datasetId: string | null;
   databaseRef: string | null;
   runId: string | null;
+  datasetContract: string;
   inventorySource: DemoResetInventory["source"];
+  /** Observation instant when the reader established one, else null. */
+  inventoryObservedAt: string | null;
   preserved: readonly DemoResetPlanCategory[];
   cleared: readonly DemoResetPlanCategory[];
   blockers: readonly DemoResetPlanBlocker[];
@@ -88,14 +98,14 @@ export interface DemoResetDryRunPlan {
   sideEffects: "NONE";
 }
 
-
 export interface DemoResetPlanInput {
   authorization: DemoResetDryRunAuthorization;
   inventory: DemoResetInventory;
   /**
    * Identity of the Golden Path run whose rows would be cleared. No business
    * table carries run ownership yet, so production callers pass null and the
-   * plan resolves to INCOMPLETE.
+   * plan resolves to INCOMPLETE. A blank or whitespace value establishes no
+   * scope and is treated as absent.
    */
   runId?: string | null;
   manifest?: DemoResetManifest;
@@ -107,59 +117,82 @@ function planCategories(
   inventory: DemoResetInventory,
 ): readonly DemoResetPlanCategory[] {
   return Object.freeze(
-    categories.map((category) => {
-      const observation = inventory.categories[category.id];
-      return Object.freeze({
+    categories.map((category) =>
+      Object.freeze({
         categoryId: category.id,
         subsystem: category.subsystem,
         scopeBasis: category.scopeBasis,
         objects: category.objects,
-        rows:
-          observation && observation.kind === "COUNTED" ? observation.rows : null,
+        rows: countedRows(inventory, category.id),
         note: category.note,
-      });
-    }),
+      }),
+    ),
   );
 }
 
 /**
+ * Version tag of the canonical hash content.
+ *
+ * A confirmation recorded under one scheme must not silently match a plan
+ * hashed under another, so the scheme identifies itself inside the digest.
+ */
+const PLAN_HASH_SCHEME = "demo-reset-plan-hash/v2";
+
+/**
  * Deterministic identity of a plan, for a later confirmation binding.
  *
- * `generatedAt` is excluded so that re-running an unchanged dry-run yields the
- * same hash, and any change to environment, dataset, run, manifest scope or
- * inventory yields a different one — which is what forces a fresh dry-run.
+ * `generatedAt` and the observation instant are excluded so that re-running an
+ * unchanged dry-run yields the same hash, while any change to environment,
+ * dataset, dataset contract, run, manifest scope — category, subsystem, scope
+ * basis or objects — or to the counts yields a different one, which is what
+ * forces a fresh dry-run.
+ *
+ * Category notes are excluded deliberately: they are prose for reviewers and
+ * carry no scope meaning.
+ *
+ * The hash is **not** evidence that the underlying rows are unchanged. Equal
+ * counts hash equally, so a row set whose members changed while its size held
+ * is not detected here. Detecting that needs an inventory revision or
+ * fingerprint per category plus a scope re-check at confirmation time; both
+ * are recorded as prerequisites in `docs/DEMO_GOLDEN_PATH_V2.md` §9.4 and are
+ * not built in this PR.
  */
 export function demoResetPlanHash(input: {
   environmentName: string | null;
   datasetId: string | null;
   databaseRef: string | null;
   runId: string | null;
+  datasetContract: string;
   inventorySource: DemoResetInventory["source"];
   status: DemoResetDryRunStatus;
   preserved: readonly DemoResetPlanCategory[];
   cleared: readonly DemoResetPlanCategory[];
 }): string {
+  const canonicalCategory = (category: DemoResetPlanCategory) => [
+    category.categoryId,
+    category.subsystem,
+    category.scopeBasis,
+    [...category.objects],
+    category.rows,
+  ];
   const canonical = JSON.stringify({
+    scheme: PLAN_HASH_SCHEME,
     environmentName: input.environmentName,
     datasetId: input.datasetId,
     databaseRef: input.databaseRef,
     runId: input.runId,
+    datasetContract: input.datasetContract,
     inventorySource: input.inventorySource,
     status: input.status,
-    preserved: input.preserved.map((category) => [
-      category.categoryId,
-      category.scopeBasis,
-      [...category.objects],
-      category.rows,
-    ]),
-    cleared: input.cleared.map((category) => [
-      category.categoryId,
-      category.scopeBasis,
-      [...category.objects],
-      category.rows,
-    ]),
+    preserved: input.preserved.map(canonicalCategory),
+    cleared: input.cleared.map(canonicalCategory),
   });
   return createHash("sha256").update(canonical).digest("hex");
+}
+
+function establishedRunId(runId: string | null | undefined): string | null {
+  const value = typeof runId === "string" ? runId.trim() : "";
+  return value === "" ? null : value;
 }
 
 export function planDemoResetDryRun(
@@ -167,7 +200,7 @@ export function planDemoResetDryRun(
 ): DemoResetDryRunPlan {
   const manifest = input.manifest ?? DEMO_DATASET_V2_RESET_MANIFEST;
   const { authorization, inventory } = input;
-  const runId = input.runId ?? null;
+  const runId = establishedRunId(input.runId);
 
   const preserved = planCategories(
     categoriesByDisposition("PRESERVED", manifest),
@@ -177,17 +210,33 @@ export function planDemoResetDryRun(
     categoriesByDisposition("CLEARED", manifest),
     inventory,
   );
+
   const gaps = inventoryGaps(inventory, manifest);
+  const defects = invalidObservations(inventory, manifest);
+  const observationTime = inventoryObservationTime(inventory);
+  const claimedCounts = countClaimedCategoryIds(inventory, manifest);
   const overlaps = overlappingManifestObjects(manifest);
   const unscoped = unscopedClearedCategories(manifest);
 
-  // Refusals: wrong authority, or an inventory that was never observed.
+  // Refusals: wrong authority, an inventory that was never observed, or an
+  // inventory record whose own integrity cannot be established.
   const refusing: DemoResetPlanBlocker[] = [];
   if (authorization.decision !== "ALLOWED") {
     refusing.push("NOT_AUTHORIZED");
   }
   if (inventory.source !== "OBSERVED") {
     refusing.push("INVENTORY_NOT_OBSERVED");
+  }
+  if (defects.length > 0) {
+    refusing.push("INVENTORY_OBSERVATION_INVALID");
+  }
+  // Claiming a count asserts that something was read, which requires a real
+  // observation instant. A supplied instant must be a real one either way.
+  if (
+    observationTime.kind === "INVALID" ||
+    (observationTime.kind === "ABSENT" && claimedCounts.length > 0)
+  ) {
+    refusing.push("INVENTORY_TIME_NOT_ESTABLISHED");
   }
 
   // Incompleteness: legitimate request, unproven scope.
@@ -201,7 +250,7 @@ export function planDemoResetDryRun(
   if (overlaps.length > 0) {
     incomplete.push("PRESERVED_AND_CLEARED_OVERLAP");
   }
-  if (gaps.length > 0) {
+  if (gaps.length > defects.length) {
     incomplete.push("INVENTORY_INCOMPLETE");
   }
 
@@ -217,6 +266,7 @@ export function planDemoResetDryRun(
     datasetId: authorization.environment.datasetId,
     databaseRef: authorization.environment.databaseRef,
     runId,
+    datasetContract: manifest.datasetContract,
     inventorySource: inventory.source,
     status,
     preserved,
@@ -231,7 +281,10 @@ export function planDemoResetDryRun(
     datasetId: authorization.environment.datasetId,
     databaseRef: authorization.environment.databaseRef,
     runId,
+    datasetContract: manifest.datasetContract,
     inventorySource: inventory.source,
+    inventoryObservedAt:
+      observationTime.kind === "VALID" ? observationTime.instant : null,
     preserved,
     cleared,
     blockers: Object.freeze([...refusing, ...incomplete]),

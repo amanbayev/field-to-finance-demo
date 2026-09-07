@@ -4,11 +4,17 @@ export type {
   DemoResetEnvironmentRefusal,
   DemoResetEnvironmentResolution,
   DemoResetEnvironmentSignals,
+  SupabaseEndpointRejection,
+  SupabaseEndpointResolution,
 } from "./environment";
 export {
   DEMO_RESET_ENVIRONMENT_NAMES,
   DEMO_RESET_ENVIRONMENT_REFUSALS,
+  SUPABASE_CLOUD_HOST_SUFFIX,
+  SUPABASE_ENDPOINT_REJECTIONS,
+  isSupabaseProjectRef,
   resolveDemoResetEnvironment,
+  resolveSupabaseEndpoint,
   supabaseProjectRef,
 } from "./environment";
 
@@ -45,11 +51,21 @@ export type {
   DemoResetInventory,
   DemoResetInventoryGap,
   DemoResetInventorySource,
+  DemoResetInvalidObservationGap,
+  DemoResetObservationTime,
 } from "./inventory";
 export {
+  DEMO_RESET_INVALID_OBSERVATION_GAPS,
   DEMO_RESET_INVENTORY_GAPS,
+  countClaimedCategoryIds,
+  countedCategoryIds,
   countedRows,
   inventoryGaps,
+  inventoryObservationTime,
+  invalidObservations,
+  isInvalidObservationGap,
+  isObservationInstant,
+  isValidRowCount,
   unavailableDemoResetInventory,
 } from "./inventory";
 

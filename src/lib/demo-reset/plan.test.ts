@@ -27,6 +27,7 @@ function allowedAuthorization(): DemoResetDryRunAuthorization {
       nodeEnv: "production",
       vercel: "1",
       vercelEnv: "preview",
+      publicAppEnv: "demo",
       declaredEnvironment: "approved-demo-qa",
       declaredDatasetId: "demo-dataset-v2",
       declaredDatabaseRef: APPROVED_REF,
@@ -237,6 +238,144 @@ describe("demo reset dry-run planner", () => {
     expect(plan.sideEffects).toBe("NONE");
   });
 
+  it("refuses a run-owned inventory whose counts are not real numbers", () => {
+    const plan = planDemoResetDryRun({
+      authorization: allowedAuthorization(),
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "RUN-1",
+      inventory: {
+        source: "OBSERVED",
+        observedAt: OBSERVED_AT,
+        categories: {
+          kept: { kind: "COUNTED", rows: 12 },
+          "run-rows": { kind: "COUNTED", rows: Number.NaN },
+        },
+      },
+    });
+    expect(plan.status).toBe("BLOCKED");
+    expect(plan.blockers).toContain("INVENTORY_OBSERVATION_INVALID");
+    expect(plan.inventoryGaps).toEqual([
+      { categoryId: "run-rows", reason: "OBSERVATION_COUNT_INVALID" },
+    ]);
+    const runRows = plan.cleared.find(
+      (category) => category.categoryId === "run-rows",
+    );
+    expect(runRows?.rows).toBeNull();
+  });
+
+  it("refuses a counted inventory that reports no observation time", () => {
+    const plan = planDemoResetDryRun({
+      authorization: allowedAuthorization(),
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "RUN-1",
+      inventory: {
+        source: "OBSERVED",
+        observedAt: null,
+        categories: {
+          kept: { kind: "COUNTED", rows: 12 },
+          "run-rows": { kind: "COUNTED", rows: 3 },
+        },
+      },
+    });
+    expect(plan.status).toBe("BLOCKED");
+    expect(plan.blockers).toContain("INVENTORY_TIME_NOT_ESTABLISHED");
+    expect(plan.inventoryObservedAt).toBeNull();
+  });
+
+  it("refuses the exact reviewed combination of null time and NaN counts", () => {
+    const plan = planDemoResetDryRun({
+      authorization: allowedAuthorization(),
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "RUN-1",
+      inventory: {
+        source: "OBSERVED",
+        observedAt: null,
+        categories: {
+          kept: { kind: "COUNTED", rows: Number.NaN },
+          "run-rows": { kind: "COUNTED", rows: Number.NaN },
+        },
+      },
+    });
+    expect(plan.status).not.toBe("READY_FOR_CONFIRMATION");
+    expect(plan.status).toBe("BLOCKED");
+    expect(plan.blockers).toEqual(
+      expect.arrayContaining([
+        "INVENTORY_OBSERVATION_INVALID",
+        "INVENTORY_TIME_NOT_ESTABLISHED",
+      ]),
+    );
+  });
+
+  it("refuses an observation time that is not a real instant", () => {
+    const plan = planDemoResetDryRun({
+      authorization: allowedAuthorization(),
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "RUN-1",
+      inventory: {
+        source: "OBSERVED",
+        observedAt: "yesterday",
+        categories: {
+          kept: { kind: "COUNTED", rows: 12 },
+          "run-rows": { kind: "COUNTED", rows: 3 },
+        },
+      },
+    });
+    expect(plan.status).toBe("BLOCKED");
+    expect(plan.blockers).toContain("INVENTORY_TIME_NOT_ESTABLISHED");
+  });
+
+  it("refuses an observation kind it cannot interpret", () => {
+    const plan = planDemoResetDryRun({
+      authorization: allowedAuthorization(),
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "RUN-1",
+      inventory: {
+        source: "OBSERVED",
+        observedAt: OBSERVED_AT,
+        categories: {
+          kept: { kind: "COUNTED", rows: 12 },
+          "run-rows": { kind: "ESTIMATED", rows: 3 } as unknown as CategoryObservation,
+        },
+      },
+    });
+    expect(plan.status).toBe("BLOCKED");
+    expect(plan.blockers).toContain("INVENTORY_OBSERVATION_INVALID");
+    expect(plan.inventoryGaps).toEqual([
+      { categoryId: "run-rows", reason: "OBSERVATION_NOT_INTERPRETABLE" },
+    ]);
+  });
+
+  it("does not accept a blank run id as an established scope", () => {
+    for (const runId of ["", "   ", "\t\n"]) {
+      const plan = planDemoResetDryRun({
+        authorization: allowedAuthorization(),
+        manifest: RUN_OWNED_MANIFEST,
+        runId,
+        inventory: observedInventory({
+          kept: { kind: "COUNTED", rows: 12 },
+          "run-rows": { kind: "COUNTED", rows: 3 },
+        }),
+      });
+      expect(plan.status).toBe("INCOMPLETE");
+      expect(plan.blockers).toEqual(["RUN_SCOPE_NOT_ESTABLISHED"]);
+      expect(plan.runId).toBeNull();
+    }
+  });
+
+  it("trims a run id rather than carrying padding into the scope", () => {
+    const plan = planDemoResetDryRun({
+      authorization: allowedAuthorization(),
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "  RUN-0001  ",
+      inventory: observedInventory({
+        kept: { kind: "COUNTED", rows: 12 },
+        "run-rows": { kind: "COUNTED", rows: 3 },
+      }),
+    });
+    expect(plan.status).toBe("READY_FOR_CONFIRMATION");
+    expect(plan.runId).toBe("RUN-0001");
+  });
+
   it("keeps an unavailable category as null rows in the plan, not zero", () => {
     const plan = planDemoResetDryRun({
       authorization: allowedAuthorization(),
@@ -264,6 +403,7 @@ describe("demo reset plan hash", () => {
     datasetId: "demo-dataset-v2",
     databaseRef: APPROVED_REF,
     runId: "RUN-0001",
+    datasetContract: "demo-dataset-v2",
     inventorySource: "OBSERVED" as const,
     status: "READY_FOR_CONFIRMATION" as const,
     preserved: [
@@ -313,6 +453,116 @@ describe("demo reset plan hash", () => {
         cleared: [{ ...base.cleared[0], objects: ["producer_fields", "extra"] }],
       }),
     ).not.toBe(original);
+  });
+
+  it("changes when a category subsystem changes", () => {
+    const original = demoResetPlanHash(base);
+    expect(
+      demoResetPlanHash({
+        ...base,
+        cleared: [{ ...base.cleared[0], subsystem: "STORAGE" as const }],
+      }),
+    ).not.toBe(original);
+    expect(
+      demoResetPlanHash({
+        ...base,
+        preserved: [{ ...base.preserved[0], subsystem: "AUTH" as const }],
+      }),
+    ).not.toBe(original);
+  });
+
+  it("changes when the dataset contract version changes", () => {
+    const original = demoResetPlanHash(base);
+    expect(
+      demoResetPlanHash({ ...base, datasetContract: "demo-dataset-v3" }),
+    ).not.toBe(original);
+  });
+
+  it("changes when a category scope basis or status changes", () => {
+    const original = demoResetPlanHash(base);
+    expect(
+      demoResetPlanHash({
+        ...base,
+        cleared: [{ ...base.cleared[0], scopeBasis: "NOT_SCOPABLE" as const }],
+      }),
+    ).not.toBe(original);
+    expect(demoResetPlanHash({ ...base, status: "INCOMPLETE" })).not.toBe(
+      original,
+    );
+  });
+
+  it("does not change when only a reviewer note changes", () => {
+    expect(
+      demoResetPlanHash({
+        ...base,
+        cleared: [{ ...base.cleared[0], note: "reworded for review" }],
+      }),
+    ).toBe(demoResetPlanHash(base));
+  });
+
+  it("changes the plan hash when a manifest subsystem changes", () => {
+    const authorization = allowedAuthorization();
+    const inventory = observedInventory({
+      kept: { kind: "COUNTED", rows: 12 },
+      "run-rows": { kind: "COUNTED", rows: 3 },
+    });
+    const asDatabase = planDemoResetDryRun({
+      authorization,
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "RUN-0001",
+      inventory,
+    });
+    const asStorage = planDemoResetDryRun({
+      authorization,
+      manifest: {
+        ...RUN_OWNED_MANIFEST,
+        categories: [
+          RUN_OWNED_MANIFEST.categories[0],
+          { ...RUN_OWNED_MANIFEST.categories[1], subsystem: "STORAGE" },
+        ],
+      },
+      runId: "RUN-0001",
+      inventory,
+    });
+    expect(asStorage.planHash).not.toBe(asDatabase.planHash);
+  });
+
+  it("changes the plan hash when only the dataset contract changes", () => {
+    const authorization = allowedAuthorization();
+    const inventory = observedInventory({
+      kept: { kind: "COUNTED", rows: 12 },
+      "run-rows": { kind: "COUNTED", rows: 3 },
+    });
+    const first = planDemoResetDryRun({
+      authorization,
+      manifest: RUN_OWNED_MANIFEST,
+      runId: "RUN-0001",
+      inventory,
+    });
+    const revised = planDemoResetDryRun({
+      authorization,
+      manifest: {
+        ...RUN_OWNED_MANIFEST,
+        datasetContract: "synthetic-run-owned-v2",
+      },
+      runId: "RUN-0001",
+      inventory,
+    });
+    expect(revised.planHash).not.toBe(first.planHash);
+    expect(revised.datasetContract).toBe("synthetic-run-owned-v2");
+  });
+
+  it("does not treat equal counts as proof that the row set is unchanged", () => {
+    // Recorded limitation: only the count enters the hash, so a same-size row
+    // set with different members is not detected. Inventory revision or
+    // fingerprint per category is a prerequisite before any confirmation.
+    const withThreeRows = demoResetPlanHash(base);
+    expect(
+      demoResetPlanHash({
+        ...base,
+        cleared: [{ ...base.cleared[0], rows: 3 }],
+      }),
+    ).toBe(withThreeRows);
   });
 
   it("does not depend on generation time, so an unchanged plan keeps its hash", () => {

@@ -1,3 +1,13 @@
+/**
+ * Source-level guard for the demo-reset modules.
+ *
+ * This is a *supporting* check on the shipped source, not proof that the
+ * modules have no side effect. It cannot see through dynamic dispatch or a
+ * dependency's behaviour. The behavioural guarantees live in the policy,
+ * inventory and planner tests; this file only makes an accidental deletion or
+ * client construction hard to introduce unnoticed.
+ */
+
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

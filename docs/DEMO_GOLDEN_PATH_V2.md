@@ -77,8 +77,10 @@ established by this audit), **legally unresolved** (no legal conclusion availabl
 | F2F economic-basis adapter | `src/lib/protocols/f2f/f2f-instrument-basis-adapter.ts` returns `UNAVAILABLE` unless `input.instrument.id === WHEAT_INSTRUMENT_ID` (`"WHEAT-2027"`), the protocol is F2F, the family is `ASSET_TOKEN` and the status is `ISSUED`/`ADMITTED` | **Partial by design** — historical basis is restricted to one instrument id | A new instrument needs its own persisted basis relationships and evidence, selected by data rather than by instrument id. |
 | Primary placement | `src/services/placement-service.ts` reads `src/adapters/blockchain/solana/recorded-placement.json` and `placement-manifest.json` (`PL-ISS001-0001`, `WHEAT-2027`, quantity `10`, `DEMO-KZT`), with `fallbackSupply()` chaining recorded proof → mock token → literal defaults | **Fixture/demo-only recorded proof**, not a subscription-execution service | A new-subscription primary execution service is new work. Recorded proof must never be attached to a new run. |
 | Secondary market | `src/data/market-core/seed-scenario.ts`; `src/services/secondary-market-repository.ts` `engineStateFromSnapshot()` falls back to catalogue holdings and markets when database rows are empty | **Implemented engine, fixture-backed fallback** | The empty-database fallback must be switched off for V2 reads, or empty V2 views will silently show legacy holdings. |
-| Registrar book of record | `registrar_registered_ownership` with an `owned`-mutation trigger gated on `app.registrar_sync` | **Implemented** | Reuse unchanged. |
-| Devnet settlement | `agricultural_market` exposes `initialize_market` and `settle_primary_placement` only; `settle_secondary_dvp` is **absent** and requires a programme redeploy | **Partial** | GP-09 and GP-14 need an agreed signer and inventory account before any transaction. |
+| Registrar book of record | `registrar_registered_ownership` in `20260823200000_registrar_book_and_live_proof.sql`: RLS enabled, all privileges revoked from `public`, `anon` and `authenticated`, and `select, insert, update, delete` granted to `service_role` alone. `app.registrar_sync` is a **different** guard: `market_core_holdings_owned_guard` raises `OWNED_IS_REGISTRAR_PROJECTION` on `UPDATE OF owned` on `market_core_holdings` unless that setting is `on`, and `private.registrar_sync_holdings_owned` sets it while projecting `registered_quantity` | **Implemented** | Reuse unchanged. `app.registrar_sync` is not a universal permission or delete guard for the registrar book: deleting registrar rows needs the `service_role` credential, and because the sync trigger fires only `after insert or update of registered_quantity`, a delete would leave `market_core_holdings.owned` stale. |
+| Devnet settlement, source | `settle_secondary_dvp` exists in `solana/programs/agricultural_market/src/lib.rs` and `src/instructions/settle_secondary_dvp.rs`, and the checked-in IDL `src/adapters/blockchain/solana/agricultural_market.json` lists all three instructions | **Implemented in source** | Not absent. An earlier reading of this row as "absent" repeated the 5B.1-era record in `docs/MARKET_CORE_ARCHITECTURE.md` and was wrong. |
+| Devnet settlement, deployed programme | Whether the programme deployed at `9mMsbTZTK2RZW1jSjyDLF6Cs12oECg53mzhsDXeyRXst` exposes `settle_secondary_dvp` was **not** established: this audit read the tree and made no RPC call, and a checked-in IDL is not proof of deployed bytecode | **Not verified** | GP-14 must verify the deployed programme before relying on the instruction, and redeploy is an operator-authorized action. |
+| Devnet settlement, execution proof | `README.md` records `settle_secondary_dvp` as prepared and never executed as real settlement | **Absent** | GP-09 and GP-14 need an agreed signer and inventory account before any transaction. A prepared instruction is not an execution. |
 
 ### 2.3 Identity, admin and environment
 
@@ -93,7 +95,8 @@ established by this audit), **legally unresolved** (no legal conclusion availabl
 | Service-role client | `src/lib/auth/supabase/admin.ts` `createServiceRoleClient()`; used only by origination store selection and two origination API routes | **Implemented, narrowly used** | Market Core and admin reads use the RLS-bound session client, so an inventory reader cannot assume service-role visibility. |
 | Demo reset / dry-run | No reset module, endpoint, command, permission or table exists | **Absent** before this PR | Delivered here as contract, policy and planner only; see §9. |
 | Run ownership | No `run_id`, run table or run-correlation column exists on any business table | **Absent** | Hard prerequisite for a provably scoped reset. See §9.3. |
-| CI and deployment | `.github/workflows/ci.yml` is the only workflow: `pull_request` and `push` on `develop`/`main`, running `npm ci`, `npm run check`, `npm run build`, with `permissions: contents: read`. No `vercel.json`, no `supabase/config.toml` | **Implemented, no external mutation** | Pushing a feature branch performs no migration, deployment or Devnet transaction. |
+| CI in the repository | `.github/workflows/ci.yml` is the only workflow: `pull_request` and `push` on `develop`/`main`, running `npm ci`, `npm run check`, `npm run build`, with `permissions: contents: read`. There is no deploy step, no `vercel.json` and no `supabase/config.toml` | **Implemented** | No repository workflow applies a migration, deletes data or submits a Devnet transaction. |
+| Automatic preview deployment | Deployment is configured outside the tree, in the Vercel Git integration, so the absence of `vercel.json` proves nothing about it. PR #11 received a successful Vercel check, which is direct evidence that pushing a branch **does** trigger an automatic preview build and deployment | **Implemented outside the repository** | Treat every push as publishing a preview. A preview build runs `next build` against the branch: it applies no migration, deletes no data and submits no Devnet transaction, but "no manual deploy" must never be reported as "no deployment". Preview environment variables decide which Supabase project that build reads. |
 
 ### 2.4 Signing and payment
 
@@ -282,13 +285,26 @@ Production is always denied by server policy and, when the schema exists, by dat
 A `NEXT_PUBLIC_*` flag is never sufficient — nor is `NODE_ENV` alone. The implemented policy
 (`src/lib/demo-reset/environment.ts`) requires **all** of:
 
+- runtime signals that classify the environment against a **closed table**. `NODE_ENV`, `VERCEL`,
+  `VERCEL_ENV` and `NEXT_PUBLIC_APP_ENV` must be present where the table needs them and carry
+  recognised values. Missing signals, an unrecognised value, `VERCEL` without `VERCEL_ENV` or the
+  reverse, and a Vercel runtime that is not `preview` all resolve to `UNKNOWN` and refuse. There is
+  no permissive default: the classifier never assumes `development` because it was told nothing;
 - an explicitly declared environment name from a closed allow-list;
 - a declared dataset identifier;
-- a declared database identity;
-- an observed database identity that **matches** the declared one.
+- a declared database identity in Supabase project-ref form;
+- an observed database endpoint that is a **supported** Supabase cloud project
+  (`https://<20-character project ref>.supabase.co`, with no credentials, port, path, query or
+  fragment), whose project ref **matches** the declared one.
 
-An unknown environment, an unreadable database identity or an unestablished scope is a **refusal**,
-not a default permission.
+An arbitrary hostname is never read as a project identity: `https://exampleqa.unrelated.invalid`
+and `http://127.0.0.1:54321` are refused as unsupported endpoints, not parsed into the refs
+`exampleqa` and `127`. Local, self-hosted, proxied and custom-domain endpoints stay refused until
+they have their own explicit contract, because an identity that is not a project ref cannot be
+matched against a declared project ref.
+
+An unknown environment, an unreadable or unsupported database identity, or an unestablished scope
+is a **refusal**, not a default permission.
 
 ### 9.2 Preserved and cleared
 
@@ -320,12 +336,34 @@ This is recorded as a hard prerequisite. Until run ownership exists, a dry-run m
 Missing access to an inventory source never means zero objects. A test or declared inventory is
 never presented as an observed one.
 
+An inventory record must also be interpretable before it can support readiness. The planner
+refuses, rather than repairs, a count that is not a finite non-negative safe integer, an
+observation kind it does not know, and a claimed count with no valid observation instant. It never
+substitutes zero for a broken count or the current clock for a missing observation time, because a
+substituted value would misreport the environment. A blank or whitespace run identifier
+establishes no scope.
+
+### 9.3.1 Counts are not proof that the row set is unchanged
+
+`demoResetPlanHash` covers the environment, dataset, dataset contract, run, and each category's
+id, subsystem, scope basis, objects and row count. Equal counts therefore hash equally: a row set
+whose members changed while its size stayed the same is **not** detected today. The plan hash
+proves that the reviewed plan is the same plan, not that the data behind it is the same data.
+
+Closing that gap needs a per-category inventory revision or fingerprint — for example a content
+digest over run-scoped primary keys — recorded in the plan and re-derived at confirmation time,
+together with a scope re-check against the same run. Both are prerequisites for GP-02 and are
+deliberately not built here: a fingerprint requires the run-ownership schema and a real inventory
+reader, neither of which exists in this PR.
+
 ### 9.4 Future execution architecture (not implemented)
 
 Any future executing path must provide:
 
 - confirmation binding a specific environment, dataset or run, and plan hash;
 - confirmation expiry, and a fresh dry-run whenever the plan changes;
+- a per-category inventory revision or fingerprint plus a scope re-check at confirmation time, so
+  that a changed row set with an unchanged count cannot pass as the reviewed plan (§9.3.1);
 - a block on competing business operations during reset;
 - unresolved external attempts treated as an obstacle to reset;
 - repeatability after partial failure;

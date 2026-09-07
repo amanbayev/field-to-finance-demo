@@ -9,8 +9,12 @@
  * production is always denied, and a single `NEXT_PUBLIC_APP_ENV` or `NODE_ENV`
  * value is never sufficient. An operator must declare the environment, the
  * dataset and the database identity, and the declared database identity must
- * match the one the process would actually talk to. Anything unknown is a
- * refusal, not a default permission.
+ * match the one the process would actually talk to.
+ *
+ * Classification is a closed table. There is no permissive default: a missing,
+ * unrecognised, contradictory or unclassifiable set of runtime signals is a
+ * refusal, exactly like an undeclared dataset. Absence of evidence about the
+ * environment is never read as evidence that the environment is safe.
  *
  * See `docs/DEMO_GOLDEN_PATH_V2.md` §9.
  */
@@ -24,6 +28,19 @@ export const DEMO_RESET_ENVIRONMENT_NAMES = [
 export type DemoResetEnvironmentName =
   (typeof DEMO_RESET_ENVIRONMENT_NAMES)[number];
 
+/**
+ * Runtime signal values this contract can classify. A value outside these
+ * lists is not treated as "probably fine"; it is unrecognised.
+ */
+const NODE_ENV_VALUES = ["development", "production", "test"] as const;
+const VERCEL_ENV_VALUES = ["production", "preview", "development"] as const;
+const PUBLIC_APP_ENV_VALUES = [
+  "demo",
+  "development",
+  "preview",
+  "production",
+] as const;
+
 export type DemoResetEnvironmentClass =
   | "PRODUCTION"
   | "APPROVED_DEMO"
@@ -31,12 +48,18 @@ export type DemoResetEnvironmentClass =
 
 export const DEMO_RESET_ENVIRONMENT_REFUSALS = [
   "PRODUCTION_ENVIRONMENT_DENIED",
+  "RUNTIME_SIGNALS_NOT_DECLARED",
+  "RUNTIME_SIGNALS_NOT_RECOGNISED",
+  "RUNTIME_SIGNALS_CONTRADICTORY",
+  "RUNTIME_ENVIRONMENT_CLASS_NOT_ESTABLISHED",
   "ENVIRONMENT_NOT_DECLARED",
   "ENVIRONMENT_NOT_RECOGNISED",
   "LOCAL_DECLARATION_REJECTED_ON_DEPLOYMENT",
   "DATASET_NOT_DECLARED",
   "DATABASE_IDENTITY_NOT_DECLARED",
+  "DATABASE_IDENTITY_NOT_RECOGNISED",
   "DATABASE_IDENTITY_NOT_OBSERVABLE",
+  "DATABASE_ENDPOINT_NOT_SUPPORTED",
   "DATABASE_IDENTITY_MISMATCH",
 ] as const;
 
@@ -85,68 +108,212 @@ function trimmed(value: string | undefined): string | undefined {
   return next ? next : undefined;
 }
 
+function isOneOf<T extends string>(
+  allowed: readonly T[],
+  value: string,
+): value is T {
+  return (allowed as readonly string[]).includes(value);
+}
+
 function isRecognisedEnvironmentName(
   value: string,
 ): value is DemoResetEnvironmentName {
-  return (DEMO_RESET_ENVIRONMENT_NAMES as readonly string[]).includes(value);
+  return isOneOf(DEMO_RESET_ENVIRONMENT_NAMES, value);
 }
 
 /**
- * Extracts the Supabase project ref from a project URL.
- * Returns null when the host carries no identifiable project ref, so an
- * unparseable URL becomes `DATABASE_IDENTITY_NOT_OBSERVABLE` rather than a
- * silently accepted empty identity.
+ * The only database endpoint shape this contract can attribute to a Supabase
+ * cloud project: `https://<20-char project ref>.supabase.co`, with no port,
+ * credentials, path, query or fragment.
+ *
+ * Local, self-hosted, proxied and custom-domain endpoints are refused rather
+ * than parsed. Their identity is not a project ref, so a reset scoped by
+ * project ref would be unprovable against them. Supporting them needs its own
+ * explicit contract.
  */
-export function supabaseProjectRef(url: string | undefined): string | null {
+export const SUPABASE_CLOUD_HOST_SUFFIX = ".supabase.co";
+const SUPABASE_PROJECT_REF_PATTERN = /^[a-z0-9]{20}$/;
+
+export const SUPABASE_ENDPOINT_REJECTIONS = [
+  "URL_NOT_PARSEABLE",
+  "SCHEME_NOT_HTTPS",
+  "CREDENTIALS_IN_URL",
+  "PORT_NOT_ALLOWED",
+  "PATH_NOT_ALLOWED",
+  "QUERY_OR_FRAGMENT_NOT_ALLOWED",
+  "HOST_NOT_SUPABASE_CLOUD",
+  "PROJECT_REF_MALFORMED",
+] as const;
+
+export type SupabaseEndpointRejection =
+  (typeof SUPABASE_ENDPOINT_REJECTIONS)[number];
+
+export type SupabaseEndpointResolution =
+  | { kind: "CLOUD_PROJECT"; projectRef: string }
+  | { kind: "NOT_DECLARED" }
+  | { kind: "UNSUPPORTED"; rejection: SupabaseEndpointRejection };
+
+/** True when the value has the shape of a Supabase cloud project ref. */
+export function isSupabaseProjectRef(value: string | undefined): boolean {
+  const candidate = trimmed(value);
+  return candidate !== undefined && SUPABASE_PROJECT_REF_PATTERN.test(candidate);
+}
+
+/**
+ * Strictly resolves a Supabase cloud project endpoint.
+ *
+ * An arbitrary hostname or IP address is never presented as a cloud project
+ * identity: `https://exampleqa.unrelated.invalid` and `http://127.0.0.1:54321`
+ * are `UNSUPPORTED`, not project refs.
+ */
+export function resolveSupabaseEndpoint(
+  url: string | undefined,
+): SupabaseEndpointResolution {
   const value = trimmed(url);
   if (!value) {
-    return null;
+    return Object.freeze({ kind: "NOT_DECLARED" as const });
   }
-  let host: string;
+
+  let parsed: URL;
   try {
-    host = new URL(value).hostname;
+    parsed = new URL(value);
   } catch {
-    return null;
+    return unsupportedEndpoint("URL_NOT_PARSEABLE");
   }
-  const [ref, ...rest] = host.split(".");
-  if (!ref || rest.length === 0) {
-    return null;
+
+  if (parsed.protocol !== "https:") {
+    return unsupportedEndpoint("SCHEME_NOT_HTTPS");
   }
-  return ref;
+  if (parsed.username !== "" || parsed.password !== "") {
+    return unsupportedEndpoint("CREDENTIALS_IN_URL");
+  }
+  if (parsed.port !== "") {
+    return unsupportedEndpoint("PORT_NOT_ALLOWED");
+  }
+  if (parsed.pathname !== "" && parsed.pathname !== "/") {
+    return unsupportedEndpoint("PATH_NOT_ALLOWED");
+  }
+  if (parsed.search !== "" || parsed.hash !== "") {
+    return unsupportedEndpoint("QUERY_OR_FRAGMENT_NOT_ALLOWED");
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (!host.endsWith(SUPABASE_CLOUD_HOST_SUFFIX)) {
+    return unsupportedEndpoint("HOST_NOT_SUPABASE_CLOUD");
+  }
+  const ref = host.slice(0, -SUPABASE_CLOUD_HOST_SUFFIX.length);
+  if (!SUPABASE_PROJECT_REF_PATTERN.test(ref)) {
+    return unsupportedEndpoint("PROJECT_REF_MALFORMED");
+  }
+  return Object.freeze({ kind: "CLOUD_PROJECT" as const, projectRef: ref });
+}
+
+function unsupportedEndpoint(
+  rejection: SupabaseEndpointRejection,
+): SupabaseEndpointResolution {
+  return Object.freeze({ kind: "UNSUPPORTED" as const, rejection });
 }
 
 /**
+ * Project ref of a supported Supabase cloud endpoint, or null.
+ *
+ * Null covers both "nothing declared" and "endpoint not supported"; callers
+ * that must distinguish the two use `resolveSupabaseEndpoint`.
+ */
+export function supabaseProjectRef(url: string | undefined): string | null {
+  const endpoint = resolveSupabaseEndpoint(url);
+  return endpoint.kind === "CLOUD_PROJECT" ? endpoint.projectRef : null;
+}
+
+type RuntimeResolution = {
+  environmentClass: DemoResetEnvironmentClass;
+  /** Conservative: an unclassifiable environment is treated as deployed. */
+  deployed: boolean;
+  refusal: DemoResetEnvironmentRefusal | null;
+};
+
+/**
+ * Classifies the runtime from `NODE_ENV`, `VERCEL`, `VERCEL_ENV` and
+ * `NEXT_PUBLIC_APP_ENV` against a closed table.
+ *
+ * Production is decided first so that no invalid or partial combination can
+ * bypass the production denial. Everything the table does not cover resolves
+ * to `UNKNOWN` with a stated reason.
+ *
  * `next start` outside Vercel reports `NODE_ENV=production` with no
  * `VERCEL_ENV`, so its provenance cannot be attributed to a non-production
  * deployment and it is classified as production.
  */
-function environmentClassOf(
+function resolveRuntimeSignals(
   signals: DemoResetEnvironmentSignals,
-): DemoResetEnvironmentClass {
+): RuntimeResolution {
+  const nodeEnv = trimmed(signals.nodeEnv);
+  const vercel = trimmed(signals.vercel);
   const vercelEnv = trimmed(signals.vercelEnv);
-  const nodeEnv = trimmed(signals.nodeEnv) ?? "development";
   const publicAppEnv = trimmed(signals.publicAppEnv);
 
+  const looksDeployed =
+    vercel !== undefined || vercelEnv !== undefined || nodeEnv === "production";
+
   if (vercelEnv === "production" || publicAppEnv === "production") {
-    return "PRODUCTION";
+    return { environmentClass: "PRODUCTION", deployed: true, refusal: null };
   }
-  if (vercelEnv === "preview") {
-    return "APPROVED_DEMO";
+
+  if (!nodeEnv) {
+    return unknownRuntime(looksDeployed, "RUNTIME_SIGNALS_NOT_DECLARED");
   }
+  if (!isOneOf(NODE_ENV_VALUES, nodeEnv)) {
+    return unknownRuntime(looksDeployed, "RUNTIME_SIGNALS_NOT_RECOGNISED");
+  }
+  if (vercelEnv !== undefined && !isOneOf(VERCEL_ENV_VALUES, vercelEnv)) {
+    return unknownRuntime(looksDeployed, "RUNTIME_SIGNALS_NOT_RECOGNISED");
+  }
+  if (publicAppEnv !== undefined && !isOneOf(PUBLIC_APP_ENV_VALUES, publicAppEnv)) {
+    return unknownRuntime(looksDeployed, "RUNTIME_SIGNALS_NOT_RECOGNISED");
+  }
+  // On Vercel both variables are always present. One without the other is a
+  // state this contract cannot attribute to a known deployment.
+  if ((vercel !== undefined) !== (vercelEnv !== undefined)) {
+    return unknownRuntime(looksDeployed, "RUNTIME_SIGNALS_CONTRADICTORY");
+  }
+
+  if (vercel !== undefined) {
+    if (!publicAppEnv) {
+      return unknownRuntime(true, "RUNTIME_SIGNALS_NOT_DECLARED");
+    }
+    if (vercelEnv === "preview") {
+      return { environmentClass: "APPROVED_DEMO", deployed: true, refusal: null };
+    }
+    // `VERCEL_ENV=development` is `vercel dev`, which this contract cannot
+    // separate from a deployed runtime.
+    return unknownRuntime(true, "RUNTIME_ENVIRONMENT_CLASS_NOT_ESTABLISHED");
+  }
+
   if (nodeEnv === "production") {
-    return "PRODUCTION";
+    return { environmentClass: "PRODUCTION", deployed: false, refusal: null };
   }
-  return "APPROVED_DEMO";
+  return { environmentClass: "APPROVED_DEMO", deployed: false, refusal: null };
+}
+
+function unknownRuntime(
+  deployed: boolean,
+  refusal: DemoResetEnvironmentRefusal,
+): RuntimeResolution {
+  return { environmentClass: "UNKNOWN", deployed, refusal };
 }
 
 export function resolveDemoResetEnvironment(
   signals: DemoResetEnvironmentSignals,
 ): DemoResetEnvironmentResolution {
-  const environmentClass = environmentClassOf(signals);
+  const runtime = resolveRuntimeSignals(signals);
+  const environmentClass = runtime.environmentClass;
   const refusals: DemoResetEnvironmentRefusal[] = [];
 
   if (environmentClass === "PRODUCTION") {
     refusals.push("PRODUCTION_ENVIRONMENT_DENIED");
+  }
+  if (runtime.refusal) {
+    refusals.push(runtime.refusal);
   }
 
   const declaredEnvironment = trimmed(signals.declaredEnvironment);
@@ -157,11 +324,7 @@ export function resolveDemoResetEnvironment(
     refusals.push("ENVIRONMENT_NOT_RECOGNISED");
   } else {
     environmentName = declaredEnvironment;
-    const deployed =
-      Boolean(trimmed(signals.vercel)) ||
-      trimmed(signals.vercelEnv) !== undefined ||
-      (trimmed(signals.nodeEnv) ?? "development") === "production";
-    if (environmentName === "local-development" && deployed) {
+    if (environmentName === "local-development" && runtime.deployed) {
       refusals.push("LOCAL_DECLARATION_REJECTED_ON_DEPLOYMENT");
     }
   }
@@ -174,17 +337,25 @@ export function resolveDemoResetEnvironment(
   const declaredDatabaseRef = trimmed(signals.declaredDatabaseRef);
   if (!declaredDatabaseRef) {
     refusals.push("DATABASE_IDENTITY_NOT_DECLARED");
+  } else if (!isSupabaseProjectRef(declaredDatabaseRef)) {
+    refusals.push("DATABASE_IDENTITY_NOT_RECOGNISED");
   }
 
-  const observedDatabaseRef = supabaseProjectRef(signals.observedSupabaseUrl);
-  if (!observedDatabaseRef) {
+  const endpoint = resolveSupabaseEndpoint(signals.observedSupabaseUrl);
+  if (endpoint.kind === "NOT_DECLARED") {
     refusals.push("DATABASE_IDENTITY_NOT_OBSERVABLE");
-  } else if (declaredDatabaseRef && observedDatabaseRef !== declaredDatabaseRef) {
+  } else if (endpoint.kind === "UNSUPPORTED") {
+    refusals.push("DATABASE_ENDPOINT_NOT_SUPPORTED");
+  } else if (
+    declaredDatabaseRef &&
+    endpoint.projectRef !== declaredDatabaseRef
+  ) {
     refusals.push("DATABASE_IDENTITY_MISMATCH");
   }
 
   if (
     refusals.length > 0 ||
+    environmentClass !== "APPROVED_DEMO" ||
     !environmentName ||
     !datasetId ||
     !declaredDatabaseRef
