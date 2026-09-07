@@ -247,6 +247,16 @@ function paragraphContainsBlock(html: string): boolean {
   );
 }
 
+function metricCellValue(html: string, label: string): string | null {
+  const marker = `label-caps">${label}</p>`;
+  const index = html.indexOf(marker);
+  if (index < 0) {
+    return null;
+  }
+  const match = html.slice(index + marker.length).match(/>([^<]*)</);
+  return match?.[1] ?? null;
+}
+
 const RAW_CODES = [
   "PARTIALLY_FILLED",
   "AWAITING_DEVNET_SETTLEMENT",
@@ -326,16 +336,65 @@ describe("investor workspace view", () => {
       }),
     );
     const html = renderWorkspace(workspace);
+    expect(workspace.overview.activity).toEqual({ kind: "UNAVAILABLE" });
+    expect(html).toContain(en.portfolio.activityUnavailable);
     expect(html).toContain(
       "The live market book is unavailable, so open orders and reservations are not shown.",
     );
     expect(html).toContain(
       "The live market book is unavailable, so executions and clearing records are not shown.",
     );
+    expect(metricCellValue(html, en.portfolio.overviewOpenOrders)).toBeNull();
+    expect(metricCellValue(html, en.portfolio.overviewReservations)).toBeNull();
+    expect(metricCellValue(html, en.portfolio.overviewInstruments)).toBe("1");
+    expect(metricCellValue(html, en.portfolio.overviewProtocols)).toBe("1");
+    expect(html).not.toContain(en.portfolio.overviewExecutions);
+    expect(html).not.toContain(en.portfolio.ordersEmpty);
+    expect(html).not.toContain(en.portfolio.executionsEmpty);
     expect(html).toContain("Owned");
     expect(html).toContain(`/instruments/${WHEAT_INSTRUMENT_ID}`);
     expect(html).not.toContain("Partially filled");
     expect(workspace.protocolGroups.length).toBeGreaterThan(0);
+  });
+
+  it("renders recorded zeros when the live book is available and empty", () => {
+    const workspace = asWorkspace(
+      composeInvestorWorkspace({
+        actor: asPersona("DEMO-FUND-001"),
+        canonical: investorWorkspaceCanonicalSource(),
+        activity: {
+          kind: "AVAILABLE",
+          orders: [],
+          reservations: [],
+          trades: [],
+          workingHoldings: [],
+        },
+        navigation: { secondaryHref: "/secondary", marketsHref: "/markets" },
+      }),
+    );
+    const html = renderWorkspace(workspace);
+    expect(workspace.overview.activity.kind).toBe("AVAILABLE");
+    if (workspace.overview.activity.kind !== "AVAILABLE") {
+      return;
+    }
+    expect(workspace.overview.activity.openOrderCount).toBe(0);
+    expect(workspace.overview.activity.reservationsRequiringAttention).toBe(0);
+    expect(html).not.toContain(en.portfolio.activityUnavailable);
+    expect(html).not.toContain(
+      "The live market book is unavailable, so open orders and reservations are not shown.",
+    );
+    expect(html).not.toContain(
+      "The live market book is unavailable, so executions and clearing records are not shown.",
+    );
+    expect(metricCellValue(html, en.portfolio.overviewOpenOrders)).toBe("0");
+    expect(metricCellValue(html, en.portfolio.overviewReservations)).toBe("0");
+    expect(metricCellValue(html, en.portfolio.overviewInstruments)).toBe("1");
+    expect(metricCellValue(html, en.portfolio.overviewProtocols)).toBe("1");
+    expect(html).not.toContain(en.portfolio.overviewExecutions);
+    expect(html).toContain(en.portfolio.ordersEmpty);
+    expect(html).toContain(en.portfolio.executionsEmpty);
+    expect(html).toContain("Owned");
+    expect(html).toContain(`/instruments/${WHEAT_INSTRUMENT_ID}`);
   });
 
   it("renders the synthetic TIDAL grouping through the production view", () => {

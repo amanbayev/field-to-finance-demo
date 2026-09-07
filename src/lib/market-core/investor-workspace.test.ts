@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   actorMayCancelOrder,
+  availableBalance,
   explainActorEligibility,
   explanationAllowsTrade,
   type EligibilityExplanation,
@@ -209,6 +210,32 @@ function asWorkspace(model: ReturnType<typeof composeFor>): InvestorWorkspaceRea
   return model as InvestorWorkspaceReady;
 }
 
+function cloneHolding(holding: Holding): Holding {
+  return {
+    id: holding.id,
+    instrumentId: holding.instrumentId,
+    holderReference: holding.holderReference,
+    holderName: holding.holderName,
+    buckets: { ...holding.buckets },
+    available: holding.available,
+  };
+}
+
+function holdingFromBuckets(
+  id: string,
+  buckets: Holding["buckets"],
+  holderName = "Steppe Capital",
+): Holding {
+  return {
+    id,
+    instrumentId: WHEAT_INSTRUMENT_ID,
+    holderReference: "INVESTOR-0001",
+    holderName,
+    buckets: { ...buckets },
+    available: availableBalance(buckets),
+  };
+}
+
 describe("investor workspace actor scoping", () => {
   it("resolves DEMO-FUND-001 to INVESTOR-0001 through effective identity", () => {
     const actor = asPersona("DEMO-FUND-001");
@@ -303,6 +330,19 @@ describe("investor workspace actor scoping", () => {
     expect(composeFor(noMembership)).toEqual({
       kind: "DENIED",
       reason: "MISSING_MEMBERSHIP",
+    });
+
+    const noOrganization: ActorContext = {
+      ...fund,
+      effective: { ...fund.effective, organization: undefined },
+    };
+    expect(composeFor(noOrganization)).toEqual({
+      kind: "DENIED",
+      reason: "MISSING_ORGANIZATION",
+    });
+    expect(composeFor(asPersona("DEMO-ADMIN-001"))).toEqual({
+      kind: "DENIED",
+      reason: "NO_PARTICIPANT",
     });
   });
 
@@ -406,6 +446,103 @@ describe("investor workspace holdings and grouping", () => {
       pledged: 1,
       blocked: 1,
     });
+  });
+
+  it("keeps canonical owned and overlays only operational reservation buckets", () => {
+    const legal = holdingFromBuckets("hld-canonical-owned", {
+      owned: 20,
+      reservedForOrders: 1,
+      pledged: 1,
+      blocked: 0,
+      pendingIn: 2,
+      pendingOut: 1,
+    });
+    const working = holdingFromBuckets(
+      "hld-working-owned",
+      {
+        owned: 99,
+        reservedForOrders: 4,
+        pledged: 3,
+        blocked: 2,
+        pendingIn: 50,
+        pendingOut: 7,
+      },
+      "Live Book",
+    );
+    const legalSnapshot = cloneHolding(legal);
+    const workingSnapshot = cloneHolding(working);
+    const source = investorWorkspaceCanonicalSource();
+    const workspace = asWorkspace(
+      composeFor(asPersona("DEMO-FUND-001"), {
+        canonical: {
+          ...source,
+          listHoldings: () => [legal],
+        },
+        activity: {
+          kind: "AVAILABLE",
+          orders: [],
+          reservations: [],
+          trades: [],
+          workingHoldings: [working],
+        },
+      }),
+    );
+    expect(workspace.protocolGroups[0]?.instruments[0]?.buckets).toEqual({
+      owned: 20,
+      available: 11,
+      reserved: 4,
+      pledged: 3,
+      blocked: 2,
+    });
+    expect(legal).toEqual(legalSnapshot);
+    expect(working).toEqual(workingSnapshot);
+    expect(workspace.holdingsProvenance).toBe("CANONICAL_WITH_WORKING_OVERLAY");
+  });
+
+  it("preserves the canonical register holding when the overlay would go negative", () => {
+    const legal = holdingFromBuckets("hld-canonical-safe", {
+      owned: 8,
+      reservedForOrders: 1,
+      pledged: 0,
+      blocked: 0,
+      pendingIn: 0,
+      pendingOut: 0,
+    });
+    const working = holdingFromBuckets("hld-working-invalid", {
+      owned: 8,
+      reservedForOrders: 9,
+      pledged: 1,
+      blocked: 1,
+      pendingIn: 0,
+      pendingOut: 0,
+    });
+    const legalSnapshot = cloneHolding(legal);
+    const source = investorWorkspaceCanonicalSource();
+    const workspace = asWorkspace(
+      composeFor(asPersona("DEMO-FUND-001"), {
+        canonical: {
+          ...source,
+          listHoldings: () => [legal],
+        },
+        activity: {
+          kind: "AVAILABLE",
+          orders: [],
+          reservations: [],
+          trades: [],
+          workingHoldings: [working],
+        },
+      }),
+    );
+    const buckets = workspace.protocolGroups[0]?.instruments[0]?.buckets;
+    expect(buckets).toEqual({
+      owned: 8,
+      available: 7,
+      reserved: 1,
+      pledged: 0,
+      blocked: 0,
+    });
+    expect(buckets?.available).toBeGreaterThanOrEqual(0);
+    expect(legal).toEqual(legalSnapshot);
   });
 });
 
@@ -538,8 +675,16 @@ describe("investor workspace orders, reservations and executions", () => {
     expect(workspace.orders.map((row) => row.id)).toEqual(["ord-open", "ord-partial"]);
     expect(workspace.orders[0]?.reservation?.status).toBe("ACTIVE");
     expect(workspace.orders[1]?.reservation?.status).toBe("HELD_PENDING_SETTLEMENT");
-    expect(workspace.overview.openOrderCount).toBe(2);
-    expect(workspace.overview.reservationsRequiringAttention).toBe(2);
+    expect(workspace.overview.activity).toEqual({
+      kind: "AVAILABLE",
+      openOrderCount: 2,
+      reservationsRequiringAttention: 2,
+      executionsByLifecycle: [
+        { status: "MATCHED", count: 0 },
+        { status: "CLEARING_READY", count: 0 },
+        { status: "AWAITING_DEVNET_SETTLEMENT", count: 0 },
+      ],
+    });
     expect(presentWorkspaceOrder(workspace.orders[0]!).statusKey).toBe("orderStatusOpen");
     expect(workspaceOrderStatusKey("FILLED")).toBe("orderStatusUnavailable");
   });
@@ -583,11 +728,16 @@ describe("investor workspace orders, reservations and executions", () => {
       expect(presented.lifecycleKey).not.toBe("SETTLED");
     }
     expect(workspaceTradeLifecycleKey("SETTLED")).toBe("lifecycleUnavailable");
-    expect(workspace.overview.executionsByLifecycle).toEqual([
-      { status: "MATCHED", count: 1 },
-      { status: "CLEARING_READY", count: 1 },
-      { status: "AWAITING_DEVNET_SETTLEMENT", count: 1 },
-    ]);
+    expect(workspace.overview.activity).toEqual({
+      kind: "AVAILABLE",
+      openOrderCount: 0,
+      reservationsRequiringAttention: 0,
+      executionsByLifecycle: [
+        { status: "MATCHED", count: 1 },
+        { status: "CLEARING_READY", count: 1 },
+        { status: "AWAITING_DEVNET_SETTLEMENT", count: 1 },
+      ],
+    });
   });
 
   it("does not calculate a monetary portfolio aggregate", () => {
@@ -620,11 +770,47 @@ describe("investor workspace orders, reservations and executions", () => {
     const workspace = asWorkspace(composeFor(asPersona("DEMO-FUND-001")));
     expect(workspace.activityProvenance).toBe("UNAVAILABLE");
     expect(workspace.holdingsProvenance).toBe("CANONICAL_REGISTER");
+    expect(workspace.overview.activity).toEqual({ kind: "UNAVAILABLE" });
+    expect(workspace.overview.activity).not.toHaveProperty("openOrderCount");
+    expect(workspace.overview.activity).not.toHaveProperty(
+      "reservationsRequiringAttention",
+    );
+    expect(workspace.overview.activity).not.toHaveProperty("executionsByLifecycle");
     expect(workspace.orders).toEqual({ unavailable: true });
     expect(workspace.executions).toEqual({ unavailable: true });
     expect(workspace.protocolGroups[0]?.instruments[0]?.instrumentId).toBe(
       WHEAT_INSTRUMENT_ID,
     );
+  });
+
+  it("treats an available empty live book as recorded zeros, not unavailable", () => {
+    const workspace = asWorkspace(
+      composeFor(asPersona("DEMO-FUND-001"), {
+        activity: {
+          kind: "AVAILABLE",
+          orders: [],
+          reservations: [],
+          trades: [],
+          workingHoldings: [],
+        },
+      }),
+    );
+    expect(workspace.activityProvenance).toBe("LIVE_BOOK");
+    expect(workspace.overview.activity).toEqual({
+      kind: "AVAILABLE",
+      openOrderCount: 0,
+      reservationsRequiringAttention: 0,
+      executionsByLifecycle: [
+        { status: "MATCHED", count: 0 },
+        { status: "CLEARING_READY", count: 0 },
+        { status: "AWAITING_DEVNET_SETTLEMENT", count: 0 },
+      ],
+    });
+    expect(workspace.orders).toEqual([]);
+    expect(workspace.executions).toEqual([]);
+    expect(workspace.overview.instrumentCount).toBeGreaterThan(0);
+    expect(Object.isFrozen(workspace.overview)).toBe(true);
+    expect(Object.isFrozen(workspace.overview.activity)).toBe(true);
   });
 });
 

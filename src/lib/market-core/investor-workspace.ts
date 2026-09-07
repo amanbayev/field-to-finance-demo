@@ -8,6 +8,7 @@ import {
   type AssetProtocol,
   type EligibilityExplanation,
   type Holding,
+  type HoldingBuckets,
   type Market,
   type MarketInstrument,
   type Order,
@@ -155,12 +156,21 @@ export interface WorkspaceLifecycleCount {
   readonly count: number;
 }
 
+export type WorkspaceActivityOverview =
+  | {
+      readonly kind: "AVAILABLE";
+      readonly openOrderCount: number;
+      readonly reservationsRequiringAttention: number;
+      readonly executionsByLifecycle: readonly WorkspaceLifecycleCount[];
+    }
+  | {
+      readonly kind: "UNAVAILABLE";
+    };
+
 export interface WorkspaceOverview {
   readonly instrumentCount: number;
   readonly protocolCount: number;
-  readonly openOrderCount: number;
-  readonly reservationsRequiringAttention: number;
-  readonly executionsByLifecycle: readonly WorkspaceLifecycleCount[];
+  readonly activity: WorkspaceActivityOverview;
 }
 
 export type HoldingsProvenance =
@@ -302,6 +312,27 @@ function boundProtocolVersion(
   return protocolVersion;
 }
 
+function isNonNegativeInteger(value: number): boolean {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function canApplyOperationalOverlay(
+  owned: number,
+  overlay: Pick<HoldingBuckets, "reservedForOrders" | "pledged" | "blocked">,
+): boolean {
+  if (
+    !isNonNegativeInteger(owned) ||
+    !isNonNegativeInteger(overlay.reservedForOrders) ||
+    !isNonNegativeInteger(overlay.pledged) ||
+    !isNonNegativeInteger(overlay.blocked)
+  ) {
+    return false;
+  }
+  return (
+    owned - overlay.reservedForOrders - overlay.pledged - overlay.blocked >= 0
+  );
+}
+
 function overlayWorkingBuckets(
   legal: readonly Holding[],
   working: readonly Holding[],
@@ -315,22 +346,25 @@ function overlayWorkingBuckets(
     if (!match) {
       return holding;
     }
-    const buckets = {
-      owned: match.buckets.owned,
+    if (!canApplyOperationalOverlay(holding.buckets.owned, match.buckets)) {
+      return holding;
+    }
+    const buckets: HoldingBuckets = {
+      owned: holding.buckets.owned,
       reservedForOrders: match.buckets.reservedForOrders,
       pledged: match.buckets.pledged,
       blocked: match.buckets.blocked,
-      pendingIn: match.buckets.pendingIn,
-      pendingOut: match.buckets.pendingOut,
+      pendingIn: holding.buckets.pendingIn,
+      pendingOut: holding.buckets.pendingOut,
     };
-    return {
+    return freezeRow({
       id: holding.id,
       instrumentId: holding.instrumentId,
       holderReference: holding.holderReference,
       holderName: holding.holderName,
-      buckets,
+      buckets: freezeRow({ ...buckets }),
       available: availableBalance(buckets),
-    };
+    });
   });
 }
 
@@ -452,11 +486,9 @@ export function composeInvestorWorkspace(
 
   let orders: InvestorWorkspaceReady["orders"] = ACTIVITY_UNAVAILABLE;
   let executions: InvestorWorkspaceReady["executions"] = ACTIVITY_UNAVAILABLE;
-  let openOrderCount = 0;
-  let reservationsRequiringAttention = 0;
-  let executionsByLifecycle: WorkspaceLifecycleCount[] = TRADE_STATUSES.map(
-    (status) => ({ status, count: 0 }),
-  );
+  let activityOverview: WorkspaceActivityOverview = freezeRow({
+    kind: "UNAVAILABLE" as const,
+  });
 
   if (activityAvailable) {
     const scopedOrders = input.activity.orders.filter(
@@ -470,14 +502,21 @@ export function composeInvestorWorkspace(
         trade.buyerParticipantId === scope.participantId ||
         trade.sellerParticipantId === scope.participantId,
     );
-    openOrderCount = scopedOrders.length;
-    reservationsRequiringAttention = scopedReservations.filter(
-      reservationNeedsAttention,
-    ).length;
-    executionsByLifecycle = TRADE_STATUSES.map((status) => ({
-      status,
-      count: scopedTrades.filter((trade) => trade.status === status).length,
-    }));
+    activityOverview = freezeRow({
+      kind: "AVAILABLE" as const,
+      openOrderCount: scopedOrders.length,
+      reservationsRequiringAttention: scopedReservations.filter(
+        reservationNeedsAttention,
+      ).length,
+      executionsByLifecycle: Object.freeze(
+        TRADE_STATUSES.map((status) =>
+          freezeRow({
+            status,
+            count: scopedTrades.filter((trade) => trade.status === status).length,
+          }),
+        ),
+      ),
+    });
 
     orders = Object.freeze(
       scopedOrders.map((order) => {
@@ -535,11 +574,7 @@ export function composeInvestorWorkspace(
   const overview = freezeRow({
     instrumentCount: seenInstruments.size,
     protocolCount: frozenGroups.length,
-    openOrderCount,
-    reservationsRequiringAttention,
-    executionsByLifecycle: Object.freeze(
-      executionsByLifecycle.map((row) => freezeRow({ ...row })),
-    ),
+    activity: activityOverview,
   });
 
   return Object.freeze({

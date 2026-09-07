@@ -74,9 +74,11 @@ export function InvestorWorkspaceView({
     workspace.holdingsProvenance === "CANONICAL_WITH_WORKING_OVERLAY"
       ? t("provenanceOverlay")
       : t("provenanceCanonical");
-  const lifecycleCounts = workspace.overview.executionsByLifecycle.filter(
-    (row) => row.count > 0,
-  );
+  const activity = workspace.overview.activity;
+  const lifecycleCounts =
+    activity.kind === "AVAILABLE"
+      ? activity.executionsByLifecycle.filter((row) => row.count > 0)
+      : [];
   const orders = availableRows(workspace.orders);
   const executions = availableRows(workspace.executions);
 
@@ -103,15 +105,22 @@ export function InvestorWorkspaceView({
             label={t("overviewProtocols")}
             value={formatInteger(workspace.overview.protocolCount, locale)}
           />
-          <MetricCell
-            label={t("overviewOpenOrders")}
-            value={formatInteger(workspace.overview.openOrderCount, locale)}
-          />
-          <MetricCell
-            label={t("overviewReservations")}
-            value={formatInteger(workspace.overview.reservationsRequiringAttention, locale)}
-          />
+          {activity.kind === "AVAILABLE" ? (
+            <>
+              <MetricCell
+                label={t("overviewOpenOrders")}
+                value={formatInteger(activity.openOrderCount, locale)}
+              />
+              <MetricCell
+                label={t("overviewReservations")}
+                value={formatInteger(activity.reservationsRequiringAttention, locale)}
+              />
+            </>
+          ) : null}
         </MetricStrip>
+        {activity.kind === "UNAVAILABLE" ? (
+          <DeskNote className="mt-4">{t("activityUnavailable")}</DeskNote>
+        ) : null}
         {lifecycleCounts.length > 0 ? (
           <div className="mt-4">
             <h3 className="text-sm font-medium">{t("overviewExecutions")}</h3>
