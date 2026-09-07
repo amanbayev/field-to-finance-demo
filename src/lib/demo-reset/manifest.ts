@@ -30,14 +30,55 @@ export type DemoResetScopeBasis =
   | "ENVIRONMENT_WIDE"
   | "NOT_SCOPABLE";
 
+/**
+ * Which rows *inside* a named object the category covers.
+ *
+ * `scopeBasis` answers whether a category can be bounded to a run at all.
+ * This answers the separate question that decides the preserved/cleared
+ * conflict: two categories may name the same table and still be safe, but only
+ * when one covers exactly the run's rows and the other covers exactly the rows
+ * that belong to no run.
+ *
+ * - `RUN_OWNED_ROWS`: only rows owned by the target run.
+ * - `NON_RUN_ROWS`: only rows owned by no run, such as operator identity.
+ * - `NOT_EXPRESSIBLE`: the object is named but its rows cannot be separated,
+ *   because no run-ownership column exists to separate them by.
+ * - `NOT_APPLICABLE`: the category names no objects, so there are no rows to
+ *   scope.
+ */
+export type DemoResetRowScope =
+  | "RUN_OWNED_ROWS"
+  | "NON_RUN_ROWS"
+  | "NOT_EXPRESSIBLE"
+  | "NOT_APPLICABLE";
+
 export interface DemoResetCategory {
   id: string;
   subsystem: DemoResetSubsystem;
   disposition: DemoResetDisposition;
   scopeBasis: DemoResetScopeBasis;
+  rowScope: DemoResetRowScope;
   /** Table names, bucket ids, or an empty list when the objects are external. */
   objects: readonly string[];
   note: string;
+}
+
+/**
+ * True when two row scopes cannot contain the same row.
+ *
+ * Only one pairing proves it: the run's rows against the rows that belong to
+ * no run. Everything else — including two categories that both declare
+ * `RUN_OWNED_ROWS` — may intersect, and an unproven separation is treated as
+ * an intersection rather than assumed away.
+ */
+export function provablyDisjointRowScopes(
+  first: DemoResetRowScope,
+  second: DemoResetRowScope,
+): boolean {
+  return (
+    (first === "RUN_OWNED_ROWS" && second === "NON_RUN_ROWS") ||
+    (first === "NON_RUN_ROWS" && second === "RUN_OWNED_ROWS")
+  );
 }
 
 export interface DemoResetManifest {
@@ -51,6 +92,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "PRESERVED",
     scopeBasis: "ENVIRONMENT_WIDE",
+    rowScope: "NOT_APPLICABLE",
     objects: [],
     note:
       "Roles and the platform permissions are TypeScript in src/domain/identity, " +
@@ -62,6 +104,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "PRESERVED",
     scopeBasis: "ENVIRONMENT_WIDE",
+    rowScope: "NOT_APPLICABLE",
     objects: [],
     note:
       "Recorded protocols and frozen protocol versions live in " +
@@ -73,6 +116,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "PRESERVED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_EXPRESSIBLE",
     objects: [
       "organizations",
       "profiles",
@@ -90,6 +134,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "PRESERVED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_APPLICABLE",
     objects: [],
     note:
       "Reset audit must be stored outside the deleted scope. No reset audit " +
@@ -100,6 +145,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "CLEARED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_EXPRESSIBLE",
     objects: [
       "organizations",
       "profiles",
@@ -118,6 +164,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "CLEARED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_EXPRESSIBLE",
     objects: [
       "producer_fields",
       "field_submissions",
@@ -143,6 +190,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "CLEARED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_EXPRESSIBLE",
     objects: [
       "market_core_markets",
       "market_core_orders",
@@ -169,6 +217,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "CLEARED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_EXPRESSIBLE",
     objects: ["registrar_registered_ownership"],
     note:
       "The legal book of record. Clearing it is a demo-environment action " +
@@ -186,6 +235,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "DATABASE",
     disposition: "CLEARED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_EXPRESSIBLE",
     objects: ["app_audit_events"],
     note:
       "Business audit for cleared objects. The reset's own audit record must " +
@@ -196,6 +246,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "STORAGE",
     disposition: "CLEARED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_EXPRESSIBLE",
     objects: ["field-documents", "scas-evidence"],
     note:
       "Private evidence buckets. Storage cleanup is not transactional with " +
@@ -206,6 +257,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "AUTH",
     disposition: "CLEARED",
     scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_APPLICABLE",
     objects: [],
     note:
       "Run-owned sessions and memberships are revoked. A shared external Auth " +
@@ -216,6 +268,7 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     subsystem: "CHAIN",
     disposition: "PRESERVED",
     scopeBasis: "ENVIRONMENT_WIDE",
+    rowScope: "NOT_APPLICABLE",
     objects: [],
     note:
       "Solana Devnet history cannot be reset. A new run gets new identifiers " +
@@ -246,25 +299,30 @@ export function categoriesByDisposition(
 }
 
 /**
- * Objects named by both a `PRESERVED` and a `CLEARED` category.
+ * Objects named by both a `PRESERVED` and a `CLEARED` category whose row
+ * scopes are not proven disjoint.
  *
- * A non-empty result means the manifest cannot be executed as written: the
- * same table would have to be both kept and emptied. Reporting it is the point
- * — it is the concrete consequence of missing run ownership.
+ * Sharing a table is not by itself a conflict. The conflict is that the same
+ * *row* would have to be both kept and emptied. An object therefore drops out
+ * of this list only when every preserved/cleared pairing that names it proves
+ * the two sides cannot select the same row — the run's rows against the rows
+ * owned by no run. Declaring a category `RUN_OWNED` does not retire the
+ * conflict on its own, because a scope basis says nothing about which rows of
+ * the shared table the other side keeps.
  */
 export function overlappingManifestObjects(
   manifest: DemoResetManifest = DEMO_DATASET_V2_RESET_MANIFEST,
 ): readonly string[] {
-  const preserved = new Set<string>();
-  for (const category of categoriesByDisposition("PRESERVED", manifest)) {
-    for (const object of category.objects) {
-      preserved.add(object);
-    }
-  }
+  const preserved = categoriesByDisposition("PRESERVED", manifest);
   const overlap = new Set<string>();
-  for (const category of categoriesByDisposition("CLEARED", manifest)) {
-    for (const object of category.objects) {
-      if (preserved.has(object)) {
+  for (const cleared of categoriesByDisposition("CLEARED", manifest)) {
+    for (const object of cleared.objects) {
+      const unproven = preserved.some(
+        (kept) =>
+          kept.objects.includes(object) &&
+          !provablyDisjointRowScopes(kept.rowScope, cleared.rowScope),
+      );
+      if (unproven) {
         overlap.add(object);
       }
     }
@@ -272,11 +330,20 @@ export function overlappingManifestObjects(
   return Object.freeze([...overlap].sort());
 }
 
-/** Cleared categories that cannot yet be bounded to a single run. */
+/**
+ * Cleared categories that cannot yet be bounded to a single run.
+ *
+ * A category counts as bounded only when it is both declared `RUN_OWNED` and
+ * able to name the run's rows. Flipping the scope basis alone leaves the
+ * category unscoped here, so no reset can claim run isolation it cannot
+ * express at row level.
+ */
 export function unscopedClearedCategories(
   manifest: DemoResetManifest = DEMO_DATASET_V2_RESET_MANIFEST,
 ): readonly DemoResetCategory[] {
   return categoriesByDisposition("CLEARED", manifest).filter(
-    (category) => category.scopeBasis !== "RUN_OWNED",
+    (category) =>
+      category.scopeBasis !== "RUN_OWNED" ||
+      category.rowScope !== "RUN_OWNED_ROWS",
   );
 }

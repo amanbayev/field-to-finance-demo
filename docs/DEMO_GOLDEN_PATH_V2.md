@@ -321,20 +321,58 @@ Issuance, Placement, Subscription, Payment or Allocation is seeded. Optional tes
 outside the acceptance run and contribute no holdings.
 
 The machine-readable manifest is `src/lib/demo-reset/manifest.ts`. It records, per category, the
-subsystem (database, auth, storage or chain), the disposition, the scope basis, and the exact
-object names taken from `supabase/migrations/`.
+subsystem (database, auth, storage or chain), the disposition, the scope basis, the row scope, and
+the exact object names taken from `supabase/migrations/`.
+
+The scope basis and the row scope answer different questions. The scope basis says whether a
+category can be bounded to a run at all. The row scope says which rows *inside* the named objects
+the category covers: the run's rows, the rows owned by no run, or — at this baseline — rows that
+cannot be separated because no column separates them.
 
 ### 9.3 Run ownership is a prerequisite, not a delivered capability
 
-No `run_id` column, run table or run-correlation field exists on any business table at the audited
-baseline. A reset therefore cannot today prove that it would delete only the current run's rows,
-and several categories name the same tables under both `PRESERVED` and `CLEARED` — for example
-`organizations`, `memberships`, `membership_roles` and `profiles`, which hold both operator
-accounts and run-created participants.
+Four things are separate and must not be collapsed:
 
-This is recorded as a hard prerequisite. Until run ownership exists, a dry-run must resolve to
-`INCOMPLETE` or `BLOCKED` and never to `READY_FOR_CONFIRMATION`. The planner
-(`src/lib/demo-reset/plan.ts`) enforces this.
+1. the **actor/principal** — who the verified session says is asking;
+2. the **environment scope** — which environment, dataset and database are approved;
+3. the **run instance** — a distinct Golden Path lifecycle occurrence with its own identifier;
+4. **row ownership** — which rows belong to that instance.
+
+A principal is not a run. One operator may hold Run A and later Run B in the same environment,
+dataset and database, and §9.6 requires that Run B receive new identifiers. An identifier derived
+from the principal and the context is therefore a stable fingerprint of *who is asking from where*
+and can never be a run identity: it would name the same run forever, which is exactly how an
+earlier run's evidence gets attached to a later one. A run identifier must be server-issued or read
+from trusted server-held state.
+
+Two prerequisites are outstanding, and they are independent:
+
+- **No run registry.** Nothing issues or records a run instance, so
+  `src/lib/demo-reset/run-scope.ts` resolves a run through the read-only `DemoResetRunStore` port
+  and fails closed when, as in production today, no store is wired. It does not invent an
+  identifier to give the planner a non-null value.
+- **No row-level isolation.** No `run_id` column, run table or run-correlation field exists on any
+  business table, so several categories name the same tables under both `PRESERVED` and `CLEARED`
+  — `organizations`, `memberships`, `membership_roles` and `profiles`, which hold both operator
+  accounts and run-created participants.
+
+The second is the one that retires `PRESERVED_AND_CLEARED_OVERLAP`, and issuing run identifiers
+does not retire it. Sharing a table is not by itself the conflict; the conflict is that the same
+*row* would have to be both kept and emptied. `overlappingManifestObjects` therefore drops an
+object only when every preserved/cleared pairing naming it proves the two sides cannot select the
+same row — the run's rows against the rows owned by no run. Declaring a category `RUN_OWNED` does
+not prove that, because a scope basis says nothing about which rows the other side keeps, and
+`unscopedClearedCategories` treats a category as unscoped until it can name the run's rows too.
+
+Both prerequisites are hard. Until they are met a dry-run must resolve to `INCOMPLETE` or
+`BLOCKED` and never to `READY_FOR_CONFIRMATION`. The planner (`src/lib/demo-reset/plan.ts`)
+enforces this.
+
+Knowing a run identifier grants nothing. `resolveDemoResetRunScope` asks trusted state which run
+the current operator holds and compares any caller-supplied identifier against it; it never fetches
+a run by that identifier. A foreign, stale or invented identifier is refused identically, so no
+sequence of requests reveals whether some other run exists, and a stale identifier is refused
+rather than silently retargeted to the current run.
 
 Missing access to an inventory source never means zero objects. A test or declared inventory is
 never presented as an observed one.
@@ -354,8 +392,9 @@ moved, while the supported format — ISO 8601 UTC with optional milliseconds �
 ### 9.3.1 Counts are not proof that the row set is unchanged
 
 `demoResetPlanHash` covers the environment, dataset, dataset contract, run, and each category's
-id, subsystem, scope basis, objects and row count. Equal counts therefore hash equally: a row set
-whose members changed while its size stayed the same is **not** detected today. The plan hash
+id, subsystem, scope basis, row scope, objects and row count. Equal counts therefore hash equally:
+a row set whose members changed while its size stayed the same is **not** detected today. The plan
+hash
 proves that the reviewed plan is the same plan, not that the data behind it is the same data.
 
 Closing that gap needs a per-category inventory revision or fingerprint — for example a content
@@ -436,8 +475,11 @@ execution.
 | GP-14B | Registrar registration, projection reconciliation and portfolio |
 | GP-15 | Complete admin overview and repeated full UI acceptance |
 
-**This PR delivers GP-00 in full, plus the contract, policy and planner part of GP-01.** GP-01 is
-not complete: the run-isolation schema and a scoped inventory reader remain outstanding.
+**This PR delivers GP-00 in full, plus the contract, policy, planner, run-scope boundary and
+inventory-reader seam of GP-01.** GP-01 is not complete. Two things remain, in this order: a run
+registry that issues and records run instances, and the row-level isolation that lets a preserved
+and a cleared category name disjoint rows of a shared table. Neither is delivered here, so no
+category is run-scoped, the reader issues no query, and the plan stays `INCOMPLETE`.
 
 GP-09 depends on an agreed technical signer, an inventory account, and an approved isolated QA
 environment. GP-14 depends on investor delivery-address ownership and signer configuration.

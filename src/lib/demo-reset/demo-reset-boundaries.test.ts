@@ -16,6 +16,13 @@ const LIB_DIR = "src/lib/demo-reset";
 const SERVICE = "src/services/demo-reset-service.ts";
 
 /**
+ * Observing an environment is an I/O boundary, so the inventory reader is the
+ * one module allowed to be asynchronous. Every other module stays synchronous,
+ * which is what keeps `await` — and therefore any client call — out of them.
+ */
+const READER = `${LIB_DIR}/inventory-reader.ts`;
+
+/**
  * Comments and string literals legitimately discuss deletion, so the scan
  * runs against executable source only.
  */
@@ -74,11 +81,13 @@ describe("demo reset has no executing deletion path", () => {
     ).toEqual([
       "environment.ts",
       "index.ts",
+      "inventory-reader.ts",
       "inventory.ts",
       "legacy-fixture-fallback.ts",
       "manifest.ts",
       "plan.ts",
       "policy.ts",
+      "run-scope.ts",
     ]);
     expect(existsSync(SERVICE)).toBe(true);
   });
@@ -107,11 +116,68 @@ describe("demo reset has no executing deletion path", () => {
     }
   });
 
-  it("keeps the pure modules free of any asynchronous boundary", () => {
-    for (const file of libSources()) {
+  it("keeps every module but the inventory reader free of an asynchronous boundary", () => {
+    const pure = libSources().filter((file) => file !== READER);
+    expect(pure).not.toContain(READER);
+    for (const file of pure) {
       const source = executableSource(file);
       expect(source, `async in ${file}`).not.toMatch(/\basync\b/);
       expect(source, `await in ${file}`).not.toMatch(/\bawait\b/);
+    }
+  });
+
+  it("gives the inventory reader one injected read capability and no other", () => {
+    const source = readFileSync(READER, "utf8");
+    // The source is a parameter, so the reader cannot reach ambient state and
+    // a test can prove it was never invoked.
+    expect(source).toContain("source?: DemoResetRowCountSource | null");
+    expect(source).toContain(
+      "countRows(request: DemoResetCountRequest): Promise<DemoResetRowCount>",
+    );
+    expect(source, "table access in the reader").not.toContain(".from(");
+    expect(source, "query builder in the reader").not.toContain(".select(");
+  });
+
+  it("makes the run scope unavoidable for a run-owned count", () => {
+    const source = readFileSync(READER, "utf8");
+    // A `RUN` request carries the proven scope itself, so the type cannot be
+    // satisfied by a scope that was refused or never established.
+    expect(source).toContain(
+      'kind: "RUN"; readonly run: DemoResetEstablishedRunScope',
+    );
+    // Only allowlisted names reach a source, so an injected manifest cannot
+    // widen what the reader may physically touch.
+    expect(source).toContain("readableObject(name)");
+    expect(source.replace(/\s/g, "")).toContain(
+      "source.countRows({object,scope})",
+    );
+  });
+
+  it("resolves a run instance from trusted state and never looks one up by claim", () => {
+    const source = readFileSync(`${LIB_DIR}/run-scope.ts`, "utf8");
+    // The claim is typed `unknown` and only ever compared, never used as a key.
+    expect(source).toContain("claimedRunId?: unknown");
+    expect(source).toContain('return refused("RUN_NOT_OWNED_BY_ACTOR")');
+    // The port answers "which run does this operator hold", so no method takes
+    // a caller-supplied identifier and none can become a lookup oracle.
+    expect(source).toContain(
+      "currentRunInstance(context: DemoResetRunContext)",
+    );
+    expect(source, "run lookup").not.toContain(".from(");
+    expect(source, "run lookup").not.toContain(".eq(");
+  });
+
+  it("mints no run identifier of its own", () => {
+    // A derived or locally minted identifier would be a fingerprint of the
+    // actor and the context, not a run: one operator would hold the same one
+    // forever, and Run B could never differ from Run A. The identifier has to
+    // come from trusted state, so nothing here may invent one.
+    for (const file of [`${LIB_DIR}/run-scope.ts`, SERVICE]) {
+      const source = executableSource(file);
+      expect(source, `crypto in ${file}`).not.toContain("node:crypto");
+      expect(source, `identifier minted in ${file}`).not.toMatch(
+        /randomUUID|createHash|Math\.random/,
+      );
     }
   });
 
@@ -147,8 +213,61 @@ describe("demo reset has no executing deletion path", () => {
   });
 
   it("defaults the production inventory to unavailable rather than empty", () => {
+    // Whitespace-insensitive so that reformatting the call cannot silently
+    // retire the guard.
+    expect(readFileSync(SERVICE, "utf8").replace(/\s/g, "")).toContain(
+      'unavailableDemoResetInventory("RUN_SCOPED_INVENTORY_SOURCE_ABSENT"',
+    );
+  });
+
+  it("denies before reading, and hands the planner an already-read inventory", () => {
+    const source = executableSource(SERVICE);
+    // Indexed inside the composition body, so a helper's definition earlier in
+    // the file cannot be mistaken for its call site.
+    const body = source.slice(
+      source.indexOf("export async function composeDemoResetDryRun"),
+    );
+    const precondition = body.indexOf("resolveDemoResetRunContext(");
+    const lookup = body.indexOf("lookUpRunInstance(");
+    const scope = body.indexOf("resolveDemoResetRunScope(");
+    const read = body.indexOf("readDemoResetInventory(");
+    for (const [name, index] of Object.entries({
+      precondition,
+      lookup,
+      scope,
+      read,
+    })) {
+      expect(index, `${name} is present`).toBeGreaterThan(-1);
+    }
+    // Policy gates the run store, and the run gates the database.
+    expect(precondition).toBeLessThan(lookup);
+    expect(lookup).toBeLessThan(read);
+    expect(scope).toBeLessThan(read);
+    // A refused run returns before the reader. Read from the raw file, since
+    // `executableSource` blanks the string literal being matched.
     expect(readFileSync(SERVICE, "utf8")).toContain(
-      'unavailableDemoResetInventory("RUN_SCOPED_INVENTORY_SOURCE_ABSENT")',
+      'if (runScope.kind === "REFUSED")',
+    );
+    // The planner is given the inventory the reader produced, and a stated
+    // absence when there was no read. It never reaches for one itself.
+    expect(body.replace(/\s/g, "")).toContain(
+      "?read.inventory:unavailableDemoResetInventory(",
+    );
+  });
+
+  it("fixes the manifest, run store and count source in the production entry", () => {
+    const source = executableSource(SERVICE);
+    // A request-facing caller supplies a trusted actor and an untrusted claim,
+    // and cannot choose which objects are in scope or which state is trusted.
+    expect(source.replace(/\s/g, "")).toContain(
+      "options?:{claimedRunId?:unknown},",
+    );
+    expect(source).toContain("store: PRODUCTION_RUN_STORE");
+    expect(source).toContain("source: PRODUCTION_ROW_COUNT_SOURCE");
+    // No run registry exists, so production resolves no run rather than
+    // inventing one.
+    expect(source).toContain(
+      "const PRODUCTION_RUN_STORE: DemoResetRunStore | null = null",
     );
   });
 });

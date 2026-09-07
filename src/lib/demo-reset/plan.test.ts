@@ -67,6 +67,7 @@ const RUN_OWNED_MANIFEST: DemoResetManifest = {
       subsystem: "DATABASE",
       disposition: "PRESERVED",
       scopeBasis: "ENVIRONMENT_WIDE",
+      rowScope: "NON_RUN_ROWS",
       objects: ["organizations"],
       note: "operator identity",
     },
@@ -75,6 +76,7 @@ const RUN_OWNED_MANIFEST: DemoResetManifest = {
       subsystem: "DATABASE",
       disposition: "CLEARED",
       scopeBasis: "RUN_OWNED",
+      rowScope: "RUN_OWNED_ROWS",
       objects: ["producer_fields"],
       note: "run-owned business rows",
     },
@@ -431,6 +433,7 @@ describe("demo reset plan hash", () => {
         categoryId: "kept",
         subsystem: "DATABASE" as const,
         scopeBasis: "ENVIRONMENT_WIDE" as const,
+        rowScope: "NON_RUN_ROWS" as const,
         objects: ["organizations"],
         rows: 12,
         note: "operator identity",
@@ -441,6 +444,7 @@ describe("demo reset plan hash", () => {
         categoryId: "run-rows",
         subsystem: "DATABASE" as const,
         scopeBasis: "RUN_OWNED" as const,
+        rowScope: "RUN_OWNED_ROWS" as const,
         objects: ["producer_fields"],
         rows: 3,
         note: "run-owned business rows",
@@ -496,6 +500,19 @@ describe("demo reset plan hash", () => {
     expect(
       demoResetPlanHash({ ...base, datasetContract: "demo-dataset-v3" }),
     ).not.toBe(original);
+  });
+
+  it("changes when a category row scope changes", () => {
+    // Which rows are in scope decides what a confirmation would authorise, so
+    // a plan reviewed for the run's rows must not match one for every row.
+    expect(
+      demoResetPlanHash({
+        ...base,
+        cleared: [
+          { ...base.cleared[0], rowScope: "NOT_EXPRESSIBLE" as const },
+        ],
+      }),
+    ).not.toBe(demoResetPlanHash(base));
   });
 
   it("changes when a category scope basis or status changes", () => {

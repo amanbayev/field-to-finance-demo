@@ -6,7 +6,10 @@ import {
   categoriesByDisposition,
   manifestCategoryIds,
   overlappingManifestObjects,
+  provablyDisjointRowScopes,
   unscopedClearedCategories,
+  type DemoResetManifest,
+  type DemoResetRowScope,
 } from "@/lib/demo-reset/manifest";
 
 const MIGRATIONS_DIR = "supabase/migrations";
@@ -134,6 +137,96 @@ describe("Dataset V2 reset manifest", () => {
       "organizations",
       "profiles",
     ]);
+  });
+
+  it("cannot express the rows of any table it both preserves and clears", () => {
+    // The overlap is not an oversight in the manifest, it is the shape of the
+    // schema: operator rows and run rows sit in the same tables with nothing
+    // to tell them apart. Both sides must say so.
+    for (const id of ["platform-operator-identity", "run-created-identity"]) {
+      const category = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(
+        (candidate) => candidate.id === id,
+      );
+      expect(category?.objects).toContain("organizations");
+      expect(category?.rowScope).toBe("NOT_EXPRESSIBLE");
+    }
+  });
+});
+
+describe("preserved and cleared row scopes", () => {
+  const shared = (
+    preserved: DemoResetRowScope,
+    cleared: DemoResetRowScope,
+  ): DemoResetManifest => ({
+    datasetContract: "synthetic-overlap",
+    categories: [
+      {
+        id: "kept",
+        subsystem: "DATABASE",
+        disposition: "PRESERVED",
+        scopeBasis: "NOT_SCOPABLE",
+        rowScope: preserved,
+        objects: ["organizations"],
+        note: "operator identity",
+      },
+      {
+        id: "run-rows",
+        subsystem: "DATABASE",
+        disposition: "CLEARED",
+        scopeBasis: "RUN_OWNED",
+        rowScope: cleared,
+        objects: ["organizations"],
+        note: "identity created for the run",
+      },
+    ],
+  });
+
+  it("retires the overlap only when the two sides are disjoint row sets", () => {
+    expect(
+      overlappingManifestObjects(shared("NON_RUN_ROWS", "RUN_OWNED_ROWS")),
+    ).toEqual([]);
+  });
+
+  it("keeps the overlap when either side cannot name its rows", () => {
+    // The trap this guards: declaring the cleared side `RUN_OWNED` while the
+    // preserved side still means "every row of this table". That is not
+    // isolation, and flipping a scope basis must not be able to fake it.
+    expect(
+      overlappingManifestObjects(shared("NOT_EXPRESSIBLE", "RUN_OWNED_ROWS")),
+    ).toEqual(["organizations"]);
+    expect(
+      overlappingManifestObjects(shared("NON_RUN_ROWS", "NOT_EXPRESSIBLE")),
+    ).toEqual(["organizations"]);
+    expect(
+      overlappingManifestObjects(shared("RUN_OWNED_ROWS", "RUN_OWNED_ROWS")),
+    ).toEqual(["organizations"]);
+  });
+
+  it("treats a cleared category as unscoped until it names the run's rows", () => {
+    const unproven = shared("NON_RUN_ROWS", "NOT_EXPRESSIBLE");
+    expect(unproven.categories[1].scopeBasis).toBe("RUN_OWNED");
+    expect(unscopedClearedCategories(unproven)).toHaveLength(1);
+    expect(
+      unscopedClearedCategories(shared("NON_RUN_ROWS", "RUN_OWNED_ROWS")),
+    ).toHaveLength(0);
+  });
+
+  it("proves disjointness only for the run against the non-run rows", () => {
+    expect(provablyDisjointRowScopes("RUN_OWNED_ROWS", "NON_RUN_ROWS")).toBe(
+      true,
+    );
+    expect(provablyDisjointRowScopes("NON_RUN_ROWS", "RUN_OWNED_ROWS")).toBe(
+      true,
+    );
+    for (const scope of [
+      "RUN_OWNED_ROWS",
+      "NON_RUN_ROWS",
+      "NOT_EXPRESSIBLE",
+      "NOT_APPLICABLE",
+    ] as const) {
+      expect(provablyDisjointRowScopes(scope, "NOT_EXPRESSIBLE")).toBe(false);
+      expect(provablyDisjointRowScopes("NOT_EXPRESSIBLE", scope)).toBe(false);
+    }
   });
 
   it("carries a note for every category", () => {

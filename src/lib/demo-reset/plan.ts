@@ -63,6 +63,8 @@ export interface DemoResetPlanCategory {
   categoryId: string;
   subsystem: DemoResetCategory["subsystem"];
   scopeBasis: DemoResetCategory["scopeBasis"];
+  /** Which rows of the named objects the category covers. */
+  rowScope: DemoResetCategory["rowScope"];
   objects: readonly string[];
   /** Null when the inventory did not establish a usable count. Never 0 or NaN. */
   rows: number | null;
@@ -102,10 +104,12 @@ export interface DemoResetPlanInput {
   authorization: DemoResetDryRunAuthorization;
   inventory: DemoResetInventory;
   /**
-   * Identity of the Golden Path run whose rows would be cleared. No business
-   * table carries run ownership yet, so production callers pass null and the
-   * plan resolves to INCOMPLETE. A blank or whitespace value establishes no
-   * scope and is treated as absent.
+   * Identity of the Golden Path run instance whose rows would be cleared. It
+   * is the identifier of a distinct run, never a fingerprint of the actor who
+   * asked: one operator may hold Run A and later Run B. No run registry exists
+   * to issue one yet, so production callers pass null and the plan resolves to
+   * INCOMPLETE. A blank or whitespace value establishes no scope and is
+   * treated as absent.
    */
   runId?: string | null;
   manifest?: DemoResetManifest;
@@ -122,6 +126,7 @@ function planCategories(
         categoryId: category.id,
         subsystem: category.subsystem,
         scopeBasis: category.scopeBasis,
+        rowScope: category.rowScope,
         objects: category.objects,
         rows: countedRows(inventory, category.id),
         note: category.note,
@@ -136,7 +141,7 @@ function planCategories(
  * A confirmation recorded under one scheme must not silently match a plan
  * hashed under another, so the scheme identifies itself inside the digest.
  */
-const PLAN_HASH_SCHEME = "demo-reset-plan-hash/v2";
+const PLAN_HASH_SCHEME = "demo-reset-plan-hash/v3";
 
 /**
  * Deterministic identity of a plan, for a later confirmation binding.
@@ -172,6 +177,9 @@ export function demoResetPlanHash(input: {
     category.categoryId,
     category.subsystem,
     category.scopeBasis,
+    // Which rows are in scope changes what a confirmation would authorise, so
+    // it belongs to the plan's identity as much as the count does.
+    category.rowScope,
     [...category.objects],
     category.rows,
   ];
