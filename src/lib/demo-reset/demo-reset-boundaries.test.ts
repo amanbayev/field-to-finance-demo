@@ -264,9 +264,11 @@ describe("demo reset has no executing deletion path", () => {
     );
     expect(source).toContain("store: PRODUCTION_RUN_STORE");
     expect(source).toContain("source: PRODUCTION_ROW_COUNT_SOURCE");
-    // No run registry exists, so production resolves no run rather than
-    // inventing one.
-    expect(source).toContain(
+    // Production wires the Postgres implementations. The service still does
+    // not construct a client; that stays in src/data/demo-reset.
+    expect(source).toContain("createProductionDemoResetRunStore()");
+    expect(source).toContain("createProductionDemoResetRowCountSource()");
+    expect(source).not.toContain(
       "const PRODUCTION_RUN_STORE: DemoResetRunStore | null = null",
     );
   });

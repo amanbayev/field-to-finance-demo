@@ -146,10 +146,10 @@ describe("demo reset dry-run planner", () => {
       expect.arrayContaining([
         "RUN_SCOPE_NOT_ESTABLISHED",
         "CLEARED_SCOPE_NOT_RUN_OWNED",
-        "PRESERVED_AND_CLEARED_OVERLAP",
         "INVENTORY_INCOMPLETE",
       ]),
     );
+    expect(plan.blockers).not.toContain("PRESERVED_AND_CLEARED_OVERLAP");
   });
 
   it("records that a dry-run has no side effects", () => {
@@ -408,14 +408,14 @@ describe("demo reset dry-run planner", () => {
     }
   });
 
-  it("names the overlapping identity tables in the plan", () => {
+  it("no longer names identity tables as an unproven overlap", () => {
     const plan = planDemoResetDryRun({
       authorization: allowedAuthorization(),
       inventory: unavailableDemoResetInventory(
         "RUN_SCOPED_INVENTORY_SOURCE_ABSENT",
       ),
     });
-    expect(plan.overlappingObjects).toContain("organizations");
+    expect(plan.overlappingObjects).toEqual([]);
   });
 });
 

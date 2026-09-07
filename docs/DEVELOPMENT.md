@@ -84,8 +84,8 @@ Current sequencing after Phase 5C.4B:
 1. **Demo Golden Path V2** — one end-to-end run created through the UI from a clean
    business state, including Demo Dataset V2 reset/seed tooling. Read
    `docs/DEMO_GOLDEN_PATH_V2.md` before touching demo data, seeding, environment
-   gating or the origination-to-placement flow. Only the GP-00 contract and the
-   read-only GP-01 reset planning exist today; there is no reset execution path.
+   gating or the origination-to-placement flow. GP-00 and the read-only GP-01 planner, run registry and
+partial row isolation exist today; there is no reset execution path and no run issuance.
 2. **Platform and repository naming migration**, after Golden Path V2 acceptance. Not
    started.
 3. **Phase 5C.5** — design, UX, i18n and accessibility polish.

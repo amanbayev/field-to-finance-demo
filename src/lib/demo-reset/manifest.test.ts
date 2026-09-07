@@ -76,6 +76,7 @@ describe("Dataset V2 reset manifest", () => {
       expect.arrayContaining([
         "system-roles-and-permissions",
         "protocol-definitions-and-frozen-versions",
+        "run-registry",
         "platform-operator-identity",
         "reset-audit",
       ]),
@@ -89,7 +90,9 @@ describe("Dataset V2 reset manifest", () => {
     expect(cleared).toEqual(
       expect.arrayContaining([
         "run-created-identity",
+        "onboarding-role-requests",
         "origination-business",
+        "origination-events",
         "market-core-business",
         "registrar-book-of-record",
         "application-audit",
@@ -122,33 +125,65 @@ describe("Dataset V2 reset manifest", () => {
     }
   });
 
-  it("records that no cleared category is run-owned at this baseline", () => {
-    const unscoped = unscopedClearedCategories();
-    expect(unscoped).toEqual(categoriesByDisposition("CLEARED"));
-    for (const category of unscoped) {
-      expect(category.scopeBasis).toBe("NOT_SCOPABLE");
-    }
-  });
-
-  it("reports the identity tables that are both preserved and cleared", () => {
-    expect(overlappingManifestObjects()).toEqual([
-      "membership_roles",
-      "memberships",
-      "organizations",
-      "profiles",
+  it("marks only the islands that still cannot name their rows as unscoped", () => {
+    const unscoped = unscopedClearedCategories().map((category) => category.id);
+    expect(unscoped).toEqual([
+      "onboarding-role-requests",
+      "origination-events",
+      "market-core-business",
+      "registrar-book-of-record",
+      "application-audit",
+      "origination-storage-objects",
+      "run-auth-sessions",
     ]);
+    expect(unscoped).not.toContain("run-created-identity");
+    expect(unscoped).not.toContain("origination-business");
   });
 
-  it("cannot express the rows of any table it both preserves and clears", () => {
-    // The overlap is not an oversight in the manifest, it is the shape of the
-    // schema: operator rows and run rows sit in the same tables with nothing
-    // to tell them apart. Both sides must say so.
-    for (const id of ["platform-operator-identity", "run-created-identity"]) {
+  it("retires the shared-identity overlap because the row sets are disjoint", () => {
+    const preserved = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(
+      (category) => category.id === "platform-operator-identity",
+    );
+    const cleared = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(
+      (category) => category.id === "run-created-identity",
+    );
+    expect(preserved?.rowScope).toBe("NON_RUN_ROWS");
+    expect(cleared?.rowScope).toBe("RUN_OWNED_ROWS");
+    expect(preserved?.objects).toEqual(
+      expect.arrayContaining(["organizations", "memberships", "membership_roles"]),
+    );
+    expect(cleared?.objects).toEqual([
+      "organizations",
+      "memberships",
+      "membership_roles",
+    ]);
+    expect(overlappingManifestObjects()).toEqual([]);
+  });
+
+  it("does not treat profiles as run-owned identity", () => {
+    const preserved = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(
+      (category) => category.id === "platform-operator-identity",
+    );
+    const cleared = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(
+      (category) => category.id === "run-created-identity",
+    );
+    expect(preserved?.objects).toContain("profiles");
+    expect(cleared?.objects).not.toContain("profiles");
+  });
+
+  it("keeps unsupported islands blocking", () => {
+    for (const id of [
+      "onboarding-role-requests",
+      "origination-events",
+      "market-core-business",
+      "registrar-book-of-record",
+      "application-audit",
+    ]) {
       const category = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(
         (candidate) => candidate.id === id,
       );
-      expect(category?.objects).toContain("organizations");
-      expect(category?.rowScope).toBe("NOT_EXPRESSIBLE");
+      expect(category?.scopeBasis, id).toBe("NOT_SCOPABLE");
+      expect(category?.rowScope, id).toBe("NOT_EXPRESSIBLE");
     }
   });
 });

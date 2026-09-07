@@ -94,7 +94,7 @@ established by this audit), **legally unresolved** (no legal conclusion availabl
 | Environment handling | Three modules, no central config: `src/lib/public-env.ts` (`getPublicEnv`, default `appEnv: "demo"`), `src/lib/auth/env.ts` (`getSupabaseUrl`, `getSupabasePublishableKey`, `getSupabaseServiceRoleKey`, `isAuthConfigured`), `src/lib/origination/backend.ts` (`resolveOriginationBackend`) | **Partial** | `resolveOriginationBackend` is the correct precedent for a fail-closed environment contract and is reused as the pattern for demo-reset policy. |
 | Service-role client | `src/lib/auth/supabase/admin.ts` `createServiceRoleClient()`; used only by origination store selection and two origination API routes | **Implemented, narrowly used** | Market Core and admin reads use the RLS-bound session client, so an inventory reader cannot assume service-role visibility. |
 | Demo reset / dry-run | No reset module, endpoint, command, permission or table exists | **Absent** before this PR | Delivered here as contract, policy and planner only; see §9. |
-| Run ownership | No `run_id`, run table or run-correlation column exists on any business table | **Absent** | Hard prerequisite for a provably scoped reset. See §9.3. |
+| Run ownership | `demo_reset_run_instances` plus nullable `organizations.run_id`; field-rooted origination derives through required FKs. Market Core / Registrar / events remain unscoped. | **Partial** | Remaining islands still block `READY_FOR_CONFIRMATION`. See §9.3. |
 | CI in the repository | `.github/workflows/ci.yml` is the only workflow: `pull_request` and `push` on `develop`/`main`, running `npm ci`, `npm run check`, `npm run build`, with `permissions: contents: read`. There is no deploy step, no `vercel.json` and no `supabase/config.toml` | **Implemented** | No repository workflow applies a migration, deletes data or submits a Devnet transaction. |
 | Automatic preview deployment | Deployment is configured outside the tree, in the Vercel Git integration, so the absence of `vercel.json` proves nothing about it. PR #11 received a successful Vercel check, which is direct evidence that pushing a branch **does** trigger an automatic preview build and deployment | **Implemented outside the repository** | Treat every push as publishing a preview. A preview build runs `next build` against the branch: it applies no migration, deletes no data and submits no Devnet transaction, but "no manual deploy" must never be reported as "no deployment". Preview environment variables decide which Supabase project that build reads. |
 
@@ -329,7 +329,7 @@ category can be bounded to a run at all. The row scope says which rows *inside* 
 the category covers: the run's rows, the rows owned by no run, or — at this baseline — rows that
 cannot be separated because no column separates them.
 
-### 9.3 Run ownership is a prerequisite, not a delivered capability
+### 9.3 Run ownership is a prerequisite, still only partially delivered
 
 Four things are separate and must not be collapsed:
 
@@ -345,28 +345,28 @@ and can never be a run identity: it would name the same run forever, which is ex
 earlier run's evidence gets attached to a later one. A run identifier must be server-issued or read
 from trusted server-held state.
 
-Two prerequisites are outstanding, and they are independent:
+The registry and the identity/origination roots are now expressible; issuance and the remaining
+islands are not:
 
-- **No run registry.** Nothing issues or records a run instance, so
-  `src/lib/demo-reset/run-scope.ts` resolves a run through the read-only `DemoResetRunStore` port
-  and fails closed when, as in production today, no store is wired. It does not invent an
-  identifier to give the planner a non-null value.
-- **No row-level isolation.** No `run_id` column, run table or run-correlation field exists on any
-  business table, so several categories name the same tables under both `PRESERVED` and `CLEARED`
-  — `organizations`, `memberships`, `membership_roles` and `profiles`, which hold both operator
-  accounts and run-created participants.
+- **Run registry.** `demo_reset_run_instances` records a server-issued run. Current is
+  `lifecycle_status = 'CURRENT'` with a partial unique index on operator + approved context.
+  `DemoResetRunStore` reads that fact and fails closed on zero, many, or unreadable rows. It
+  does not invent an identifier. Issuance is not implemented: a dry-run never inserts or updates
+  a run.
+- **Partial row-level isolation.** `organizations.run_id` is the identity root. Memberships,
+  roles and field-rooted origination derive through required FKs. `profiles` are never
+  run-owned. Shared identity overlap retires because `NON_RUN_ROWS` and `RUN_OWNED_ROWS` are
+  disjoint. Market Core, Registrar, textual origination events, storage and Auth stay
+  `NOT_EXPRESSIBLE`. Pre-existing rows are not backfilled.
 
-The second is the one that retires `PRESERVED_AND_CLEARED_OVERLAP`, and issuing run identifiers
-does not retire it. Sharing a table is not by itself the conflict; the conflict is that the same
-*row* would have to be both kept and emptied. `overlappingManifestObjects` therefore drops an
-object only when every preserved/cleared pairing naming it proves the two sides cannot select the
-same row — the run's rows against the rows owned by no run. Declaring a category `RUN_OWNED` does
-not prove that, because a scope basis says nothing about which rows the other side keeps, and
-`unscopedClearedCategories` treats a category as unscoped until it can name the run's rows too.
+Sharing a table is not by itself a conflict; the conflict is that the same *row* would have to be
+both kept and emptied. `overlappingManifestObjects` therefore drops an object only when every
+preserved/cleared pairing naming it proves the two sides cannot select the same row. Declaring a
+category `RUN_OWNED` does not prove that on its own. `unscopedClearedCategories` still treats
+Market Core, Registrar, events, storage, Auth and `role_requests` as unscoped.
 
-Both prerequisites are hard. Until they are met a dry-run must resolve to `INCOMPLETE` or
-`BLOCKED` and never to `READY_FOR_CONFIRMATION`. The planner (`src/lib/demo-reset/plan.ts`)
-enforces this.
+Until those remaining islands are isolated a dry-run must resolve to `INCOMPLETE` or `BLOCKED`
+and never to `READY_FOR_CONFIRMATION`. The planner (`src/lib/demo-reset/plan.ts`) enforces this.
 
 Knowing a run identifier grants nothing. `resolveDemoResetRunScope` asks trusted state which run
 the current operator holds and compares any caller-supplied identifier against it; it never fetches
@@ -401,7 +401,7 @@ Closing that gap needs a per-category inventory revision or fingerprint — for 
 digest over run-scoped primary keys — recorded in the plan and re-derived at confirmation time,
 together with a scope re-check against the same run. Both are prerequisites for GP-02 and are
 deliberately not built here: a fingerprint requires the run-ownership schema and a real inventory
-reader, neither of which exists in this PR.
+reader. A fingerprint of unchanged row membership is still not built here.
 
 ### 9.4 Future execution architecture (not implemented)
 
@@ -475,11 +475,10 @@ execution.
 | GP-14B | Registrar registration, projection reconciliation and portfolio |
 | GP-15 | Complete admin overview and repeated full UI acceptance |
 
-**This PR delivers GP-00 in full, plus the contract, policy, planner, run-scope boundary and
-inventory-reader seam of GP-01.** GP-01 is not complete. Two things remain, in this order: a run
-registry that issues and records run instances, and the row-level isolation that lets a preserved
-and a cleared category name disjoint rows of a shared table. Neither is delivered here, so no
-category is run-scoped, the reader issues no query, and the plan stays `INCOMPLETE`.
+**GP-01 is still not complete.** This slice adds the run registry, the current-run invariant, a
+read-only store, `organizations.run_id`, and run-scoped inventory for identity and field-rooted
+origination. Issuance is not implemented. Market Core, Registrar, textual events, storage and Auth
+remain `NOT_SCOPABLE`, so the plan stays `INCOMPLETE`. No reset execution exists.
 
 GP-09 depends on an agreed technical signer, an inventory account, and an approved isolated QA
 environment. GP-14 depends on investor delivery-address ownership and signer configuration.
