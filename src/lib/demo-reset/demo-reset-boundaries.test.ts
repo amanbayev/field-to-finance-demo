@@ -183,4 +183,17 @@ describe("demo reset has no executing deletion path", () => {
       'unavailableDemoResetInventory("RUN_SCOPED_INVENTORY_SOURCE_ABSENT"',
     );
   });
+
+  it("denies before reading, and hands the planner an already-read inventory", () => {
+    const source = executableSource(SERVICE);
+    const ownership = source.indexOf("resolveDemoResetRunScope(");
+    const read = source.indexOf("readDemoResetInventory(");
+    expect(ownership, "ownership is resolved").toBeGreaterThan(-1);
+    expect(read, "inventory is read").toBeGreaterThan(-1);
+    // Ownership is established before any read is attempted.
+    expect(ownership).toBeLessThan(read);
+    expect(source).toContain("if (runScope.kind !== ");
+    // The planner is given the observed inventory; it never reaches for one.
+    expect(source.replace(/\s/g, "")).toContain("inventory:read.inventory,");
+  });
 });
