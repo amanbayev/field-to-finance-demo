@@ -28,7 +28,12 @@ const platformOrg = randomUUID();
 const names = { producer: "Same Producer", issuer: "Same Issuer", investor: "Same Investor" };
 const historical = [];
 const legacyContext = context();
+const legacyGuardContext = context();
 let legacyRunId;
+let legacyGuardRunId;
+let registryPrivilegesBefore;
+let organizationPrivilegesBefore;
+const tablePrivileges = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER", "MAINTAIN"];
 const migrationDirectory = new URL("../migrations/", import.meta.url);
 const signature = "public.demo_reset_issue_run(uuid,text,text,text,uuid,jsonb)";
 
@@ -60,6 +65,41 @@ async function totals() {
   return (await db.query(`select (select count(*)::int from public.demo_reset_run_instances) as runs,
     (select count(*)::int from public.organizations) as orgs`)).rows[0];
 }
+async function runRow(id) {
+  return (await db.query("select * from public.demo_reset_run_instances where id=$1", [id])).rows[0];
+}
+async function serviceTablePrivileges(table) {
+  return (await db.query(`select privilege, has_table_privilege('service_role',$1,privilege) as allowed
+    from unnest($2::text[]) with ordinality as p(privilege,position) order by position`, [table, tablePrivileges])).rows;
+}
+async function assertImmutableRun(id, legacy = false) {
+  const baseline = await runRow(id);
+  const mutations = [
+    ["id=gen_random_uuid()"], ["operator_principal_user_id=$2", [outsider]],
+    ["environment_name='changed-environment'"], ["dataset_id='changed-dataset'"],
+    ["database_ref='changed-database'"], ["created_at=created_at + interval '1 second'"],
+    ["issuance_request_id=gen_random_uuid()"], ["issuance_request='{}'::jsonb"], ["issuance_result='{}'::jsonb"],
+  ];
+  for (const [set, values = []] of mutations) {
+    // A lone receipt assignment on a legacy row fails the all-or-none CHECK.
+    // The complete, otherwise-valid upgrade below must fail the UPDATE guard.
+    // Issued IDs hit the existing organization FK before the AFTER guard;
+    // the unreferenced legacy ID proves that the guard also freezes ID itself.
+    const expected = legacy && set.startsWith("issuance_")
+      ? { code: "23514", constraint: "demo_reset_run_issuance_receipt_check" }
+      : !legacy && set.startsWith("id=")
+        ? { code: "23503", constraint: "organizations_run_id_fkey" }
+      : { code: "P0001", message: "demo_run_issuance_receipt_immutable" };
+    await assert.rejects(db.query(`update public.demo_reset_run_instances set ${set} where id=$1`, [id, ...values]), expected);
+    assert.deepEqual(await runRow(id), baseline, set);
+  }
+  await assert.rejects(db.query(`update public.demo_reset_run_instances set
+    issuance_request_id=gen_random_uuid(), issuance_request=$2, issuance_result=$3 where id=$1`,
+  [id, names, { issuanceRequestId: randomUUID(), runId: id, producerOrganizationId: randomUUID(),
+    issuerOrganizationId: randomUUID(), investorOrganizationId: randomUUID() }]),
+  { code: "P0001", message: "demo_run_issuance_receipt_immutable" });
+  assert.deepEqual(await runRow(id), baseline);
+}
 async function current(ctx, id) {
   assert.deepEqual((await runs(ctx)).filter((row) => row.lifecycle_status === "CURRENT"), [{ id, lifecycle_status: "CURRENT" }]);
 }
@@ -79,7 +119,10 @@ before(async () => {
   db = await connection();
   assert.equal((await db.query("show listen_addresses")).rows[0].listen_addresses, "");
   await db.query(`
-    create role anon; create role authenticated; create role service_role bypassrls;
+    create role anon; create role authenticated; create role service_role inherit nosuperuser bypassrls;
+    -- Match the deployed Supabase public-table defaults observed in pg_default_acl
+    -- (postgres owner), not a bare synthetic role with no privileges to revoke.
+    alter default privileges for role postgres in schema public grant all on tables to service_role;
     create schema auth;
     create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb);
     create function auth.uid() returns uuid language sql stable as
@@ -107,6 +150,12 @@ before(async () => {
     (operator_principal_user_id, environment_name, dataset_id, database_ref, lifecycle_status)
     values ($1,$2,$3,$4,'CURRENT') returning id`,
   [operator, legacyContext.environment, legacyContext.dataset, legacyContext.database])).rows[0].id;
+  legacyGuardRunId = (await db.query(`insert into public.demo_reset_run_instances
+    (operator_principal_user_id, environment_name, dataset_id, database_ref, lifecycle_status)
+    values ($1,$2,$3,$4,'CURRENT') returning id`,
+  [operator, legacyGuardContext.environment, legacyGuardContext.dataset, legacyGuardContext.database])).rows[0].id;
+  registryPrivilegesBefore = await serviceTablePrivileges("public.demo_reset_run_instances");
+  organizationPrivilegesBefore = await serviceTablePrivileges("public.organizations");
   await db.query(await readFile(new URL("20260908070350_demo_run_issuance.sql", migrationDirectory), "utf8"));
   // Synthetic probe/failure trigger, ONLY in this disposable cluster. It observes
   // the INSERT-time row, not the result of a later stamping UPDATE.
@@ -198,13 +247,42 @@ test("the request key is scoped by all trusted context fields", async () => {
 });
 
 test("additive migration preserves legacy registry rows; issuance can supersede a legacy CURRENT without claiming old orgs", async () => {
-  assert.deepEqual((await db.query(`select issuance_request_id,issuance_request,issuance_result
-    from public.demo_reset_run_instances where id=$1`, [legacyRunId])).rows[0],
-  { issuance_request_id: null, issuance_request: null, issuance_result: null });
-  const issued = await issue(db, legacyContext);
+  const legacy = await runRow(legacyRunId);
+  assert.equal(legacy.issuance_request_id, null);
+  assert.equal(legacy.issuance_request, null);
+  assert.equal(legacy.issuance_result, null);
+  const baseline = await totals();
+  const client = await connection("service_role");
+  const requestId = randomUUID();
+  await client.query("set gp01.fail_org='INVESTMENT_FUND'");
+  await assert.rejects(issue(client, legacyContext, requestId), /test: organization failure/);
+  assert.deepEqual(await runRow(legacyRunId), legacy);
+  assert.deepEqual(await totals(), baseline);
+  await client.query("reset gp01.fail_org");
+  const issued = await issue(client, legacyContext, requestId);
   await current(legacyContext, issued.runId);
-  assert.equal((await runs(legacyContext)).find((row) => row.id === legacyRunId).lifecycle_status, "SUPERSEDED");
+  assert.deepEqual(await runRow(legacyRunId), { ...legacy, lifecycle_status: "SUPERSEDED" });
+  assert.notEqual(issued.runId, legacyRunId);
+  assert.deepEqual((await runRow(issued.runId)).issuance_result, issued);
+  assert.deepEqual(await totals(), { runs: baseline.runs + 1, orgs: baseline.orgs + 3 });
   assert.equal((await organizations(issued.runId)).length, 3);
+  assert.equal((await db.query("select count(*)::int as n from public.organizations where id=any($1::uuid[]) and run_id is null", [historical])).rows[0].n, 3);
+});
+
+test("pre-migration legacy identity and NULL receipt stay immutable; lifecycle is monotonic without a competing CURRENT", async () => {
+  const legacy = await runRow(legacyGuardRunId);
+  assert.equal(legacy.lifecycle_status, "CURRENT");
+  await assertImmutableRun(legacyGuardRunId, true);
+  await db.query("update public.demo_reset_run_instances set lifecycle_status='CURRENT' where id=$1", [legacyGuardRunId]);
+  assert.deepEqual(await runRow(legacyGuardRunId), legacy);
+  await db.query("update public.demo_reset_run_instances set lifecycle_status='SUPERSEDED' where id=$1", [legacyGuardRunId]);
+  await db.query("update public.demo_reset_run_instances set lifecycle_status='SUPERSEDED' where id=$1", [legacyGuardRunId]);
+  assert.deepEqual(await runRow(legacyGuardRunId), { ...legacy, lifecycle_status: "SUPERSEDED" });
+  await assertImmutableRun(legacyGuardRunId, true);
+  assert.deepEqual(await runs(legacyGuardContext), [{ id: legacyGuardRunId, lifecycle_status: "SUPERSEDED" }]);
+  await assert.rejects(db.query("update public.demo_reset_run_instances set lifecycle_status='CURRENT' where id=$1", [legacyGuardRunId]),
+    { code: "P0001", message: "demo_run_issuance_receipt_immutable" });
+  assert.deepEqual(await runRow(legacyGuardRunId), { ...legacy, lifecycle_status: "SUPERSEDED" });
 });
 
 test("failed first issuance leaves no current run or partial roots", async () => {
@@ -339,6 +417,47 @@ test("anon and authenticated, even a real system-admin session, cannot execute i
   assert.deepEqual(await totals(), baseline);
 });
 
+test("Supabase-default direct registry privileges are revoked only on this table; service_role can still issue through its definer RPC", async () => {
+  assert.deepEqual(registryPrivilegesBefore, tablePrivileges.map((privilege) => ({ privilege, allowed: true })));
+  assert.deepEqual(await serviceTablePrivileges("public.demo_reset_run_instances"),
+    tablePrivileges.map((privilege) => ({ privilege, allowed: false })));
+  assert.deepEqual(await serviceTablePrivileges("public.organizations"), organizationPrivilegesBefore);
+  const role = (await db.query("select rolsuper,rolinherit,rolbypassrls from pg_roles where rolname='service_role'")).rows[0];
+  assert.deepEqual(role, { rolsuper: false, rolinherit: true, rolbypassrls: true });
+  assert.equal((await db.query("select count(*)::int as n from pg_auth_members where member='service_role'::regrole")).rows[0].n, 0);
+  assert.equal((await db.query("select has_function_privilege('service_role',$1,'EXECUTE') as allowed", [signature])).rows[0].allowed, true);
+  const proc = (await db.query(`select p.prosecdef, p.proowner=c.relowner as runs_as_table_owner
+    from pg_proc p cross join pg_class c where p.oid=$1::regprocedure and c.oid='public.demo_reset_run_instances'::regclass`, [signature])).rows[0];
+  assert.deepEqual(proc, { prosecdef: true, runs_as_table_owner: true });
+  const client = await connection("service_role");
+  const baseline = await totals();
+  const legacy = await runRow(legacyRunId);
+  await assert.rejects(client.query(`insert into public.demo_reset_run_instances
+    (operator_principal_user_id,environment_name,dataset_id,database_ref,lifecycle_status)
+    values ($1,'approved-demo-qa',$2,'examplerefabcdefghij','CURRENT')`, [operator, randomUUID()]), { code: "42501" });
+  await assert.rejects(client.query("update public.demo_reset_run_instances set lifecycle_status='SUPERSEDED' where id=$1", [legacyRunId]), { code: "42501" });
+  await assert.rejects(client.query("delete from public.demo_reset_run_instances where id=$1", [legacyRunId]), { code: "42501" });
+  assert.deepEqual(await totals(), baseline);
+  assert.deepEqual(await runRow(legacyRunId), legacy);
+  const ctx = context();
+  const receipt = await issue(client, ctx);
+  await current(ctx, receipt.runId);
+  assert.deepEqual(await totals(), { runs: baseline.runs + 1, orgs: baseline.orgs + 3 });
+});
+
+test("registry access restriction preserves the service count RPC and authenticated own-admin reads", async () => {
+  const service = await connection("service_role");
+  const ctx = context();
+  const receipt = await issue(service, ctx);
+  const count = (await service.query("select public.demo_reset_count_rows('demo_reset_run_instances','ENVIRONMENT',null) as n")).rows[0].n;
+  assert.equal(Number(count), (await totals()).runs);
+  const session = await connection("authenticated");
+  await session.query("select set_config('request.jwt.claim.sub',$1,false)", [operator]);
+  assert.deepEqual((await session.query("select id from public.demo_reset_run_instances where id=$1", [receipt.runId])).rows, [{ id: receipt.runId }]);
+  await session.query("select set_config('request.jwt.claim.sub',$1,false)", [outsider]);
+  assert.deepEqual((await session.query("select id from public.demo_reset_run_instances where id=$1", [receipt.runId])).rows, []);
+});
+
 test("SQL rejects unauthorized principals, production, unknown or incomplete context before writes", async () => {
   const baseline = await totals();
   const client = await connection("service_role");
@@ -395,12 +514,14 @@ test("issuance creates no personas, profiles, memberships, roles, sessions, appl
 test("issued receipt/context cannot change and a superseded issued run cannot be resurrected", async () => {
   const ctx = context();
   const a = await issue(db, ctx);
-  await issue(db, ctx);
-  for (const set of ["issuance_request_id=gen_random_uuid()", "issuance_request='{}'::jsonb",
-    "issuance_result='{}'::jsonb", "dataset_id='changed'"]) {
-    await assert.rejects(db.query(`update public.demo_reset_run_instances set ${set} where id=$1`, [a.runId]),
-      { code: "P0001", message: "demo_run_issuance_receipt_immutable" });
-  }
+  const original = await runRow(a.runId);
+  await assertImmutableRun(a.runId);
+  await db.query("update public.demo_reset_run_instances set lifecycle_status='CURRENT' where id=$1", [a.runId]);
+  assert.deepEqual(await runRow(a.runId), original);
+  const b = await issue(db, ctx);
+  await assertImmutableRun(a.runId);
+  await db.query("update public.demo_reset_run_instances set lifecycle_status='SUPERSEDED' where id=$1", [a.runId]);
+  assert.deepEqual(await runRow(a.runId), { ...original, lifecycle_status: "SUPERSEDED" });
   await db.query("begin");
   try {
     // Remove the unique-index obstacle inside a rolled-back test transaction,
@@ -410,4 +531,6 @@ test("issued receipt/context cannot change and a superseded issued run cannot be
       { code: "P0001", message: "demo_run_issuance_receipt_immutable" });
   } finally { await db.query("rollback"); }
   assert.deepEqual(await issue(db, ctx, a.issuanceRequestId), a);
+  await current(ctx, b.runId);
+  assert.deepEqual(await runRow(a.runId), { ...original, lifecycle_status: "SUPERSEDED" });
 });

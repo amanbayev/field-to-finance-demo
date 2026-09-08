@@ -15,6 +15,11 @@ alter table public.demo_reset_run_instances
     )
   );
 
+-- Supabase defaults grant service_role all table privileges. Runtime registry
+-- access uses definer RPCs; session reads retain authenticated SELECT under RLS.
+-- Restrict only this table, including unused TRUNCATE/TRIGGER privileges.
+revoke all on table public.demo_reset_run_instances from service_role;
+
 comment on column public.demo_reset_run_instances.issuance_request_id is
   'Idempotency command UUID, scoped by operator and approved context. Not a run UUID or authority. NULL for pre-existing registry rows.';
 comment on column public.demo_reset_run_instances.issuance_request is
@@ -27,18 +32,20 @@ create unique index demo_reset_run_issuance_request_uidx
     operator_principal_user_id, environment_name, dataset_id, database_ref, issuance_request_id
   ) where issuance_request_id is not null;
 
--- Preserve retry identity and receipt, while permitting CURRENT -> SUPERSEDED.
+-- Every inserted run is historical identity, including legacy NULL receipts.
+-- Preserve identity/receipt and permit only monotonic lifecycle transitions.
 create function private.guard_demo_run_issuance_receipt()
 returns trigger language plpgsql security invoker set search_path = '' as $$
 begin
-  if old.issuance_request_id is not null and (
-    row(new.id, new.operator_principal_user_id, new.environment_name, new.dataset_id,
+  if row(new.id, new.operator_principal_user_id, new.environment_name, new.dataset_id,
         new.database_ref, new.created_at, new.issuance_request_id, new.issuance_request, new.issuance_result)
     is distinct from
     row(old.id, old.operator_principal_user_id, old.environment_name, old.dataset_id,
         old.database_ref, old.created_at, old.issuance_request_id, old.issuance_request, old.issuance_result)
-    or (old.lifecycle_status = 'SUPERSEDED' and new.lifecycle_status <> 'SUPERSEDED')
-  ) then
+  then
+    raise exception 'demo_run_issuance_receipt_immutable';
+  end if;
+  if old.lifecycle_status = 'SUPERSEDED' and new.lifecycle_status <> 'SUPERSEDED' then
     raise exception 'demo_run_issuance_receipt_immutable';
   end if;
   return new;

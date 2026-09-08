@@ -29,14 +29,48 @@ No alternate runtime flags or client-facing privileged endpoint are introduced. 
 migration later requires separate operator authorization. The service role remains a trusted
 server credential; its compromise is not prevented by a run identifier or retry key.
 
+### Registry privilege audit
+
+A read-only catalog audit on 2026-09-08 of the existing `field-to-finance` Supabase project
+found `service_role` to be non-superuser, INHERIT, BYPASSRLS, with no parent-role memberships.
+`pg_default_acl` grants it all eight public-table privileges for both `postgres` and
+`supabase_admin` creators: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN.
+The registry table was absent on that project; these are observed creation defaults, not a
+claim that either registry or issuance migrations have been deployed. Existing organizations
+are owned by `postgres`. No shared DDL or DML was performed for this audit.
+
+The PR #13 registry migration revokes PUBLIC/anon/authenticated privileges but leaves those
+service-role defaults intact. Under that deployment model, direct INSERT/UPDATE/DELETE would
+therefore be available with RLS bypass. PR #14 now revokes **all privileges on this one table**
+from `service_role`: none of its table privileges are needed by runtime code. This also removes
+unused TRUNCATE/TRIGGER access. Grants on unrelated tables and role memberships are unchanged.
+Authenticated own-admin SELECT under RLS remains available to `postgres-run-store.ts`;
+service-role counts use `demo_reset_count_rows` and issuance uses `demo_reset_issue_run`.
+Both SECURITY DEFINER RPCs retain EXECUTE and use their owner's table privileges.
+Thus service-role runtime registry mutation is RPC-only under the audited role model;
+database owners remain privileged administrators, and the UPDATE guard also applies to them.
+
 ## Transaction and lifecycle
 
 `20260908070350_demo_run_issuance.sql` adds three nullable columns to the existing preserved
 registry: `issuance_request_id`, `issuance_request` (normalized names), and `issuance_result`
 (historical receipt). A constraint keeps the receipt fields together; legacy rows remain NULL.
 A partial unique index scopes request identity by operator + environment + dataset + database.
-An AFTER UPDATE trigger freezes issued identity/context/receipt and prevents resurrection of a
-superseded issued run. Previous migrations, the existing one-CURRENT index, and ownership guards
+An AFTER UPDATE trigger freezes identity/context/receipt for **every** run after INSERT:
+`id`, `operator_principal_user_id`, `environment_name`, `dataset_id`, `database_ref`, `created_at`,
+`issuance_request_id`, `issuance_request`, `issuance_result`. Legacy NULL receipts remain NULL
+forever; retroactive conversion into an issued row is forbidden. Lifecycle is independently
+monotonic for legacy and issued rows, including when no other CURRENT row exists:
+
+| From | To | Allowed |
+| --- | --- | --- |
+| CURRENT | CURRENT | Yes |
+| CURRENT | SUPERSEDED | Yes |
+| SUPERSEDED | SUPERSEDED | Yes |
+| SUPERSEDED | CURRENT | No |
+
+The first issuance over a legacy CURRENT supersedes it without populating its receipt, then
+creates a new run and three fresh roots atomically. Previous migrations, the one-CURRENT index, and ownership guards
 are unchanged. There is no new inventory category or audit table to misrepresent as scoped.
 
 The RPC takes a transaction advisory lock on the complete operator/context lifecycle, then checks
@@ -105,13 +139,21 @@ GP01_EMBEDDED_POSTGRES_MODULE=/private/tmp/gp01-issuance-tools/node_modules/embe
 ```
 
 The test creates its own PostgreSQL 18.4 cluster under `/private/tmp`, with TCP disabled and a
-unique Unix socket. It accepts no database URL. Actual identity, origination, registry and
+unique Unix socket. It accepts no database URL. The local service role and postgres public-table
+default grants reproduce the relevant deployed catalog observations above. Privilege assertions
+verify all eight registry grants before the migration and none afterward, direct service-role
+INSERT/UPDATE/DELETE rejection, successful definer issuance/counts, and preserved session reads.
+Actual identity, origination, registry and
 ownership migrations are loaded before the new migration. Only Supabase-owned Auth/Storage
 schema surfaces are minimal stand-ins. All principals, organizations and failures are synthetic.
 The server stops at completion; synthetic files remain locally for inspection. This optional
 suite is separate from `npm test` and current GitHub CI, matching the earlier ownership suite.
 
-Coverage includes legacy rows, fresh UUIDs/roots, INSERT-time stamping, no historical claiming,
+Coverage includes pre-migration legacy rows, all nine immutable fields on legacy/issued rows,
+rejected complete retroactive receipt assignment, all four lifecycle transitions, and resurrection
+rejection independent of the unique index. First issuance over a legacy CURRENT also proves
+rollback on organization failure and preservation of the NULL receipt after successful supersession.
+Further coverage includes fresh UUIDs/roots, INSERT-time stamping, no historical claiming,
 A → B, repeated and historical retries, changed-payload rejection, SQL permissions, generic admin
 regressions, failure after earlier organization inserts, rollback visibility, and real concurrent
 connections. Race tests observe PostgreSQL's `advisory` wait before releasing the first transaction;
@@ -119,10 +161,9 @@ they do not emulate races with application mocks. The existing PGlite ownership 
 retained. This proves local PostgreSQL semantics, not deployed Supabase/PostgREST integration.
 
 Validation on this slice: 48 new unit/service tests plus 14 existing dry-run service tests
-(62 targeted); 19 real PostgreSQL semantic tests; 10 existing PGlite ownership tests; and
+(62 targeted); 22 real PostgreSQL semantic tests; 10 existing PGlite ownership tests; and
 777 tests across 61 files in both `npm test` and `npm run check`. Standalone lint and typecheck
-passed. `npm run build` passed after moving aside generated Turbopack cache containing a local
-sandbox worker-port failure; no source or build configuration workaround was made.
+passed. `npm run build` passed; no source or build configuration workaround was made.
 
 ## Remaining GP-01 blockers
 
