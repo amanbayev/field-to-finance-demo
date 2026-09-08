@@ -313,7 +313,7 @@ is a **refusal**, not a default permission.
 
 Preserved: system roles and permissions (which are TypeScript, not rows), reference data, recorded
 protocol definitions and frozen versions, the operator organisations and users required to run the
-platform, and the reset audit itself.
+platform, run lifecycle and participant command retry history, and the reset audit itself.
 
 Cleared: all business objects of the new scenario. Producer, Issuer and Investor for the
 acceptance path register **through the UI**. No business Field, Snapshot, DAC, Pool, Instrument,
@@ -323,6 +323,13 @@ outside the acceptance run and contribute no holdings.
 The machine-readable manifest is `src/lib/demo-reset/manifest.ts`. It records, per category, the
 subsystem (database, auth, storage or chain), the disposition, the scope basis, the row scope, and
 the exact object names taken from `supabase/migrations/`.
+
+Its PRESERVED `run-registry` category names `demo_reset_run_instances` and
+`demo_run_participant_commands` (physically in `private`). Participant command retry history
+survives cleanup and is not deletable run participation or the missing reset audit table.
+The production count source cannot currently count command history, so the dry-run keeps it
+visible and reports the category unavailable with a null count. It never substitutes zero
+or a partial registry-only total; the planner remains `INCOMPLETE`.
 
 The scope basis and the row scope answer different questions. The scope basis says whether a
 category can be bounded to a run at all. The row scope says which rows *inside* the named objects

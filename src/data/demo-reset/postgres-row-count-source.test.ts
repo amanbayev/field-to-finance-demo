@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createPostgresDemoResetRowCountSource,
   DEMO_RESET_COUNTABLE_OBJECTS,
@@ -149,6 +149,25 @@ describe("createPostgresDemoResetRowCountSource", () => {
       ),
     ).resolves.toEqual({ kind: "UNREADABLE" });
     expect(called).toBe(false);
+  });
+
+  it("refuses manifest-known participant command history without creating a client", async () => {
+    const createClient = vi.fn(async () => null);
+    const source = createPostgresDemoResetRowCountSource({ createClient });
+    const object = "demo_run_participant_commands";
+
+    expect(DEMO_RESET_COUNTABLE_OBJECTS).not.toContain(object);
+    for (const scope of [
+      { kind: "ENVIRONMENT" },
+      { kind: "RUN", run: ESTABLISHED },
+      { kind: "NON_RUN", run: ESTABLISHED },
+    ] as const) {
+      expect(objectSupportsCountScope(object, scope.kind)).toBe(false);
+      await expect(source.countRows(request(object, scope))).resolves.toEqual({
+        kind: "UNREADABLE",
+      });
+    }
+    expect(createClient).not.toHaveBeenCalled();
   });
 
   it("turns a missing client, RPC error or unsafe count into UNREADABLE", async () => {

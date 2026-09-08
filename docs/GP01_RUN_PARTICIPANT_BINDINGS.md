@@ -190,6 +190,14 @@ verification only; it has not been applied to shared QA/demo/production.
   FK is `run_id → demo_reset_run_instances ON DELETE RESTRICT`. It is preserved retry
   metadata, with no reverse FK to profiles or business participation. It is not exposed
   by the public Data API and is not a completed reset audit architecture.
+  The canonical reset manifest explicitly names it as `demo_run_participant_commands`
+  (the existing unqualified-name convention) in the PRESERVED, environment-wide
+  `run-registry` category. Participant command retry history is preserved with the run
+  registry and is not part of deletable run participation. The manifest-derived reader
+  recognizes the object, but the PostgreSQL count allowlist/RPC cannot count it.
+  The dry-run therefore reports `run-registry` as unavailable with
+  `SUBSYSTEM_NOT_READABLE` and `rows: null`, never zero or a partial registry-only count.
+  The planner remains `INCOMPLETE`; no count RPC or private-table access was added.
 - One SECURITY DEFINER RPC with empty search path, qualified application relations and
   explicit EXECUTE revocation from PUBLIC/anon/authenticated; only service_role receives
   EXECUTE. Trigger helpers have no runtime EXECUTE grants. Database schema owners remain
@@ -233,10 +241,15 @@ completion and leaves synthetic files for inspection. This proves local PostgreS
 not deployed Supabase/PostgREST integration. Optional SQL/PGlite suites remain outside CI's
 normal `npm test`, matching PR #14; no application dependency was added.
 
-Validation: 72 new unit/service/identity tests, 134 targeted including issuance/dry-run;
+Participant-binding validation: 72 new unit/service/identity tests, 134 targeted including issuance/dry-run;
 55 PostgreSQL participant semantic tests (including 18 corrective regression cases);
 22 existing issuance PostgreSQL tests; 10 existing PGlite
-ownership tests. The complete Vitest suite has 849 tests across 62 files.
+ownership tests. The manifest correction adds six regression tests for preservation,
+overlap detection, manifest-derived readable names, uncountable-source refusal and the
+unavailable dry-run category. Its targeted manifest/reader/source/dry-run/participant run
+passes 134 tests across five files; the complete Vitest suite now has 855 tests across
+62 files. PostgreSQL/PGlite suites are unchanged and were not rerun for this manifest-only
+correction; their results above are from the participant/identity verification.
 Standalone `npm test`, lint and typecheck, `npm run check`, `npm run build`, and staged/
 unstaged `git diff --check` passed. The build required local worker-port permission and
 moving a generated Turbopack cache that retained an earlier sandbox-denial error to
