@@ -71,4 +71,19 @@ describe("secondary settlement binding", () => {
     expect(provider.canExecute()).toBe(false);
     expect(() => provider.settle(valid)).toThrow(DevnetSettlementNotEnabledError);
   });
+
+  it("keeps full canonical UUID trade IDs behind the disabled settlement boundary", () => {
+    const provider = new SecondarySettlementProvider({
+      settlementEnabled: true,
+      deployedProgramHasInstruction: true,
+    });
+    const args = {
+      ...valid,
+      tradeId: "TRD-123e4567-e89b-42d3-a456-426614174000",
+    };
+    expect(Buffer.byteLength(args.tradeId)).toBe(40);
+    expect(provider.canExecute()).toBe(false);
+    // Calls only the disabled application boundary, never a Solana instruction.
+    expect(() => provider.settle(args)).toThrow(DevnetSettlementNotEnabledError);
+  });
 });
