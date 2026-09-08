@@ -140,6 +140,14 @@ describe("demo reset readable objects", () => {
     expect(readableObject("producer_fields")).toBe("producer_fields");
   });
 
+  it("derives the unqualified participant command name from the canonical manifest", () => {
+    expect(DEMO_RESET_READABLE_OBJECTS).toContain("demo_run_participant_commands");
+    expect(readableObject("demo_run_participant_commands")).toBe(
+      "demo_run_participant_commands",
+    );
+    expect(readableObject("private.demo_run_participant_commands")).toBeNull();
+  });
+
   it("refuses a name the manifest never declared", () => {
     for (const name of [
       "auth.users",
@@ -488,5 +496,30 @@ describe("demo reset inventory reader fail-closed behaviour", () => {
     expect(countedRows(read.inventory, "run-created-identity")).not.toBeNull();
     expect(countedRows(read.inventory, "origination-business")).not.toBeNull();
     expect(countedRows(read.inventory, "market-core-business")).toBeNull();
+  });
+
+  it("reports preserved history unavailable when command receipts cannot be counted", async () => {
+    const { source, asked } = recordingSource({
+      demo_reset_run_instances: { kind: "COUNTED", rows: 7 },
+      demo_run_participant_commands: { kind: "UNREADABLE" },
+    });
+    const read = await readDemoResetInventory({ scope: ESTABLISHED, source, now });
+
+    expect(asked.slice(0, 2)).toEqual([
+      { object: "demo_reset_run_instances", scope: { kind: "ENVIRONMENT" } },
+      { object: "demo_run_participant_commands", scope: { kind: "ENVIRONMENT" } },
+    ]);
+    expect(read.kind).toBe("READ");
+    if (read.kind !== "READ") return;
+    expect(read.objectsRead).toContain("demo_run_participant_commands");
+    expect(read.inventory.categories["run-registry"]).toEqual({
+      kind: "UNAVAILABLE",
+      reason: "SUBSYSTEM_NOT_READABLE",
+    });
+    expect(countedRows(read.inventory, "run-registry")).toBeNull();
+    expect(inventoryGaps(read.inventory)).toContainEqual({
+      categoryId: "run-registry",
+      reason: "SUBSYSTEM_NOT_READABLE",
+    });
   });
 });

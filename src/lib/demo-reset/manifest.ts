@@ -119,11 +119,13 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     disposition: "PRESERVED",
     scopeBasis: "ENVIRONMENT_WIDE",
     rowScope: "NOT_APPLICABLE",
-    objects: ["demo_reset_run_instances"],
+    objects: ["demo_reset_run_instances", "demo_run_participant_commands"],
     note:
-      "The run registry is the lifecycle book, not a business object of a " +
-      "run. Historical and current rows survive. A dry-run never inserts " +
-      "or updates this table.",
+      "The run registry preserves lifecycle history; " +
+      "private.demo_run_participant_commands preserves immutable participant " +
+      "command retry history across cleanup. Neither is deletable run " +
+      "participation. A dry-run never writes either table. Command history " +
+      "is currently uncountable, so this category's inventory is unavailable.",
   },
   {
     id: "platform-operator-identity",

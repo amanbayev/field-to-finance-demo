@@ -3,6 +3,8 @@
 Base: `develop @ d172631232ac073d52322d1b96136beb7ebd1766` (PR #13).
 This slice implements server-side run issuance and three business organization roots only.
 It does not implement onboarding, a route, Server Action, UI, reset, or a deployed migration.
+The subsequent participant-binding slice is documented in `GP01_RUN_PARTICIPANT_BINDINGS.md`.
+Issuance itself continues to create no memberships, roles, profiles or Auth identities.
 
 ## Server and database boundaries
 
@@ -171,5 +173,7 @@ passed. `npm run build` passed; no source or build configuration workaround was 
 Core, Registrar, application audit, Storage and Auth/session cleanup lack complete run scope.
 Reset audit preservation is unresolved. An issuance receipt does not fix `app_audit_events`.
 No new audit architecture is added. The inventory fingerprint/revision and confirmation-time
-scope recheck required before GP-02 also remain absent. Users, memberships, participant mappings,
-wallets and business execution belong to later reviewed slices.
+scope recheck required before GP-02 also remain absent. Subsequent GP-01 participant binding
+adds reusable-profile memberships and roles through a separate explicit capability; see its
+audit for session/persona dependencies. Auth onboarding, participant mappings, wallets and
+business execution remain outside these server capabilities.

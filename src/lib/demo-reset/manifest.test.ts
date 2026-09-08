@@ -22,7 +22,7 @@ function migratedTableNames(): Set<string> {
       continue;
     }
     const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
-    const pattern = /create table (?:if not exists )?(?:public\.)?([a-z_0-9]+)/gi;
+    const pattern = /create table (?:if not exists )?(?:(?:public|private)\.)?([a-z_0-9]+)/gi;
     for (const match of sql.matchAll(pattern)) {
       names.add(match[1]);
     }
@@ -169,6 +169,46 @@ describe("Dataset V2 reset manifest", () => {
     );
     expect(preserved?.objects).toContain("profiles");
     expect(cleared?.objects).not.toContain("profiles");
+  });
+
+  it("preserves participant command retry history with the run registry only", () => {
+    const history = DEMO_DATASET_V2_RESET_MANIFEST.categories.filter(
+      (category) => category.objects.includes("demo_run_participant_commands"),
+    );
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      id: "run-registry",
+      subsystem: "DATABASE",
+      disposition: "PRESERVED",
+      scopeBasis: "ENVIRONMENT_WIDE",
+      objects: ["demo_reset_run_instances", "demo_run_participant_commands"],
+    });
+    expect(
+      categoriesByDisposition("CLEARED").flatMap((category) => category.objects),
+    ).not.toContain("demo_run_participant_commands");
+    expect(
+      DEMO_DATASET_V2_RESET_MANIFEST.categories.find(
+        (category) => category.id === "run-created-identity",
+      )?.objects,
+    ).not.toContain("demo_run_participant_commands");
+  });
+
+  it("flags an overlap if preserved command history is also claimed for clearing", () => {
+    const manifest: DemoResetManifest = {
+      ...DEMO_DATASET_V2_RESET_MANIFEST,
+      categories: DEMO_DATASET_V2_RESET_MANIFEST.categories.map((category) =>
+        category.id === "run-created-identity"
+          ? {
+              ...category,
+              objects: [...category.objects, "demo_run_participant_commands"],
+            }
+          : category,
+      ),
+    };
+    expect(overlappingManifestObjects()).toEqual([]);
+    expect(overlappingManifestObjects(manifest)).toEqual([
+      "demo_run_participant_commands",
+    ]);
   });
 
   it("keeps unsupported islands blocking", () => {

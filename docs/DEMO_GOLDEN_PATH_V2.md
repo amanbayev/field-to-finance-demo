@@ -313,7 +313,7 @@ is a **refusal**, not a default permission.
 
 Preserved: system roles and permissions (which are TypeScript, not rows), reference data, recorded
 protocol definitions and frozen versions, the operator organisations and users required to run the
-platform, and the reset audit itself.
+platform, run lifecycle and participant command retry history, and the reset audit itself.
 
 Cleared: all business objects of the new scenario. Producer, Issuer and Investor for the
 acceptance path register **through the UI**. No business Field, Snapshot, DAC, Pool, Instrument,
@@ -323,6 +323,13 @@ outside the acceptance run and contribute no holdings.
 The machine-readable manifest is `src/lib/demo-reset/manifest.ts`. It records, per category, the
 subsystem (database, auth, storage or chain), the disposition, the scope basis, the row scope, and
 the exact object names taken from `supabase/migrations/`.
+
+Its PRESERVED `run-registry` category names `demo_reset_run_instances` and
+`demo_run_participant_commands` (physically in `private`). Participant command retry history
+survives cleanup and is not deletable run participation or the missing reset audit table.
+The production count source cannot currently count command history, so the dry-run keeps it
+visible and reports the category unavailable with a null count. It never substitutes zero
+or a partial registry-only total; the planner remains `INCOMPLETE`.
 
 The scope basis and the row scope answer different questions. The scope basis says whether a
 category can be bounded to a run at all. The row scope says which rows *inside* the named objects
@@ -358,6 +365,14 @@ issues runs and fresh organization roots; the remaining isolation islands are un
   they are not run identities or authority. No pre-existing NULL organization is claimed.
   This is server capability and locally verified migration source, not deployed database state,
   UI onboarding or identity provisioning. See [the issuance design and proof](GP01_RUN_ISSUANCE.md).
+- **Reusable participant binding.** Separate `bindDemoDatasetV2RunParticipants` /
+  `demo_reset_bind_run_participants` binds three distinct existing ACTIVE profiles to the
+  CURRENT run's receipt-resolved organizations in one transaction, with fixed Producer,
+  Issuer and Investor roles. Membership `(user_id, organization_id)` and role-assignment
+  `(membership_id, role_id)` identity are immutable; lifecycle remains mutable.
+  Run B creates fresh participation for the same profiles and preserves Run A.
+  This is locally verified server/database source only, with no shared migration, UI,
+  session switching or Auth provisioning. See [the identity audit and binding proof](GP01_RUN_PARTICIPANT_BINDINGS.md).
 - **Partial row-level isolation.** `organizations.run_id` is the identity root. Memberships,
   roles and field-rooted origination derive through required FKs. `profiles` are never
   run-owned. Shared identity overlap retires because `NON_RUN_ROWS` and `RUN_OWNED_ROWS` are
@@ -491,6 +506,9 @@ execution.
 `organizations.run_id`, ownership guards and identity/field-rooted inventory are implemented.
 Dedicated server issuance now adds a run and three fresh stamped organization roots atomically;
 it creates no users, memberships, personas or downstream business objects and has no UI/route.
+A separate dedicated participant command adds memberships and fixed roles for reusable
+profiles, with complete historical identity guards and retry receipts. It does not provision users,
+create personas, select an active organization, or add downstream participant mappings.
 Market Core, Registrar, textual events, application audit, role requests, storage and Auth remain
 unscoped, so the plan stays `INCOMPLETE`. No reset execution exists. No shared migration application
 is claimed by these source changes.
@@ -506,7 +524,9 @@ implementation-completion claim is implied by this list.
 
 ## 11. Acceptance, design and rename
 
-Run the full UI path **twice** from reset, with distinct new identities and business identifiers.
+Run the full UI path **twice** from reset, with fresh run-owned business identifiers and
+real reusable identities. Producer, Issuer and Investor use three distinct profiles within
+each Golden Path run; the same profiles may participate in Run B through fresh memberships.
 Verify: no manual SQL or source edits; immutable signed documents; an independently verified demo
 receipt; fresh Devnet mint and transfer; a Registrar holding; and a correctly scoped portfolio.
 

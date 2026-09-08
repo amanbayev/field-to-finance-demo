@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createPostgresDemoResetRowCountSource } from "@/data/demo-reset/postgres-row-count-source";
 import {
   PLATFORM_ROLES,
   permissionsForRole,
@@ -170,6 +171,50 @@ describe("demo reset dry-run composition", () => {
     expect(outcome.plan.inventorySource).toBe("OBSERVED");
     expect(outcome.plan.inventoryObservedAt).toBe(OBSERVED_AT);
     expect(outcome.objectsRead).toEqual(["organizations", "producer_fields"]);
+    expect(outcome.plan.sideEffects).toBe("NONE");
+  });
+
+  it("keeps uncountable command history in the canonical dry-run as an explicit gap", async () => {
+    declareApprovedEnvironment();
+    const rpcObjects: string[] = [];
+    const source = createPostgresDemoResetRowCountSource({
+      async createClient() {
+        return {
+          async rpc(_fn, args) {
+            rpcObjects.push(args.p_object);
+            return { data: 7, error: null };
+          },
+        };
+      },
+    });
+    const outcome = await composeDemoResetDryRun({
+      actor: systemAdmin("operator-1"),
+      store: recordingStore({ kind: "RUN", run: runInstance() }),
+      source,
+      now,
+    });
+
+    expect(outcome.kind).toBe("PLANNED");
+    if (outcome.kind !== "PLANNED") return;
+    expect(outcome.objectsRead).toContain("demo_run_participant_commands");
+    expect(rpcObjects).toContain("demo_reset_run_instances");
+    expect(rpcObjects).not.toContain("demo_run_participant_commands");
+    expect(
+      outcome.plan.preserved.find((category) => category.categoryId === "run-registry"),
+    ).toMatchObject({
+      objects: ["demo_reset_run_instances", "demo_run_participant_commands"],
+      rows: null,
+    });
+    expect(outcome.plan.cleared.flatMap((category) => category.objects)).not.toContain(
+      "demo_run_participant_commands",
+    );
+    expect(outcome.plan.inventoryGaps).toContainEqual({
+      categoryId: "run-registry",
+      reason: "SUBSYSTEM_NOT_READABLE",
+    });
+    expect(outcome.plan.blockers).toContain("INVENTORY_INCOMPLETE");
+    expect(outcome.plan.status).toBe("INCOMPLETE");
+    expect(outcome.plan.overlappingObjects).toEqual([]);
     expect(outcome.plan.sideEffects).toBe("NONE");
   });
 
