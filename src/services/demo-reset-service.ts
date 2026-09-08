@@ -228,7 +228,8 @@ export async function composeDemoResetDryRun(input: {
 /**
  * Production reads the run registry through the session client. Outside a
  * request the client cannot be created, the store returns `UNAVAILABLE`, and
- * no run is fabricated. Issuance is not wired: a dry-run never inserts a row.
+ * no run is fabricated. Issuance is a separate explicit server capability;
+ * it is never wired into a dry-run, which never inserts a row.
  */
 const PRODUCTION_RUN_STORE: DemoResetRunStore =
   createProductionDemoResetRunStore();
