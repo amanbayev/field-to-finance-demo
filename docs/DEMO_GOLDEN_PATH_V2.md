@@ -358,6 +358,13 @@ islands are not:
   run-owned. Shared identity overlap retires because `NON_RUN_ROWS` and `RUN_OWNED_ROWS` are
   disjoint. Market Core, Registrar, textual origination events, storage and Auth stay
   `NOT_EXPRESSIBLE`. Pre-existing rows are not backfilled.
+- **Historical ownership guards.** An organization's non-NULL `run_id` cannot change or
+  be cleared. A field's `organization_id` and a DAC's source `field_id` cannot change.
+  PostgreSQL triggers protect these upstream paths even for privileged DML, so immutable
+  submissions, snapshots and messages cannot move to a different run through those parents.
+  Initial assignment from NULL remains allowed; it does not prove when old unassigned
+  evidence was created. See [the GP-01 ownership review](GP01_OWNERSHIP_REVIEW.md) for
+  the audited paths, write flows and offline SQL tests.
 
 Sharing a table is not by itself a conflict; the conflict is that the same *row* would have to be
 both kept and emptied. `overlappingManifestObjects` therefore drops an object only when every

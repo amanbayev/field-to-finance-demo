@@ -21,7 +21,7 @@ export type DemoResetDisposition = "PRESERVED" | "CLEARED";
 
 /**
  * How precisely the category can be bounded today.
- * - `RUN_OWNED`: rows carry the run identity and can be isolated.
+ * - `RUN_OWNED`: rows resolve to a run through the documented FK path.
  * - `NON_RUN`: rows owned by no run (the complement of `RUN_OWNED`).
  * - `ENVIRONMENT_WIDE`: intentionally whole-environment, not run-specific.
  * - `NOT_SCOPABLE`: run isolation is required but not yet expressible.
@@ -202,8 +202,9 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     ],
     note:
       "Field-rooted origination whose producer organisation carries the run. " +
-      "Children derive through required field_id or dac_id FKs. Immutable " +
-      "children are counted via the live root; they are not backfilled. " +
+      "Children derive through required field_id or dac_id FKs. The run root " +
+      "is write-once; field organization and DAC source field are immutable. " +
+      "Immutable children retain that ownership path without backfilling. " +
       "Event tables are excluded: they correlate by text only.",
   },
   {
