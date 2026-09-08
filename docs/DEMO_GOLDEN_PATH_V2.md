@@ -345,14 +345,19 @@ and can never be a run identity: it would name the same run forever, which is ex
 earlier run's evidence gets attached to a later one. A run identifier must be server-issued or read
 from trusted server-held state.
 
-The registry and the identity/origination roots are now expressible; issuance and the remaining
-islands are not:
+The registry and identity/origination roots are now expressible. A dedicated server capability
+issues runs and fresh organization roots; the remaining isolation islands are unresolved:
 
 - **Run registry.** `demo_reset_run_instances` records a server-issued run. Current is
   `lifecycle_status = 'CURRENT'` with a partial unique index on operator + approved context.
   `DemoResetRunStore` reads that fact and fails closed on zero, many, or unreadable rows. It
-  does not invent an identifier. Issuance is not implemented: a dry-run never inserts or updates
-  a run.
+  does not invent an identifier. A dry-run never inserts or updates a run. Separate
+  `issueDemoDatasetV2Run` / `demo_reset_issue_run` issuance atomically supersedes the previous
+  CURRENT, records a database-issued run, and inserts fresh Producer, Issuer and Investment Fund
+  organizations with `run_id` already present. Request UUIDs provide context-scoped idempotency;
+  they are not run identities or authority. No pre-existing NULL organization is claimed.
+  This is server capability and locally verified migration source, not deployed database state,
+  UI onboarding or identity provisioning. See [the issuance design and proof](GP01_RUN_ISSUANCE.md).
 - **Partial row-level isolation.** `organizations.run_id` is the identity root. Memberships,
   roles and field-rooted origination derive through required FKs. `profiles` are never
   run-owned. Shared identity overlap retires because `NON_RUN_ROWS` and `RUN_OWNED_ROWS` are
@@ -482,10 +487,13 @@ execution.
 | GP-14B | Registrar registration, projection reconciliation and portfolio |
 | GP-15 | Complete admin overview and repeated full UI acceptance |
 
-**GP-01 is still not complete.** This slice adds the run registry, the current-run invariant, a
-read-only store, `organizations.run_id`, and run-scoped inventory for identity and field-rooted
-origination. Issuance is not implemented. Market Core, Registrar, textual events, storage and Auth
-remain `NOT_SCOPABLE`, so the plan stays `INCOMPLETE`. No reset execution exists.
+**GP-01 is still not complete.** The run registry, current-run invariant, read-only store,
+`organizations.run_id`, ownership guards and identity/field-rooted inventory are implemented.
+Dedicated server issuance now adds a run and three fresh stamped organization roots atomically;
+it creates no users, memberships, personas or downstream business objects and has no UI/route.
+Market Core, Registrar, textual events, application audit, role requests, storage and Auth remain
+unscoped, so the plan stays `INCOMPLETE`. No reset execution exists. No shared migration application
+is claimed by these source changes.
 
 GP-09 depends on an agreed technical signer, an inventory account, and an approved isolated QA
 environment. GP-14 depends on investor delivery-address ownership and signer configuration.

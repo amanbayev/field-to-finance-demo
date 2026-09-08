@@ -85,7 +85,10 @@ Current sequencing after Phase 5C.4B:
    business state, including Demo Dataset V2 reset/seed tooling. Read
    `docs/DEMO_GOLDEN_PATH_V2.md` before touching demo data, seeding, environment
    gating or the origination-to-placement flow. GP-00 and the read-only GP-01 planner, run registry and
-partial row isolation exist today; there is no reset execution path and no run issuance.
+partial row isolation exist today, with a separate privileged run-issuance service that
+atomically inserts three fresh business organization roots. There is no issuance UI,
+identity onboarding through issuance, or reset execution path. See
+`docs/GP01_RUN_ISSUANCE.md`; its migration has not been applied to shared infrastructure.
 2. **Platform and repository naming migration**, after Golden Path V2 acceptance. Not
    started.
 3. **Phase 5C.5** — design, UX, i18n and accessibility polish.
