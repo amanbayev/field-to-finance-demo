@@ -5,6 +5,39 @@ import { STEPPE_CAPITAL_ID, GRAIN_DESK_ID } from "@/domain/market-core";
 import { holdings as catalogHoldings } from "@/data/market-core/catalog";
 
 describe("persistent market snapshot mapping", () => {
+  it("preserves full UUID business IDs and their cross-record references", () => {
+    const suffix = "123e4567-e89b-42d3-a456-426614174000";
+    const ids = {
+      order: `ORD-${suffix}`,
+      reservation: `RES-${suffix}`,
+      trade: `TRD-${suffix}`,
+      settlement: `SET-${suffix}`,
+      event: `EVT-${suffix}`,
+    };
+    const state = engineStateFromSnapshot({
+      ok: true,
+      orders: [{ id: ids.order, sequence: 1 }],
+      reservations: [{ id: ids.reservation, order_id: ids.order }],
+      trades: [{ id: ids.trade, buy_order_id: ids.order, sell_order_id: "ORD-SEED-SELL-001" }],
+      settlements: [{ id: ids.settlement, trade_id: ids.trade, kind: "SECONDARY" }],
+      events: [{ id: ids.event, entity_id: ids.trade, metadata: { tradeId: ids.trade } }],
+    });
+    expect(state.orders[0]?.id).toBe(ids.order);
+    expect(state.orders[0]?.sequence).toBe(1);
+    expect(state.reservations[0]).toMatchObject({ id: ids.reservation, orderId: ids.order });
+    expect(state.trades[0]).toMatchObject({
+      id: ids.trade,
+      buyOrderId: ids.order,
+      sellOrderId: "ORD-SEED-SELL-001",
+    });
+    expect(state.settlements.find((item) => item.id === ids.settlement)?.tradeId).toBe(ids.trade);
+    expect(state.events[0]).toMatchObject({
+      id: ids.event,
+      entityId: ids.trade,
+      metadata: { tradeId: ids.trade },
+    });
+  });
+
   it("maps the seeded secondary scenario without changing legal owned amounts", () => {
     const state = engineStateFromSnapshot({
       ok: true,
