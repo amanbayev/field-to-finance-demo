@@ -45,6 +45,7 @@ async function connection(userId) {
   const client = pg.getPgClient('postgres', directory);
   await client.connect();
   clients.push(client);
+  await client.query("set statement_timeout='15s'");
   if (userId) {
     await client.query('set role authenticated');
     await client.query("select set_config('request.jwt.claim.sub',$1,false)", [userId]);
@@ -132,7 +133,8 @@ before(async () => {
     create schema storage;
     create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
     create table storage.objects(id uuid primary key,bucket_id text);`);
-  const files = (await readdir(migrationDirectory)).filter(f => f.endsWith('.sql')).sort();
+  // Historical MC-01 allocator baseline; MC-02 has a separate full-chain suite.
+  const files = (await readdir(migrationDirectory)).filter(f => f.endsWith('.sql') && f <= migration).sort();
   assert.equal(files.at(-1), migration, 'Review migration ordering before extending this baseline suite');
   for (const file of files.filter(f => f !== migration)) {
     await db.query(await readFile(new URL(file, migrationDirectory), 'utf8'));
@@ -148,11 +150,9 @@ before(async () => {
 after(async () => {
   try { await Promise.all(clients.map(client => client.end())); }
   finally {
-    if (started) {
-      await pg.stop();
-      await rm(directory, { recursive: true });
-      console.log('Disposable server stopped; cluster removed.');
-    }
+    if (started) await pg.stop();
+    await rm(directory, { recursive: true, force: true });
+    console.log('Disposable server stopped; cluster removed:', directory);
   }
 });
 

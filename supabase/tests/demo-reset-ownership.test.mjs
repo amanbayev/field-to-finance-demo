@@ -3,7 +3,7 @@
 // See docs/GP01_OWNERSHIP_REVIEW.md for the reproducible command and limitations.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { after, before, test } from "node:test";
 import { pathToFileURL } from "node:url";
 
@@ -139,7 +139,9 @@ before(async () => {
     );
     create table storage.objects (id uuid primary key, bucket_id text);
   `);
-  for (const file of [
+  const fullFiles = process.env.MC02_FULL_SCHEMA === "1"
+    ? (await readdir(migrations)).filter(file => file.endsWith(".sql")).sort() : null;
+  const baselineFiles = [
     "20260822120000_identity.sql",
     "20260822231500_identity_security_hardening.sql",
     "20260822233000_identity_admin_capabilities.sql",
@@ -150,7 +152,8 @@ before(async () => {
     "20260828050000_origination_create_idempotency.sql",
     "20260828120000_origination_dac_foundation.sql",
     "20260907090000_demo_reset_run_registry.sql",
-  ]) {
+  ];
+  for (const file of fullFiles ? fullFiles.filter(file => file < ownershipMigration) : baselineFiles) {
     await db.exec(await readFile(new URL(file, migrations), "utf8"));
   }
   await db.query("insert into auth.users (id, email) values ($1, 'offline@example.invalid')", [actor]);
@@ -170,6 +173,18 @@ before(async () => {
     grant select, insert, update on all tables in schema public to service_role;
     grant usage on all sequences in schema public to service_role;
   `);
+  if (fullFiles) {
+    assert.equal(fullFiles.at(-1), "20260908133317_mc02_institutional_participant_root.sql");
+    for (const file of fullFiles.filter(file => file > ownershipMigration)) {
+      await db.exec(await readFile(new URL(file, migrations), "utf8"));
+    }
+    // Exercise existing field/DAC ownership paths below with modern sealed roots.
+    // Leave NON_RUN unsealed for the original mixed-row rollback acceptance test.
+    for (const fixture of fixtures.slice(0, 2)) {
+      await db.query("select * from private.market_core_get_or_create_participant($1)", [fixture.org]);
+    }
+    console.log("GP ownership compatibility: full ordered MC-02 migration chain", fullFiles.length);
+  }
 }, { timeout: 30000 });
 after(async () => { await db.close(); });
 

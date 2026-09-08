@@ -31,6 +31,21 @@ function migratedTableNames(): Set<string> {
 }
 
 describe("Dataset V2 reset manifest", () => {
+  it("preserves the modern participant root without reclassifying legacy tables or organizations", () => {
+    const categories = DEMO_DATASET_V2_RESET_MANIFEST.categories;
+    expect(categories.filter(c => c.objects.includes("market_core_participants"))).toEqual([
+      expect.objectContaining({ id: "market-core-participant-identity", disposition: "PRESERVED",
+        scopeBasis: "ENVIRONMENT_WIDE", objects: ["market_core_participants"] }),
+    ]);
+    const root = categories.find(c => c.id === "market-core-participant-identity")!;
+    expect(root.note).toMatch(/restrictive FK prevents deleting a referenced organization/);
+    expect(root.note).toContain("MC-13");
+    expect(root.note).toContain("INCOMPLETE");
+    expect(categories.find(c => c.id === "market-core-business")?.objects).toHaveLength(14);
+    expect(categories.find(c => c.id === "run-created-identity")).toMatchObject({
+      disposition: "CLEARED", objects: ["organizations", "memberships", "membership_roles"],
+    });
+  });
   it("has unique category ids", () => {
     const ids = manifestCategoryIds();
     expect(new Set(ids).size).toBe(ids.length);
