@@ -35,7 +35,7 @@ let privilegesBefore;
 let legacyMembership;
 let legacyRole;
 let genericDefinitions;
-const genericNames = ['add_membership','remove_membership','create_organization','review_role_request','assign_membership_role','revoke_membership_role','switch_active_organization'];
+const genericNames = ['add_membership','remove_membership','create_organization','review_role_request','assign_membership_role','revoke_membership_role','grant_system_admin_if_none','switch_active_organization'];
 async function connection(role) {
   const client = pg.getPgClient('postgres', directory);
   await client.connect(); clients.push(client);
@@ -122,18 +122,36 @@ before(async () => {
     await db.query(await readFile(new URL(file,migrationDirectory),'utf8'));
   }
   // Synthetic existing reusable logins. The operation itself may never create them.
-  await db.query('insert into auth.users(id) select unnest($1::uuid[])', [[operator,outsider,...Object.values(users)]]);
+  await db.query(`insert into auth.users(id,email) select id,case when id=$2 then 'bootstrap@example.invalid' end
+    from unnest($1::uuid[]) id`, [[operator,outsider,...Object.values(users)],operator]);
   await db.query("insert into public.organizations(id,slug,name,type) values($1,'operator','Operator','PLATFORM')", [platformOrg]);
   const adminMembership = (await db.query('insert into public.memberships(user_id,organization_id) values($1,$2) returning id', [operator,platformOrg])).rows[0].id;
   await db.query("insert into public.membership_roles(membership_id,role_id) values($1,'SYSTEM_ADMIN')", [adminMembership]);
   legacyMembership = (await db.query('insert into public.memberships(user_id,organization_id) values($1,$2) returning id', [outsider,platformOrg])).rows[0].id;
-  legacyRole = (await db.query("insert into public.membership_roles(membership_id,role_id) values($1,'INVESTOR') returning id", [legacyMembership])).rows[0].id;
+  legacyRole = (await db.query("insert into public.membership_roles(membership_id,role_id) values($1,'PRODUCER_ADMIN') returning id", [legacyMembership])).rows[0].id;
   privilegesBefore = await privileges(); genericDefinitions = await definitions();
   await db.query(await readFile(new URL(bindingMigration,migrationDirectory),'utf8'));
   service = await connection('service_role');
   await db.query(`create function private.gp01_test_role_failure() returns trigger language plpgsql as $$
     begin if new.role_id=current_setting('gp01.fail_role',true) then raise exception 'test: late participant failure'; end if; return new; end; $$;
     create trigger gp01_test_role_failure before insert on public.membership_roles for each row execute function private.gp01_test_role_failure();`);
+  // Synthetic definers exercise owner-level writes without modifying generic RPCs.
+  await db.query(`
+    create function private.gp01_test_membership_identity(m uuid,u uuid,o uuid,s public.membership_status)
+    returns void language sql security definer set search_path='' as $$
+      update public.memberships set user_id=u,organization_id=o,status=s where id=m
+    $$;
+    create function private.gp01_test_role_identity(r uuid,m uuid,role text,revoked timestamptz)
+    returns void language sql security definer set search_path='' as $$
+      update public.membership_roles set membership_id=m,role_id=role,revoked_at=revoked where id=r
+    $$;
+    create function private.gp01_test_identity_smuggle() returns trigger language plpgsql as $$
+    begin
+      if tg_table_name='memberships' then new.user_id:=current_setting('gp01.new_user')::uuid;
+      else new.role_id:='INVESTOR'; end if;
+      return new;
+    end; $$;
+  `);
 }, { timeout: 60000 });
 after(async () => { await Promise.all(clients.map(c=>c.end())); await pg.stop(); });
 
@@ -264,27 +282,39 @@ test('Run A -> genuinely new Run B uses the same three profiles without moving a
     assert.equal(ar[who].userId,br[who].userId); assert.notEqual(ar[who].membershipId,br[who].membershipId);
     assert.notEqual(ar[who].membershipRoleId,br[who].membershipRoleId); assert.notEqual(ar[who].organizationId,br[who].organizationId);
     assert.equal(profilesBefore.filter(p=>p.user_id===users[who]).length,1);
+    const historical=aRows.find(row=>row.id===ar[who].membershipId);
+    assert.equal(historical.user_id,users[who]);
+    assert.equal(historical.organization_id,a[`${who}OrganizationId`]);
+    assert.equal(historical.role.id,ar[who].membershipRoleId);
+    assert.equal(historical.role.membership_id,ar[who].membershipId);
+    assert.equal(historical.role.role_id,roles[who]);
+    const other=br[who==='issuer'?'investor':'issuer'];
+    await noEffect(()=>db.query('update public.memberships set user_id=$1 where id=$2',[outsider,ar[who].membershipId]),/membership identity is immutable/);
+    await noEffect(()=>db.query('update public.memberships set organization_id=$1 where id=$2',[other.organizationId,ar[who].membershipId]),/membership identity is immutable/);
+    await noEffect(()=>db.query('update public.membership_roles set role_id=$1 where id=$2',[who==='investor'?'PRODUCER_ADMIN':'INVESTOR',ar[who].membershipRoleId]),/membership role identity is immutable/);
+    await noEffect(()=>db.query('update public.membership_roles set membership_id=$1 where id=$2',[other.membershipId,ar[who].membershipRoleId]),/membership role identity is immutable/);
   }
+  assert.deepEqual(await participation(a.runId),aRows);
   await noEffect(()=>bind(ctx,aKey),/demo_participant_run_changed/);
 });
 
 test('membership organization is historical for owner and definer DML, including legacy memberships', async()=> {
   const ctx=context(); const run=await issue(ctx); const receipt=await bind(ctx);
-  await noEffect(()=>db.query('update public.memberships set organization_id=$1 where id=$2',[run.issuerOrganizationId,receipt.producer.membershipId]),/membership organization is immutable/);
-  await noEffect(()=>db.query('update public.memberships set organization_id=$1 where id=$2',[run.producerOrganizationId,legacyMembership]),/membership organization is immutable/);
+  await noEffect(()=>db.query('update public.memberships set organization_id=$1 where id=$2',[run.issuerOrganizationId,receipt.producer.membershipId]),/membership identity is immutable/);
+  await noEffect(()=>db.query('update public.memberships set organization_id=$1 where id=$2',[run.producerOrganizationId,legacyMembership]),/membership identity is immutable/);
   await db.query(`create function private.gp01_test_move_membership(m uuid,o uuid) returns void language sql security definer set search_path='' as
     $$ update public.memberships set organization_id=o where id=m $$;`);
-  await noEffect(()=>db.query('select private.gp01_test_move_membership($1,$2)',[receipt.producer.membershipId,run.investorOrganizationId]),/membership organization is immutable/);
+  await noEffect(()=>db.query('select private.gp01_test_move_membership($1,$2)',[receipt.producer.membershipId,run.investorOrganizationId]),/membership identity is immutable/);
 });
 
 test('role parent is historical for owner and definer DML, including revoked/legacy roles', async()=> {
   const ctx=context(); await issue(ctx); const receipt=await bind(ctx);
-  await noEffect(()=>db.query('update public.membership_roles set membership_id=$1 where id=$2',[receipt.issuer.membershipId,receipt.producer.membershipRoleId]),/membership role parent is immutable/);
+  await noEffect(()=>db.query('update public.membership_roles set membership_id=$1 where id=$2',[receipt.issuer.membershipId,receipt.producer.membershipRoleId]),/membership role identity is immutable/);
   await db.query('update public.membership_roles set revoked_at=now() where id=$1',[legacyRole]);
-  await noEffect(()=>db.query('update public.membership_roles set membership_id=$1 where id=$2',[receipt.issuer.membershipId,legacyRole]),/membership role parent is immutable/);
+  await noEffect(()=>db.query('update public.membership_roles set membership_id=$1 where id=$2',[receipt.issuer.membershipId,legacyRole]),/membership role identity is immutable/);
   await db.query(`create function private.gp01_test_move_role(r uuid,m uuid) returns void language sql security definer set search_path='' as
     $$ update public.membership_roles set membership_id=m where id=r $$;`);
-  await noEffect(()=>db.query('select private.gp01_test_move_role($1,$2)',[receipt.producer.membershipRoleId,receipt.investor.membershipId]),/membership role parent is immutable/);
+  await noEffect(()=>db.query('select private.gp01_test_move_role($1,$2)',[receipt.producer.membershipRoleId,receipt.investor.membershipId]),/membership role identity is immutable/);
 });
 
 test('AFTER guards reject parent changes made by an earlier BEFORE trigger',async()=> {
@@ -295,12 +325,12 @@ test('AFTER guards reject parent changes made by an earlier BEFORE trigger',asyn
     create trigger gp01_test_reparent before update on public.memberships for each row execute function private.gp01_test_reparent();`);
   try {
     await db.query("select set_config('gp01.new_parent',$1,false)",[run.issuerOrganizationId]);
-    await noEffect(()=>db.query("update public.memberships set status='INACTIVE' where id=$1",[receipt.producer.membershipId]),/membership organization is immutable/);
+    await noEffect(()=>db.query("update public.memberships set status='INACTIVE' where id=$1",[receipt.producer.membershipId]),/membership identity is immutable/);
   } finally { await db.query('drop trigger gp01_test_reparent on public.memberships'); }
   await db.query('create trigger gp01_test_reparent before update on public.membership_roles for each row execute function private.gp01_test_reparent()');
   try {
     await db.query("select set_config('gp01.new_parent',$1,false)",[receipt.issuer.membershipId]);
-    await noEffect(()=>db.query('update public.membership_roles set revoked_at=now() where id=$1',[receipt.producer.membershipRoleId]),/membership role parent is immutable/);
+    await noEffect(()=>db.query('update public.membership_roles set revoked_at=now() where id=$1',[receipt.producer.membershipRoleId]),/membership role identity is immutable/);
   } finally { await db.query('drop trigger gp01_test_reparent on public.membership_roles'); }
 });
 
@@ -356,11 +386,25 @@ test('generic admin create/add/remove/review still work without CURRENT run coup
     assert.equal(first.membership_id,repeat.membership_id);
     assert.equal((await db.query('select run_id from public.organizations where id=$1',[org])).rows[0].run_id,null);
     await admin.query('select public.remove_membership($1)',[first.membership_id]);
-    await admin.query('select public.add_membership($1,$2,$3)',[outsider,org,roles[who]]);
+    const removed=await membershipRow(first.membership_id);
+    assert.equal(removed.status,'INACTIVE');
+    const revoked=await assignments(first.membership_id);
+    assert.equal(revoked.length,1); assert.ok(revoked[0].revoked_at);
+    const reactivated=(await admin.query('select public.add_membership($1,$2,$3) as r',[outsider,org,roles[who]])).rows[0].r;
+    assert.equal(reactivated.membership_id,first.membership_id);
+    assert.deepEqual(await membershipRow(first.membership_id),{...removed,status:'ACTIVE'});
+    const after=await assignments(first.membership_id);
+    assert.deepEqual(after.find(r=>r.id===revoked[0].id),revoked[0]);
+    assert.equal(after.filter(r=>r.revoked_at===null).length,1);
   }
   const requestId=(await db.query("insert into public.role_requests(user_id,intent,organization_name) values($1,'PRODUCER',$2) returning id",[outsider,`Requested ${randomUUID()}`])).rows[0].id;
   const reviewed=(await admin.query("select public.review_role_request($1,'APPROVED') as r",[requestId])).rows[0].r;
   assert.equal((await db.query('select run_id from public.organizations where id=$1',[reviewed.organization_id])).rows[0].run_id,null);
+  const approved=(await db.query('select * from public.memberships where user_id=$1 and organization_id=$2',[outsider,reviewed.organization_id])).rows[0];
+  assert.equal(approved.status,'ACTIVE');
+  const approvedRoles=await assignments(approved.id);
+  assert.equal(approvedRoles.length,1); assert.equal(approvedRoles[0].role_id,'PRODUCER_ADMIN');
+  assert.equal(approvedRoles[0].revoked_at,null);
   assert.deepEqual((await snapshot()).runs,originalRuns);
 });
 
@@ -452,4 +496,142 @@ test('binding waits for issuance and resolves the committed CURRENT receipt, nev
     const result=await outcome; assert.ifError(result.error); assert.equal(result.value.runId,b.runId);
     assert.equal((await participation(a.runId)).length,0); assert.equal((await participation(b.runId)).length,3);
   } finally { await first.query('rollback'); }
+});
+
+async function membershipRow(id) {
+  return (await db.query('select * from public.memberships where id=$1',[id])).rows[0];
+}
+async function roleRow(id) {
+  return (await db.query('select * from public.membership_roles where id=$1',[id])).rows[0];
+}
+async function assignments(membershipId) {
+  return (await db.query('select * from public.membership_roles where membership_id=$1 order by id',[membershipId])).rows;
+}
+async function mutateMembership(mode,row,changes={}) {
+  const next={...row,...changes};
+  const query=mode==='owner'
+    ? 'update public.memberships set user_id=$2,organization_id=$3,status=$4 where id=$1'
+    : 'select private.gp01_test_membership_identity($1,$2,$3,$4)';
+  return db.query(query,[row.id,next.user_id,next.organization_id,next.status]);
+}
+async function mutateRole(mode,row,changes={}) {
+  const next={...row,...changes};
+  const query=mode==='owner'
+    ? 'update public.membership_roles set membership_id=$2,role_id=$3,revoked_at=$4 where id=$1'
+    : 'select private.gp01_test_role_identity($1,$2,$3,$4)';
+  return db.query(query,[row.id,next.membership_id,next.role_id,next.revoked_at]);
+}
+async function identityFixture(kind) {
+  const ctx=context(); const run=await issue(ctx); const receipt=await bind(ctx);
+  const membershipId=kind==='legacy'?legacyMembership:receipt.producer.membershipId;
+  const roleId=kind==='legacy'?legacyRole:receipt.producer.membershipRoleId;
+  if (kind==='revoked') await db.query('update public.membership_roles set revoked_at=now() where id=$1',[roleId]);
+  return {run,receipt,membership:await membershipRow(membershipId),role:await roleRow(roleId)};
+}
+
+for (const kind of ['legacy','bound']) for (const mode of ['owner','definer']) {
+  test(`complete membership identity: ${kind} row through ${mode} permits lifecycle only`,async()=> {
+    const {run,membership}=await identityFixture(kind);
+    // Q exists and has no membership in this org, so uniqueness/FKs cannot mask a missing identity guard.
+    const differentUser=membership.user_id===outsider?users.investor:outsider;
+    await noEffect(()=>mutateMembership(mode,membership,{user_id:differentUser}),/membership identity is immutable/);
+    await noEffect(()=>mutateMembership(mode,membership,{organization_id:run.issuerOrganizationId}),/membership identity is immutable/);
+    await mutateMembership(mode,membership);
+    assert.deepEqual(await membershipRow(membership.id),membership);
+    for (const status of ['SUSPENDED','INVITED','INACTIVE','ACTIVE']) {
+      await mutateMembership(mode,membership,{status});
+      assert.deepEqual(await membershipRow(membership.id),{...membership,status});
+    }
+  });
+}
+
+for (const kind of ['legacy','active','revoked']) for (const mode of ['owner','definer']) {
+  test(`complete role identity: ${kind} row through ${mode} permits revocation only`,async()=> {
+    const {receipt,role}=await identityFixture(kind);
+    assert.equal(role.role_id,'PRODUCER_ADMIN');
+    await noEffect(()=>mutateRole(mode,role,{role_id:'INVESTOR'}),/membership role identity is immutable/);
+    await noEffect(()=>mutateRole(mode,role,{membership_id:receipt.issuer.membershipId}),/membership role identity is immutable/);
+    await mutateRole(mode,role);
+    assert.deepEqual(await roleRow(role.id),role);
+    const revokedAt=new Date('2026-09-08T12:00:00.000Z');
+    await mutateRole(mode,role,{revoked_at:revokedAt});
+    assert.deepEqual(await roleRow(role.id),{...role,revoked_at:revokedAt});
+  });
+}
+
+for (const kind of ['legacy','bound']) test(`BEFORE trigger cannot smuggle a different human into ${kind} membership`,async()=> {
+  const {membership}=await identityFixture(kind);
+  await db.query("select set_config('gp01.new_user',$1,false)",[membership.user_id===outsider?users.investor:outsider]);
+  await db.query('create trigger gp01_test_identity_smuggle before update on public.memberships for each row execute function private.gp01_test_identity_smuggle()');
+  try {
+    await noEffect(()=>db.query("update public.memberships set status='INACTIVE' where id=$1",[membership.id]),/membership identity is immutable/);
+  } finally { await db.query('drop trigger gp01_test_identity_smuggle on public.memberships'); }
+});
+
+for (const kind of ['legacy','active','revoked']) test(`BEFORE trigger cannot smuggle a different role into ${kind} assignment`,async()=> {
+  const {role}=await identityFixture(kind);
+  await db.query('create trigger gp01_test_identity_smuggle before update on public.membership_roles for each row execute function private.gp01_test_identity_smuggle()');
+  try {
+    await noEffect(()=>db.query('update public.membership_roles set revoked_at=now() where id=$1',[role.id]),/membership role identity is immutable/);
+  } finally { await db.query('drop trigger gp01_test_identity_smuggle on public.membership_roles'); }
+});
+
+test('assign_membership_role revokes an active assignment and INSERTs a new row without rewriting either identity',async()=> {
+  const ctx=context(); await issue(ctx); const receipt=await bind(ctx);
+  const id=receipt.producer.membershipId; const original=await roleRow(receipt.producer.membershipRoleId);
+  const admin=await connection('authenticated'); await admin.query("select set_config('request.jwt.claim.sub',$1,false)",[operator]);
+  await admin.query("select public.assign_membership_role($1,'PRODUCER_ADMIN')",[id]);
+  const after=await assignments(id); assert.equal(after.length,2);
+  const revoked=after.find(r=>r.id===original.id); assert.ok(revoked.revoked_at);
+  assert.deepEqual(revoked,{...original,revoked_at:revoked.revoked_at});
+  const active=after.find(r=>r.revoked_at===null); assert.notEqual(active.id,original.id);
+  assert.equal(active.membership_id,id); assert.equal(active.role_id,'PRODUCER_ADMIN'); assert.equal(active.assigned_by,operator);
+  // A different role uses the supported revoke/create pattern, never UPDATE role_id.
+  await admin.query("select public.revoke_membership_role($1,'PRODUCER_ADMIN')",[id]);
+  const history=await assignments(id);
+  await admin.query("select public.assign_membership_role($1,'INVESTOR')",[id]);
+  const changed=await assignments(id); assert.equal(changed.length,3);
+  for (const old of history) assert.deepEqual(changed.find(r=>r.id===old.id),old);
+  const newRole=changed.find(r=>r.revoked_at===null); assert.equal(newRole.role_id,'INVESTOR');
+  assert.equal(newRole.membership_id,id); assert.ok(!history.some(r=>r.id===newRole.id));
+});
+
+test('revoke_membership_role changes only revocation and permits a new active assignment afterward',async()=> {
+  const ctx=context(); await issue(ctx); const receipt=await bind(ctx);
+  const old=await roleRow(receipt.issuer.membershipRoleId);
+  const admin=await connection('authenticated'); await admin.query("select set_config('request.jwt.claim.sub',$1,false)",[operator]);
+  await admin.query("select public.revoke_membership_role($1,'ISSUER_OPERATOR')",[old.membership_id]);
+  const revoked=await roleRow(old.id); assert.ok(revoked.revoked_at);
+  assert.deepEqual(revoked,{...old,revoked_at:revoked.revoked_at});
+  await admin.query("select public.assign_membership_role($1,'ISSUER_OPERATOR')",[old.membership_id]);
+  assert.deepEqual(await roleRow(old.id),revoked);
+  const rows=await assignments(old.membership_id); assert.equal(rows.length,2);
+  assert.equal(rows.filter(r=>r.revoked_at===null).length,1);
+  assert.ok(rows.every(r=>r.membership_id===old.membership_id&&r.role_id===old.role_id));
+});
+
+test('system-admin bootstrap retains same-user/org upsert and creates a new role without repurposing history',async()=> {
+  // Isolate the first-admin precondition and hardcoded platform fixture in this
+  // disposable transaction. Roll back all probe changes, preserving the test operator.
+  await db.query('begin');
+  try {
+    await db.query("update public.membership_roles set revoked_at=now() where role_id='SYSTEM_ADMIN' and revoked_at is null");
+    const bootstrapOrg='11111111-1111-4111-8111-111111111001';
+    await db.query("insert into public.organizations(id,slug,name,type) values($1,'bootstrap-test','Bootstrap','PLATFORM')",[bootstrapOrg]);
+    const member=(await db.query("insert into public.memberships(user_id,organization_id,status) values($1,$2,'INACTIVE') returning *",[operator,bootstrapOrg])).rows[0];
+    const result=(await db.query("select public.grant_system_admin_if_none('bootstrap@example.invalid') as r")).rows[0].r;
+    assert.equal(result.user_id,operator);
+    assert.deepEqual(await membershipRow(member.id),{...member,status:'ACTIVE'});
+    const roles=await assignments(member.id); assert.equal(roles.length,1);
+    assert.equal(roles[0].role_id,'SYSTEM_ADMIN'); assert.equal(roles[0].revoked_at,null);
+    await db.query('update public.membership_roles set revoked_at=now() where id=$1',[roles[0].id]);
+    const historical=await roleRow(roles[0].id);
+    await db.query("update public.memberships set status='INACTIVE' where id=$1",[member.id]);
+    await db.query("select public.grant_system_admin_if_none('bootstrap@example.invalid')");
+    assert.deepEqual(await membershipRow(member.id),{...member,status:'ACTIVE'});
+    assert.deepEqual(await roleRow(historical.id),historical);
+    const after=await assignments(member.id); assert.equal(after.length,2);
+    assert.equal(after.filter(r=>r.revoked_at===null).length,1);
+    assert.ok(after.every(r=>r.membership_id===member.id&&r.role_id==='SYSTEM_ADMIN'));
+  } finally { await db.query('rollback'); }
 });

@@ -173,9 +173,10 @@ CLI-created file: `supabase/migrations/20260908081019_demo_run_participant_bindi
 Earlier merged migrations are unchanged. This migration is source plus disposable local
 verification only; it has not been applied to shared QA/demo/production.
 
-- Two private invoker trigger functions, with empty search paths, freeze
-  `memberships.organization_id` and `membership_roles.membership_id` in AFTER UPDATE
-  checks. Same-parent updates and normal status/revocation remain allowed. AFTER checks
+- Two private invoker trigger functions, with empty search paths, freeze the complete
+  membership `(user_id, organization_id)` and role-assignment `(membership_id, role_id)`
+  identity in AFTER UPDATE checks. Same-identity updates and normal status/revocation
+  remain allowed. AFTER checks
   inspect the final row, including any changes made by BEFORE triggers.
 - Only service_role's membership/membership-role table grants change: all eight
   creation-default table privileges are removed, then SELECT is restored. Direct INSERT,
@@ -199,7 +200,7 @@ verification only; it has not been applied to shared QA/demo/production.
 Actual PostgreSQL tests issue A, bind P/I/F, issue genuinely new B and bind the same P/I/F
 with a fresh command. Each profile still exists exactly once; A's full membership/role
 rows remain byte-for-byte unchanged; B has different organizations, memberships and role
-rows. Owner and SECURITY DEFINER reparent attempts fail, including legacy/revoked rows and
+rows. Owner and SECURITY DEFINER identity-reassignment attempts fail, including legacy/revoked rows and
 changes injected by BEFORE triggers. Status changes and generic admin revocation/reactivation
 continue to work.
 
@@ -233,7 +234,8 @@ not deployed Supabase/PostgREST integration. Optional SQL/PGlite suites remain o
 normal `npm test`, matching PR #14; no application dependency was added.
 
 Validation: 72 new unit/service/identity tests, 134 targeted including issuance/dry-run;
-37 new PostgreSQL semantic tests; 22 existing issuance PostgreSQL tests; 10 existing PGlite
+55 PostgreSQL participant semantic tests (including 18 corrective regression cases);
+22 existing issuance PostgreSQL tests; 10 existing PGlite
 ownership tests. The complete Vitest suite has 849 tests across 62 files.
 Standalone `npm test`, lint and typecheck, `npm run check`, `npm run build`, and staged/
 unstaged `git diff --check` passed. The build required local worker-port permission and
@@ -256,3 +258,45 @@ registry/command retry history. Binding creates no session/persona references an
 session FK change now. Reusable Auth identities/profiles must survive participation cleanup.
 No UI, reset execution, business origination, wallet, token account, mint, settlement or
 manual deployment is included.
+
+## Corrective review: complete historical participant identity
+
+The review of PR #15 at `4b549443d0b4400c1867e844c6599001854ce1ca` found that freezing
+organization/membership parents alone still allowed owner/definer DML to repurpose the
+same membership for another human or the same assignment for another role. Historical
+command receipts include user and role identifiers, so those dimensions must also be
+immutable. New real PostgreSQL regression cases reproduced the missing rejections before
+the correction; the full corrected suite passes 55 tests.
+
+Only the same unapplied PR #15 migration was corrected. The two existing AFTER UPDATE
+guards now compare identity tuples; their function/trigger names and error messages describe
+the complete invariant. `private.guard_membership_identity` protects `(user_id,
+organization_id)` and `private.guard_membership_role_identity` protects `(membership_id,
+role_id)`. They apply to pre-migration rows as well as future rows. The unique user/org
+model remains unchanged. `status` and `revoked_at` retain their lifecycle semantics;
+same-identity updates are allowed. No additional guard framework was introduced.
+
+The correction re-audited all definitions and later overrides in the identity/hardening/
+admin migrations, plus repository membership/role writers. No supported workflow changes
+any of these four identity values. The generic RPC definitions are byte-for-byte unchanged
+by the PR migration, now explicitly including bootstrap in that assertion:
+
+| Flow | Preserved behavior and PostgreSQL proof |
+| --- | --- |
+| `add_membership` | INSERT a new user/org pair; reactivate the same existing membership by status. Its old revoked role remains unchanged and a new active assignment is inserted. |
+| `remove_membership` | Membership becomes INACTIVE and its active roles receive `revoked_at`. Identity stays unchanged. |
+| `assign_membership_role` | Existing active assignment for that role is revoked, then a new row is inserted. A different role also gets a different row; old assignments are not relabelled. |
+| `revoke_membership_role` | Only revocation changes. Subsequent assignment can insert a new active role while the old revoked row remains intact. |
+| `review_role_request` | Normal organization, membership and fixed-role creation still succeeds. Generic organizations retain NULL run ownership. |
+| `grant_system_admin_if_none` | A disposable transaction proves its same-user/org upsert reactivates the existing membership and inserts SYSTEM_ADMIN; repeating after revocation inserts a new assignment and preserves the old one. |
+
+The expanded tests cover owner and synthetic SECURITY DEFINER updates for legacy/bound
+memberships and legacy/active/revoked role rows. They accept no-ops and lifecycle mutations,
+reject both identity dimensions, and reject BEFORE-trigger user/role changes injected into
+unrelated lifecycle updates. Existing parent-smuggling tests remain. A → B assertions now
+also explicitly check A's stored user, organization, assignment ID, membership and fixed role.
+
+Command receipt schema/RPC/idempotency, service-role table restrictions, private receipt
+access, session/persona/audit FKs, planner behavior and downstream boundaries are unchanged.
+Merged migrations are untouched; nothing was applied to shared infrastructure. Session,
+persona and audit cleanup remain future GP-02 prerequisites, with no deletion behavior added.

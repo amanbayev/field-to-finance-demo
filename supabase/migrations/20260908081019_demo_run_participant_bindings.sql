@@ -2,34 +2,36 @@
 -- session changes, generic admin replacement, or reset execution.
 begin;
 
-create function private.guard_membership_organization()
+-- Both dimensions identify the historical row. Lifecycle fields stay mutable.
+-- AFTER UPDATE also catches identity changes injected by BEFORE triggers.
+create function private.guard_membership_identity()
 returns trigger language plpgsql security invoker set search_path = '' as $$
 begin
-  if new.organization_id is distinct from old.organization_id then
-    raise exception 'membership organization is immutable';
+  if row(new.user_id, new.organization_id) is distinct from row(old.user_id, old.organization_id) then
+    raise exception 'membership identity is immutable';
   end if;
   return new;
 end;
 $$;
-create trigger memberships_organization_immutable
+create trigger memberships_identity_immutable
   after update on public.memberships
-  for each row execute function private.guard_membership_organization();
+  for each row execute function private.guard_membership_identity();
 
-create function private.guard_membership_role_parent()
+create function private.guard_membership_role_identity()
 returns trigger language plpgsql security invoker set search_path = '' as $$
 begin
-  if new.membership_id is distinct from old.membership_id then
-    raise exception 'membership role parent is immutable';
+  if row(new.membership_id, new.role_id) is distinct from row(old.membership_id, old.role_id) then
+    raise exception 'membership role identity is immutable';
   end if;
   return new;
 end;
 $$;
-create trigger membership_roles_parent_immutable
+create trigger membership_roles_identity_immutable
   after update on public.membership_roles
-  for each row execute function private.guard_membership_role_parent();
+  for each row execute function private.guard_membership_role_identity();
 
-revoke all on function private.guard_membership_organization() from public, anon, authenticated, service_role;
-revoke all on function private.guard_membership_role_parent() from public, anon, authenticated, service_role;
+revoke all on function private.guard_membership_identity() from public, anon, authenticated, service_role;
+revoke all on function private.guard_membership_role_identity() from public, anon, authenticated, service_role;
 
 -- Runtime identity mutations already use authorized SECURITY DEFINER RPCs.
 -- Remove Supabase default direct mutation/trigger/truncate grants on ONLY these

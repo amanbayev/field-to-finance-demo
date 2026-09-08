@@ -361,8 +361,9 @@ issues runs and fresh organization roots; the remaining isolation islands are un
 - **Reusable participant binding.** Separate `bindDemoDatasetV2RunParticipants` /
   `demo_reset_bind_run_participants` binds three distinct existing ACTIVE profiles to the
   CURRENT run's receipt-resolved organizations in one transaction, with fixed Producer,
-  Issuer and Investor roles. Membership organization and role membership parents are
-  immutable. Run B creates fresh participation for the same profiles and preserves Run A.
+  Issuer and Investor roles. Membership `(user_id, organization_id)` and role-assignment
+  `(membership_id, role_id)` identity are immutable; lifecycle remains mutable.
+  Run B creates fresh participation for the same profiles and preserves Run A.
   This is locally verified server/database source only, with no shared migration, UI,
   session switching or Auth provisioning. See [the identity audit and binding proof](GP01_RUN_PARTICIPANT_BINDINGS.md).
 - **Partial row-level isolation.** `organizations.run_id` is the identity root. Memberships,
@@ -499,7 +500,7 @@ execution.
 Dedicated server issuance now adds a run and three fresh stamped organization roots atomically;
 it creates no users, memberships, personas or downstream business objects and has no UI/route.
 A separate dedicated participant command adds memberships and fixed roles for reusable
-profiles, with historical parent guards and retry receipts. It does not provision users,
+profiles, with complete historical identity guards and retry receipts. It does not provision users,
 create personas, select an active organization, or add downstream participant mappings.
 Market Core, Registrar, textual events, application audit, role requests, storage and Auth remain
 unscoped, so the plan stays `INCOMPLETE`. No reset execution exists. No shared migration application

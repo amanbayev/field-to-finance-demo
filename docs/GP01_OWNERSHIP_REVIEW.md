@@ -93,8 +93,9 @@ JSON snapshot payloads, issuer organizations or textual event ids. This does not
 that every mutable child is append-only, or that all duplicated relationships are
 cross-validated. At this correction's baseline, membership/role links and mutable field-child
 links retained their existing update rules; they are not intervening parents in these immutable
-rows' count paths. The subsequent `GP01_RUN_PARTICIPANT_BINDINGS.md` slice now freezes membership
-organization and role membership parents. Profiles/session contexts remain non-run; event islands, Market Core,
+rows' count paths. The subsequent `GP01_RUN_PARTICIPANT_BINDINGS.md` slice now freezes complete
+membership `(user_id, organization_id)` and assignment `(membership_id, role_id)` identity.
+Profiles/session contexts remain non-run; event islands, Market Core,
 Registrar, Storage and Auth remain unresolved.
 
 ## Reproducible offline verification
