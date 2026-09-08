@@ -444,18 +444,49 @@ describe("demo reset inventory reader fail-closed behaviour", () => {
     });
   });
 
-  it("reads nothing at all against the shipped manifest", async () => {
-    // Every database category there is NOT_SCOPABLE, so there is no honest
-    // count to take and the reader issues no query.
-    const source = forbiddenSource();
+  it("counts only the shipped categories that can honestly be scoped", async () => {
+    const { source, asked } = recordingSource(
+      Object.fromEntries(
+        DEMO_RESET_READABLE_OBJECTS.map((object) => [
+          object,
+          { kind: "COUNTED" as const, rows: 1 },
+        ]),
+      ),
+    );
     const read = await readDemoResetInventory({
       scope: ESTABLISHED,
       source,
       now,
     });
-    expect(source.countRows).not.toHaveBeenCalled();
+
+    const askedObjects = asked.map((request) => request.object);
+    expect(askedObjects).toContain("organizations");
+    expect(askedObjects).toContain("producer_fields");
+    expect(askedObjects).toContain("demo_reset_run_instances");
+    expect(askedObjects).not.toContain("market_core_orders");
+    expect(askedObjects).not.toContain("registrar_registered_ownership");
+    expect(askedObjects).not.toContain("field_origination_events");
+    expect(askedObjects).not.toContain("role_requests");
+    expect(askedObjects).not.toContain("app_audit_events");
+
+    const orgRequests = asked.filter(
+      (request) => request.object === "organizations",
+    );
+    expect(orgRequests.map((request) => request.scope.kind).sort()).toEqual([
+      "NON_RUN",
+      "RUN",
+    ]);
+    for (const request of orgRequests) {
+      if (request.scope.kind === "ENVIRONMENT") {
+        throw new Error("run-owned identity fell back to environment-wide");
+      }
+      expect(request.scope.run.runId).toBe(ESTABLISHED.runId);
+    }
+
     expect(read.kind).toBe("READ");
     if (read.kind !== "READ") return;
-    expect(read.objectsRead).toEqual([]);
+    expect(countedRows(read.inventory, "run-created-identity")).not.toBeNull();
+    expect(countedRows(read.inventory, "origination-business")).not.toBeNull();
+    expect(countedRows(read.inventory, "market-core-business")).toBeNull();
   });
 });

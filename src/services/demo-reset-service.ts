@@ -7,9 +7,10 @@
  * `src/lib/demo-reset` modules.
  *
  * There is deliberately **no executing path**: no endpoint, no server action,
- * no command, and no database, Auth, Storage or chain client. A dry-run
- * changes nothing. The remaining GP-01 work is the run registry and the
- * row-level isolation the reader needs; GP-02 adds confirmed execution.
+ * no command, and no deletion. A dry-run changes nothing. The remaining GP-01
+ * work is Market Core / Registrar / event isolation; GP-02 adds confirmed
+ * execution. The store and count source live in `src/data/demo-reset` so this
+ * module still constructs no client of its own.
  *
  * Two compositions live here on purpose. `composeDemoResetDryRun` takes every
  * dependency explicitly and is the internal wiring and test seam;
@@ -20,6 +21,8 @@
  * See `docs/DEMO_GOLDEN_PATH_V2.md` §9.
  */
 
+import { createProductionDemoResetRowCountSource } from "@/data/demo-reset/postgres-row-count-source";
+import { createProductionDemoResetRunStore } from "@/data/demo-reset/postgres-run-store";
 import { actorCan, principalCan, type ActorContext } from "@/domain/identity";
 import { getSupabaseUrl } from "@/lib/auth/env";
 import { isDesignPreviewActor } from "@/lib/auth/design-preview";
@@ -223,20 +226,21 @@ export async function composeDemoResetDryRun(input: {
 }
 
 /**
- * No trusted run registry exists yet (`docs/DEMO_GOLDEN_PATH_V2.md` §9.3), so
- * production has nothing to resolve a run instance from and fails closed: the
- * scope is never established and the plan stays `INCOMPLETE`. Wiring a store
- * is the remaining GP-01 work, not a gap to be papered over by inventing an
- * identifier here.
+ * Production reads the run registry through the session client. Outside a
+ * request the client cannot be created, the store returns `UNAVAILABLE`, and
+ * no run is fabricated. Issuance is not wired: a dry-run never inserts a row.
  */
-const PRODUCTION_RUN_STORE: DemoResetRunStore | null = null;
+const PRODUCTION_RUN_STORE: DemoResetRunStore =
+  createProductionDemoResetRunStore();
 
 /**
- * No database-backed count source is wired either. Against the shipped
- * manifest every database category is `NOT_SCOPABLE`, so the reader has
- * nothing it may truthfully count and a source would never be exercised.
+ * Production counts go through the allowlisted `demo_reset_count_rows` RPC.
+ * The source is only exercised after a run is established. Service role stays
+ * inside `src/data/demo-reset` because origination tables are not readable by
+ * authenticated sessions.
  */
-const PRODUCTION_ROW_COUNT_SOURCE: DemoResetRowCountSource | null = null;
+const PRODUCTION_ROW_COUNT_SOURCE: DemoResetRowCountSource =
+  createProductionDemoResetRowCountSource();
 
 /**
  * The production dry-run for one trusted actor.

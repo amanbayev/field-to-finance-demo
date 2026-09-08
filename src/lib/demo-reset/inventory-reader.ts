@@ -42,6 +42,10 @@
  *   *is* their declared scope, so the whole-environment number is the true one.
  * - `RUN_OWNED` categories are counted in the run's scope, and only with an
  *   established run.
+ * - `NON_RUN` categories are counted as rows owned by no run. The established
+ *   run travels with the request so the source cannot fall back to an
+ *   environment-wide number, but the filter is `run_id IS NULL`, not "not this
+ *   run".
  * - `NOT_SCOPABLE` categories are never queried. Run isolation is required for
  *   them and not yet expressible (`docs/DEMO_GOLDEN_PATH_V2.md` §9.3), so
  *   there is no filter that would make the number true. They are reported
@@ -58,11 +62,9 @@
  * exactly zero, and saying "unknown" would be less accurate rather than more
  * careful.
  *
- * Against the shipped manifest every database category is `NOT_SCOPABLE`, so
- * this reader issues **no query at all** today and the plan stays
- * `INCOMPLETE`. The remaining GP-01 row-isolation work is what earns those
- * categories a `RUN_OWNED` basis and a `RUN_OWNED_ROWS` row scope, and only
- * then does this reader have something it may truthfully count.
+ * Against the shipped manifest the reader counts identity and field-rooted
+ * origination once a run is established. Market Core, Registrar, textual
+ * events, storage and Auth stay unqueried, so the plan remains `INCOMPLETE`.
  *
  * See `docs/DEMO_GOLDEN_PATH_V2.md` §9.2 and §9.3.
  */
@@ -136,7 +138,8 @@ export function readableObject(name: string): DemoResetReadableObject | null {
  */
 export type DemoResetCountScope =
   | { readonly kind: "ENVIRONMENT" }
-  | { readonly kind: "RUN"; readonly run: DemoResetEstablishedRunScope };
+  | { readonly kind: "RUN"; readonly run: DemoResetEstablishedRunScope }
+  | { readonly kind: "NON_RUN"; readonly run: DemoResetEstablishedRunScope };
 
 export interface DemoResetCountRequest {
   readonly object: DemoResetReadableObject;
@@ -198,6 +201,9 @@ function countScopeFor(
   }
   if (category.scopeBasis === "RUN_OWNED") {
     return Object.freeze({ kind: "RUN" as const, run });
+  }
+  if (category.scopeBasis === "NON_RUN") {
+    return Object.freeze({ kind: "NON_RUN" as const, run });
   }
   return null;
 }

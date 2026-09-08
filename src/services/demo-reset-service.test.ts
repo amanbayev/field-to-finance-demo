@@ -376,7 +376,7 @@ describe("demo reset production dry-run", () => {
     expect(planDemoDatasetV2ResetDryRunForActor).toHaveLength(2);
   });
 
-  it("establishes no run and plans INCOMPLETE, because no registry exists", async () => {
+  it("establishes no run outside a request session and fabricates none", async () => {
     declareApprovedEnvironment();
 
     const outcome = await planDemoDatasetV2ResetDryRunForActor(
@@ -385,6 +385,9 @@ describe("demo reset production dry-run", () => {
 
     expect(outcome.kind).toBe("PLANNED");
     if (outcome.kind !== "PLANNED") return;
+    // The wired store uses the session client. Vitest has no request cookies,
+    // so the store cannot answer. That is UNAVAILABLE, not "no run" and not
+    // an invented identifier.
     expect(outcome.runScope).toEqual({
       kind: "NOT_ESTABLISHED",
       gap: "RUN_STATE_UNAVAILABLE",
@@ -394,7 +397,7 @@ describe("demo reset production dry-run", () => {
     expect(outcome.objectsRead).toEqual([]);
   });
 
-  it("reports the shipped manifest's shared identity tables as blocking", async () => {
+  it("keeps the shipped plan INCOMPLETE on remaining unscoped islands", async () => {
     declareApprovedEnvironment();
 
     const outcome = await planDemoDatasetV2ResetDryRunForActor(
@@ -403,13 +406,10 @@ describe("demo reset production dry-run", () => {
 
     expect(outcome.kind).toBe("PLANNED");
     if (outcome.kind !== "PLANNED") return;
-    expect(outcome.plan.blockers).toContain("PRESERVED_AND_CLEARED_OVERLAP");
-    expect(outcome.plan.overlappingObjects).toEqual([
-      "membership_roles",
-      "memberships",
-      "organizations",
-      "profiles",
-    ]);
+    expect(outcome.plan.overlappingObjects).toEqual([]);
+    expect(outcome.plan.blockers).not.toContain("PRESERVED_AND_CLEARED_OVERLAP");
+    expect(outcome.plan.blockers).toContain("CLEARED_SCOPE_NOT_RUN_OWNED");
+    expect(outcome.plan.status).toBe("INCOMPLETE");
     expect(outcome.plan.status).not.toBe("READY_FOR_CONFIRMATION");
   });
 

@@ -22,10 +22,11 @@
  * resists forged claims.
  *
  * So this module does not invent an identity. It reads one from trusted state
- * through `DemoResetRunStore` and verifies it. No run registry exists yet
- * (§9.3), so in production the store is absent, nothing is resolved, and the
- * scope is `NOT_ESTABLISHED` — not refused, and above all not fabricated so
- * that the planner receives a non-null identifier.
+ * through `DemoResetRunStore` and verifies it. The store is a type here; the
+ * Postgres implementation lives in `src/data/demo-reset`. A missing store, a
+ * store that cannot answer, and a context with no current run all resolve to
+ * `NOT_ESTABLISHED` — not refused, and above all not fabricated so that the
+ * planner receives a non-null identifier.
  *
  * ## Why a claimed identifier is never a lookup key
  *
@@ -129,8 +130,9 @@ export type DemoResetRunLookup =
  * method that takes a caller-supplied identifier, so no implementation of this
  * port can be turned into a run-lookup oracle.
  *
- * No implementation exists yet. That is the honest state of GP-01, and it is
- * why production resolves no scope.
+ * The production implementation reads `demo_reset_run_instances` where
+ * `lifecycle_status = 'CURRENT'` for the trusted context. It has no method
+ * that takes a caller-supplied identifier.
  */
 export interface DemoResetRunStore {
   currentRunInstance(context: DemoResetRunContext): Promise<DemoResetRunLookup>;

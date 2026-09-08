@@ -7,9 +7,9 @@
  * from `supabase/migrations/*.sql` and from the bucket constants in
  * `src/domain/origination/types.ts`.
  *
- * `scopeBasis` is the honest part. Several categories are `NOT_SCOPABLE`
- * because no run-ownership column exists on any business table at the audited
- * baseline, so a reset cannot yet prove it would touch only the current run.
+ * `scopeBasis` is the honest part. Identity organisations and field-rooted
+ * origination can now be bounded through `organizations.run_id`. Market Core,
+ * Registrar, textual event tables, storage and Auth remain `NOT_SCOPABLE`.
  * The planner refuses to reach `READY_FOR_CONFIRMATION` while that holds.
  *
  * See `docs/DEMO_GOLDEN_PATH_V2.md` §9.2 and §9.3.
@@ -21,12 +21,14 @@ export type DemoResetDisposition = "PRESERVED" | "CLEARED";
 
 /**
  * How precisely the category can be bounded today.
- * - `RUN_OWNED`: rows carry the run identity and can be isolated.
+ * - `RUN_OWNED`: rows resolve to a run through the documented FK path.
+ * - `NON_RUN`: rows owned by no run (the complement of `RUN_OWNED`).
  * - `ENVIRONMENT_WIDE`: intentionally whole-environment, not run-specific.
  * - `NOT_SCOPABLE`: run isolation is required but not yet expressible.
  */
 export type DemoResetScopeBasis =
   | "RUN_OWNED"
+  | "NON_RUN"
   | "ENVIRONMENT_WIDE"
   | "NOT_SCOPABLE";
 
@@ -112,22 +114,36 @@ const CATEGORIES: readonly DemoResetCategory[] = [
       "claiming no activation or freeze date.",
   },
   {
+    id: "run-registry",
+    subsystem: "DATABASE",
+    disposition: "PRESERVED",
+    scopeBasis: "ENVIRONMENT_WIDE",
+    rowScope: "NOT_APPLICABLE",
+    objects: ["demo_reset_run_instances"],
+    note:
+      "The run registry is the lifecycle book, not a business object of a " +
+      "run. Historical and current rows survive. A dry-run never inserts " +
+      "or updates this table.",
+  },
+  {
     id: "platform-operator-identity",
     subsystem: "DATABASE",
     disposition: "PRESERVED",
-    scopeBasis: "NOT_SCOPABLE",
-    rowScope: "NOT_EXPRESSIBLE",
+    scopeBasis: "NON_RUN",
+    rowScope: "NON_RUN_ROWS",
     objects: [
       "organizations",
       "profiles",
       "memberships",
       "membership_roles",
       "demo_personas",
+      "session_contexts",
     ],
     note:
-      "Operator organisations and users required to run the platform must " +
-      "survive. These tables also hold run-created participants, and no " +
-      "column distinguishes the two yet.",
+      "Operator and pre-existing identity: organisations with run_id IS NULL, " +
+      "memberships and roles reached through those organisations, seeded " +
+      "personas, and every profile and session_context. Profiles are never " +
+      "run-owned: a shared Auth user is not deletable because they joined a run.",
   },
   {
     id: "reset-audit",
@@ -144,27 +160,33 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     id: "run-created-identity",
     subsystem: "DATABASE",
     disposition: "CLEARED",
+    scopeBasis: "RUN_OWNED",
+    rowScope: "RUN_OWNED_ROWS",
+    objects: ["organizations", "memberships", "membership_roles"],
+    note:
+      "Organisations with run_id equal to the established run, plus " +
+      "memberships and membership_roles reached through required FKs. " +
+      "profiles are excluded: an Auth user is never owned by a run. " +
+      "role_requests cannot be attributed (organization_name is text only).",
+  },
+  {
+    id: "onboarding-role-requests",
+    subsystem: "DATABASE",
+    disposition: "CLEARED",
     scopeBasis: "NOT_SCOPABLE",
     rowScope: "NOT_EXPRESSIBLE",
-    objects: [
-      "organizations",
-      "profiles",
-      "memberships",
-      "membership_roles",
-      "role_requests",
-      "session_contexts",
-    ],
+    objects: ["role_requests"],
     note:
-      "Producer, Issuer and Investor organisations created through the UI for " +
-      "a run. Overlaps platform-operator-identity on purpose: that overlap is " +
-      "the recorded scope conflict blocking a provable reset.",
+      "Onboarding requests store organization_name as text and have no " +
+      "organization_id or run_id. They cannot be attributed to a run " +
+      "without inventing a link.",
   },
   {
     id: "origination-business",
     subsystem: "DATABASE",
     disposition: "CLEARED",
-    scopeBasis: "NOT_SCOPABLE",
-    rowScope: "NOT_EXPRESSIBLE",
+    scopeBasis: "RUN_OWNED",
+    rowScope: "RUN_OWNED_ROWS",
     objects: [
       "producer_fields",
       "field_submissions",
@@ -175,15 +197,26 @@ const CATEGORIES: readonly DemoResetCategory[] = [
       "field_verification_evidence",
       "field_verification_messages",
       "verified_field_snapshots",
-      "field_origination_events",
       "origination_dacs",
       "origination_dac_messages",
-      "origination_dac_events",
     ],
     note:
-      "Fields, evidence, verification cases, immutable snapshots and DACs. " +
-      "Immutability triggers reject UPDATE and DELETE, so clearing requires " +
-      "an explicit privileged path that does not exist yet.",
+      "Field-rooted origination whose producer organisation carries the run. " +
+      "Children derive through required field_id or dac_id FKs. The run root " +
+      "is write-once; field organization and DAC source field are immutable. " +
+      "Immutable children retain that ownership path without backfilling. " +
+      "Event tables are excluded: they correlate by text only.",
+  },
+  {
+    id: "origination-events",
+    subsystem: "DATABASE",
+    disposition: "CLEARED",
+    scopeBasis: "NOT_SCOPABLE",
+    rowScope: "NOT_EXPRESSIBLE",
+    objects: ["field_origination_events", "origination_dac_events"],
+    note:
+      "Origination event tables have no field_id or dac_id FK. Parentage is " +
+      "textual object_type/object_id only, so run ownership is not expressible.",
   },
   {
     id: "market-core-business",
