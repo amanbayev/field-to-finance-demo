@@ -79,12 +79,13 @@ export async function lookupMarketCoreParticipant(
       || org?.id !== requestedId || org.status !== "ACTIVE"
       || !Array.isArray(org.memberships) || org.memberships.length !== 1
       || org.memberships[0].user_id !== userId || org.memberships[0].organization_id !== requestedId
-      || org.memberships[0].status !== "ACTIVE" || !UUID.test(org.memberships[0].id)) {
+      || org.memberships[0].status !== "ACTIVE"
+      || typeof org.memberships[0].id !== "string" || !UUID.test(org.memberships[0].id)) {
       return { kind: "UNAVAILABLE", reason: "UNAUTHORIZED" };
     }
     const participant = org.market_core_participants;
     if (participant === null) return { kind: "ABSENT" };
-    if (!participant || !PARTICIPANT_ID.test(participant.id)
+    if (!participant || typeof participant.id !== "string" || !PARTICIPANT_ID.test(participant.id)
       || participant.organization_id !== requestedId
       || !(participant.status === "ACTIVE" || participant.status === "SUSPENDED" || participant.status === "RETIRED")
       || typeof participant.created_at !== "string" || !Number.isFinite(Date.parse(participant.created_at))) {

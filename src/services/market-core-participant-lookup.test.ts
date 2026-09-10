@@ -49,6 +49,25 @@ describe("server-only institutional participant lookup",()=> {
     expect(await lookupMarketCoreParticipant(org)).toEqual({kind:"ABSENT"});
     setup(null); expect(await lookupMarketCoreParticipant(org)).toEqual({kind:"UNAVAILABLE",reason:"UNAUTHORIZED"});
   });
+  it("rejects a valid participant ID wrapped in an array instead of returning FOUND",async()=> {
+    const row=context();
+    Object.assign(row.organizations.market_core_participants!,{id:[participant]});
+    setup(row);
+    expect(await lookupMarketCoreParticipant(org)).toEqual({kind:"UNAVAILABLE",reason:"ERROR"});
+  });
+  it("rejects a valid membership ID wrapped in an array with a present participant",async()=> {
+    const row=context(), membership=row.organizations.memberships[0];
+    Object.assign(membership,{id:[membership.id]});
+    setup(row);
+    expect(await lookupMarketCoreParticipant(org)).toEqual({kind:"UNAVAILABLE",reason:"UNAUTHORIZED"});
+  });
+  it("rejects a valid membership ID wrapped in an array instead of returning ABSENT",async()=> {
+    const row=context(), membership=row.organizations.memberships[0];
+    row.organizations.market_core_participants=null;
+    Object.assign(membership,{id:[membership.id]});
+    setup(row);
+    expect(await lookupMarketCoreParticipant(org)).toEqual({kind:"UNAVAILABLE",reason:"UNAUTHORIZED"});
+  });
   it.each(["steppe-capital","INVESTOR-0001",participant,"",user+" extra"])("rejects non-organization locator %s before auth",async id=> {
     expect(await lookupMarketCoreParticipant(id)).toEqual({kind:"UNAVAILABLE",reason:"UNAUTHORIZED"});
     expect(createServerSupabaseClient).not.toHaveBeenCalled();

@@ -101,7 +101,8 @@ an assignment must observe its committed ownership; waiting assignments after a
 seal must fail. REPEATABLE READ may raise SQLSTATE `40001`; the caller must not
 represent that as success. The native test suite exercises both interleavings,
 already-sealed and unsealed contention, separate institutions, and rollback.
-These concurrency outcomes remain **pending execution** in this environment.
+These outcomes were executed during the original implementation stage and are
+recorded below; they were not rerun during the later work-Mac independent review.
 
 ## Internal mutation boundary and read authorization
 
@@ -168,7 +169,11 @@ Supabase CLI 2.117.0 `migration new --help` was checked before generation. CLI
 telemetry/state was confined to a task-local temporary directory; no database
 command or project link was used. No merged migration was edited.
 
-Actual completed checks in this environment:
+### Original implementation verification (historical)
+
+The following results and execution notes belong to the original implementation
+stage at `06d611f860b8a6a2e228fa12bbcfcb22a1c92cd7`. They are not new native or
+PGlite runs on the work Mac during synchronization, independent review or correction.
 
 - `npm run check`: lint, typecheck, and **889 tests across 63 files passed**.
 - Final targeted lookup, manifest, inventory, generic identity, GP issuance service
@@ -243,8 +248,8 @@ retention. The existing GP issuance, binding and ownership suites accept `MC02_F
 to apply all migrations in order and rerun their original assertions. MC-00 and
 MC-01 allocator suites remain explicitly pinned to their historical boundaries.
 
-Reproducible local commands (the module path identifies pre-existing optional local
-test tooling; no dependency or global configuration changes are required):
+Reproduction commands from that stage (the module paths identify its optional
+local tooling; check availability before using them in another environment):
 
 ```sh
 GP01_EMBEDDED_POSTGRES_MODULE=/private/tmp/gp01-issuance-tools/node_modules/embedded-postgres/dist/index.js node --test supabase/tests/market-core-participants.test.mjs
@@ -262,3 +267,37 @@ Auth operation, chain call, deployment or business operation is part of these te
 Publication is a Draft PR into develop only. Exact-HEAD CI/Vercel status must be
 read from the PR checks; this local verification record does not assert remote
 success. There is no ready/merge or manual deployment operation. MC-03 has not begun.
+
+### Work-Mac synchronization and independent review
+
+For the same original HEAD, the operator reported synchronization checks:
+`npm ci` with the unchanged lockfile, `npm run check` (889 tests / 63 files),
+standard Turbopack `npm run build` (69 pages), and `git diff --check` passed.
+Native PostgreSQL/PGlite suites were not run at that synchronization stage.
+
+Independent review passed 101 targeted lookup/manifest/inventory/planner tests and
+23 intercepted-fetch probes; two additional observations reproduced ID coercion.
+It reported NO_BLOCKING_FINDINGS and two P3 findings: scalar ID validation and stale
+evidence wording. Native/PGlite tooling was not found, so those suites were not rerun.
+Real PostgREST transport and deployed schema were not tested.
+
+### Corrective verification after independent review
+
+Both ID checks now require strings without normalization. Three new mocked-response
+regressions first failed: array-wrapped participant ID returned FOUND; array-wrapped
+membership ID returned FOUND or ABSENT depending on participant presence. The guards
+now reject them with the existing ERROR/UNAUTHORIZED classifications.
+
+- `npm test -- src/services/market-core-participant-lookup.test.ts`: **33/33 passed**
+  after correction; the red run had exactly the three new failures and 30 passes.
+- `npm run check`: lint, TypeScript and **892 tests / 63 files passed**.
+- Standard Turbopack `npm run build`: **passed**, including 69-page generation.
+- `git diff --check`: **passed**.
+
+Checks used mock blockchain and disabled live tests in a sanitized environment
+without Supabase credentials. Two build attempts failed on worker port binding;
+the same build passed with permitted local IPC after moving only the ignored
+Turbopack cache aside. Build configuration and dependencies are unchanged.
+`npm ci`, native PostgreSQL and PGlite suites were not rerun. Mocked responses are
+not PostgREST transport evidence; deployed schema remains unverified. The planner
+remains INCOMPLETE and settlement stays disabled.
