@@ -6,6 +6,26 @@ import { join } from 'node:path';
 import { before, after, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import ts from 'typescript';
+
+// Execute the production parser/freeze code with the project's existing compiler.
+// No copied validation logic and no new dependency or generated repository file.
+async function runtimeModule(file, imports = {}) {
+  const source = await readFile(new URL(`../../src/domain/market-core/${file}.ts`, import.meta.url), 'utf8');
+  const { outputText } = ts.transpileModule(source, { compilerOptions: {
+    target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS,
+  } });
+  const exports = {};
+  new Function('exports', 'require', outputText)(exports, name => {
+    assert.ok(Object.hasOwn(imports, name), `Unexpected parser dependency: ${name}`);
+    return imports[name];
+  });
+  return exports;
+}
+const { parseFrozenProtocolSnapshot, parseProtocolVersionRecord } = await runtimeModule('protocol-version-record', {
+  './protocol-version': await runtimeModule('protocol-version'),
+});
+const textFixture = JSON.parse(await readFile(new URL('../../src/domain/market-core/__fixtures__/protocol-version-text.json', import.meta.url), 'utf8'));
 
 if (!process.env.GP01_EMBEDDED_POSTGRES_MODULE?.startsWith('/')) throw new Error('Absolute GP01_EMBEDDED_POSTGRES_MODULE required');
 const { default: EmbeddedPostgres } = await import(pathToFileURL(process.env.GP01_EMBEDDED_POSTGRES_MODULE).href);
@@ -110,11 +130,16 @@ test('full schema and exact effective privileges despite hostile Supabase defaul
   assert.deepEqual(policy,[{cmd:'SELECT',roles:['authenticated'],qual:'true',with_check:null}]);
   for(const role of ['mc03_public_only','anon','authenticated','service_role']) {
     for(const p of privileges) assert.equal((await db.query("select has_table_privilege($1,'public.protocol_version_records',$2) as allowed",[role,p])).rows[0].allowed,role==='authenticated'&&p==='SELECT',`${role} ${p}`);
-    const funcs=(await db.query(`select p.proname,has_function_privilege($1,p.oid,'execute') as allowed,p.proconfig,p.prosecdef
+    const funcs=(await db.query(`select p.proname,has_function_privilege($1,p.oid,'execute') as allowed,p.proconfig,p.prosecdef,p.provolatile
       from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='private'
       and (p.proname like 'protocol_version_%' or p.proname in ('record_protocol_version','import_known_protocol_version'))`,[role])).rows;
-    assert.equal(funcs.length,6);
-    for(const f of funcs) { assert.equal(f.allowed,false,f.proname); assert.equal(f.prosecdef,false); assert.deepEqual(f.proconfig,['search_path=""']); }
+    assert.deepEqual(funcs.map(f=>f.proname).sort(), ['import_known_protocol_version','protocol_version_provenance_valid',
+      'protocol_version_record_guard','protocol_version_record_preserve','protocol_version_snapshot_valid',
+      'protocol_version_text_valid','record_protocol_version']);
+    for(const f of funcs) {
+      assert.equal(f.allowed,false,f.proname); assert.equal(f.prosecdef,false); assert.deepEqual(f.proconfig,['search_path=""']);
+      assert.equal(f.provolatile,f.proname.endsWith('_valid')?'i':'v',f.proname);
+    }
   }
 });
 
@@ -264,4 +289,109 @@ test('explicit rollback and trigger failure leave no partial row; restrictive fu
     await db.query('insert into private.mc03_future_binding values($1)',[known.id]);
     await assert.rejects(()=>db.query("insert into private.mc03_future_binding values('MISSING')"),{code:'23503'});
   });
+});
+
+// to_jsonb serializes the actual timestamptz with its transport string representation,
+// preserving microseconds; never replace the stored snapshot with a fixture for parsing.
+async function transportRow(id) {
+  return (await db.query('select to_jsonb(r) as row from public.protocol_version_records r where id=$1', [id])).rows[0]?.row;
+}
+async function directRecord(s, p = provenance, recordedBy = 'postgres') {
+  return db.query(`insert into public.protocol_version_records
+    (id,protocol_id,snapshot,activated_at,frozen_at,provenance,recorded_by)
+    values($1,$2,$3,$4,$5,$6,$7)`,
+  [s.id,s.protocolId,JSON.stringify(s),s.activatedAt,s.frozenAt,JSON.stringify(p),recordedBy]);
+}
+
+for (const field of ['rules.riskModel', 'provenance.path']) test(`P2 rejects ${field} tab before recording or reserving its identity`, async () => {
+  const correct = version();
+  const bad = structuredClone(correct), p = structuredClone(provenance);
+  if (field === 'rules.riskModel') bad.rules.riskModel = '\t';
+  else p.path = '\t';
+  const validator = field === 'rules.riskModel' ? 'protocol_version_snapshot_valid' : 'protocol_version_provenance_valid';
+  const payload = field === 'rules.riskModel' ? bad : p;
+  assert.equal((await db.query(`select private.${validator}($1) as valid`, [JSON.stringify(payload)])).rows[0].valid, false);
+  await unchanged(() => record(bad, db, p), /import_invalid/);
+  await unchanged(() => directRecord(bad, p), { code: '23514' });
+  assert.equal(await transportRow(correct.id), undefined);
+  await record(correct);
+  const stored = await transportRow(correct.id);
+  const parsed = parseProtocolVersionRecord(stored);
+  assert.ok(parsed);
+  assert.deepEqual(parsed.snapshot, correct);
+  assert.deepEqual(parsed.provenance, provenance);
+});
+
+test('SQL/TS text matrix covers the entire trim set and preserves accepted source text', async () => {
+  const cases = [
+    ...textFixture.trimCodePoints.map(cp => [String.fromCodePoint(cp), false]),
+    ...textFixture.nonTrimCodePoints.map(cp => [String.fromCodePoint(cp), true]),
+    ['', false], [textFixture.mixedWhitespace, false], [textFixture.edgedText, true],
+  ];
+  for (const [value, valid] of cases) {
+    assert.equal(value.trim().length > 0, valid);
+    assert.equal((await db.query('select private.protocol_version_text_valid($1) as valid', [value])).rows[0].valid, valid);
+    const s = version(); s.rules.riskModel = value;
+    const sqlValid = (await db.query('select private.protocol_version_snapshot_valid($1) as valid', [JSON.stringify(s)])).rows[0].valid;
+    assert.equal(sqlValid, valid, JSON.stringify(value));
+    assert.equal(parseFrozenProtocolSnapshot(s) !== null, valid);
+    if (valid) {
+      await record(s);
+      const stored = await transportRow(s.id);
+      assert.equal(stored.snapshot.rules.riskModel, value);
+      const parsed = parseProtocolVersionRecord(stored);
+      assert.ok(parsed);
+      assert.deepEqual(parsed.snapshot, s);
+      assert.equal(parsed.recordedAt, stored.recorded_at);
+    } else {
+      await unchanged(() => record(s), /import_invalid/);
+      await unchanged(() => directRecord(s), { code: '23514' });
+    }
+  }
+  assert.equal((await db.query('select private.protocol_version_text_valid(null) as valid')).rows[0].valid, false);
+  console.log('Paired SQL/TS text matrix:', cases.length, 'cases; trim code points:', textFixture.trimCodePoints.length);
+});
+
+test('every free-text category uses the same predicate, including provenance and recorded_by', async () => {
+  const paths = [
+    ['snapshot','displayVersion'], ['snapshot','governanceNote'],
+    ...['verificationModel','riskModel','coverageModel','issuanceModel','redemptionModel'].map(k => ['snapshot','rules',k]),
+    ['snapshot','rules','lifecycle','0'], ['snapshot','rules','modules','0'],
+    ...['repository','path','exportName'].map(k => ['provenance',k]), ['recorded_by'],
+  ];
+  for (const path of paths) for (const [value, valid] of [[textFixture.mixedWhitespace, false], [textFixture.edgedText, true]]) {
+    const row = { snapshot: version(), provenance: structuredClone(provenance), recorded_by: 'postgres' };
+    let target = row;
+    for (const key of path.slice(0,-1)) target = target[key];
+    target[path.at(-1)] = value;
+    const { snapshot: s, provenance: p, recorded_by: recordedBy } = row;
+    if (path[0] !== 'recorded_by') {
+      const validator = path[0] === 'snapshot' ? 'protocol_version_snapshot_valid' : 'protocol_version_provenance_valid';
+      assert.equal((await db.query(`select private.${validator}($1) as valid`, [JSON.stringify(row[path[0]])])).rows[0].valid, valid, path.join('.'));
+      if (valid) await record(s, db, p);
+      else await unchanged(() => record(s, db, p), /import_invalid/);
+    }
+    if (valid) {
+      if (path[0] === 'recorded_by') await directRecord(s, p, recordedBy);
+      const stored = await transportRow(s.id);
+      const parsed = parseProtocolVersionRecord(stored);
+      assert.ok(parsed, path.join('.'));
+      assert.deepEqual(parsed.snapshot, s);
+      assert.deepEqual(parsed.provenance, p);
+      assert.equal(parsed.recordedBy, recordedBy);
+    } else {
+      await unchanged(() => directRecord(s, p, recordedBy), { code: '23514' });
+      assert.equal(await transportRow(s.id), undefined);
+    }
+  }
+  // Empty arrays remain valid; SQL NULL and JSON null cannot pass as nonempty text.
+  const empty = version(); empty.rules.lifecycle = []; empty.rules.modules = [];
+  await record(empty);
+  assert.deepEqual(parseProtocolVersionRecord(await transportRow(empty.id)).snapshot, empty);
+  for (const value of [null, [], true, 1]) {
+    const s = version(); s.governanceNote = value;
+    assert.equal((await db.query('select private.protocol_version_snapshot_valid($1) as valid', [JSON.stringify(s)])).rows[0].valid, false);
+    await unchanged(() => directRecord(s), { code: '23514' });
+  }
+  await unchanged(() => directRecord(version(), provenance, null), { code: '23502' });
 });

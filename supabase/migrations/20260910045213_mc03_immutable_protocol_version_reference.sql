@@ -1,7 +1,16 @@
 -- MC-03 shared immutable references only. No seed, instrument, admission or engine.
 begin;
 
--- Closed v1 JSON contract; no coercion, missing keys, extra keys or empty rules.
+-- ECMAScript WhiteSpace + LineTerminator (Node 22): exactly String.trim's 25
+-- code points, not PostgreSQL's locale-dependent space class. Validation only:
+-- the original source text is always stored unchanged. SQL NULL fails closed.
+create function private.protocol_version_text_valid(value text)
+returns boolean language sql immutable security invoker set search_path = '' as $$
+  select coalesce(btrim(value,
+    U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF') <> '', false);
+$$;
+
+-- Closed v1 JSON contract; no coercion, missing keys, extra keys or blank rule text.
 create function private.protocol_version_snapshot_valid(s jsonb)
 returns boolean language plpgsql immutable security invoker set search_path = '' as $$
 declare k text; v jsonb; r jsonb;
@@ -13,7 +22,7 @@ begin
     'frozenAt','supersedesVersionId','supersededByVersionId','governanceNote','rules'] <> '{}'::jsonb
     then return false; end if;
   foreach k in array array['id','protocolId','displayVersion','state','governanceNote'] loop
-    if jsonb_typeof(s->k) <> 'string' or btrim(s->>k) = '' then return false; end if;
+    if jsonb_typeof(s->k) <> 'string' or not private.protocol_version_text_valid(s->>k) then return false; end if;
   end loop;
   if (s->>'id') !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'
     or (s->>'protocolId') !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'
@@ -42,12 +51,12 @@ begin
     'coverageModel','issuanceModel','redemptionModel','lifecycle','modules'] <> '{}'::jsonb
     then return false; end if;
   foreach k in array array['verificationModel','riskModel','coverageModel','issuanceModel','redemptionModel'] loop
-    if jsonb_typeof(r->k) <> 'string' or btrim(r->>k) = '' then return false; end if;
+    if jsonb_typeof(r->k) <> 'string' or not private.protocol_version_text_valid(r->>k) then return false; end if;
   end loop;
   foreach k in array array['lifecycle','modules'] loop
     if jsonb_typeof(r->k) <> 'array' then return false; end if;
     for v in select value from jsonb_array_elements(r->k) loop
-      if jsonb_typeof(v) <> 'string' or btrim(v #>> '{}') = '' then return false; end if;
+      if jsonb_typeof(v) <> 'string' or not private.protocol_version_text_valid(v #>> '{}') then return false; end if;
     end loop;
   end loop;
   return true;
@@ -61,10 +70,10 @@ returns boolean language sql immutable security invoker set search_path = '' as 
     and s ?& array['kind','repository','commit','path','exportName']
     and s - array['kind','repository','commit','path','exportName'] = '{}'::jsonb
     and s->>'kind' = 'GIT_CATALOG_REFERENCE'
-    and jsonb_typeof(s->'repository') = 'string' and btrim(s->>'repository') <> ''
+    and jsonb_typeof(s->'repository') = 'string' and private.protocol_version_text_valid(s->>'repository')
     and jsonb_typeof(s->'commit') = 'string' and s->>'commit' ~ '^[0-9a-f]{40}$'
-    and jsonb_typeof(s->'path') = 'string' and btrim(s->>'path') <> ''
-    and jsonb_typeof(s->'exportName') = 'string' and btrim(s->>'exportName') <> '', false);
+    and jsonb_typeof(s->'path') = 'string' and private.protocol_version_text_valid(s->>'path')
+    and jsonb_typeof(s->'exportName') = 'string' and private.protocol_version_text_valid(s->>'exportName'), false);
 $$;
 
 create table public.protocol_version_records (
@@ -76,7 +85,7 @@ create table public.protocol_version_records (
   frozen_at text,
   provenance jsonb not null,
   recorded_at timestamptz not null default clock_timestamp() check (isfinite(recorded_at)),
-  recorded_by text not null default current_user check (btrim(recorded_by) <> ''),
+  recorded_by text not null default current_user check (private.protocol_version_text_valid(recorded_by)),
   constraint protocol_version_snapshot_contract check (private.protocol_version_snapshot_valid(snapshot)),
   constraint protocol_version_identity_consistent check
     (id = snapshot->>'id' and protocol_id = snapshot->>'protocolId'),
@@ -218,7 +227,7 @@ grant select on table public.protocol_version_records to authenticated;
 create policy protocol_version_reference_read on public.protocol_version_records
   for select to authenticated using (true);
 
-revoke all on function private.protocol_version_snapshot_valid(jsonb),
+revoke all on function private.protocol_version_text_valid(text), private.protocol_version_snapshot_valid(jsonb),
   private.protocol_version_provenance_valid(jsonb), private.protocol_version_record_guard(),
   private.protocol_version_record_preserve(), private.record_protocol_version(text,text,jsonb,jsonb)
   from public, anon, authenticated, service_role;

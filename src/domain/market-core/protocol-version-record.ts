@@ -31,6 +31,7 @@ function keys(value: Record<string, unknown>, expected: string[]): boolean {
     && expected.every((key) => Object.hasOwn(value, key));
 }
 
+/** SQL protocol_version_text_valid mirrors this predicate; stored text is never trimmed. */
 function text(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
