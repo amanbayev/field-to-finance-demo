@@ -499,15 +499,18 @@ describe("demo reset inventory reader fail-closed behaviour", () => {
     expect(countedRows(read.inventory, "market-core-business")).toBeNull();
   });
 
-  it("reports the preserved MC-02 root unavailable without calling the closed RPC or inventing zero", async () => {
+  it.each([
+    ["market-core-participant-identity", "market_core_participants"],
+    ["protocol-definitions-and-frozen-versions", "protocol_version_records"],
+  ])("reports preserved %s unavailable without calling the closed RPC or inventing zero", async (categoryId, object) => {
     const createClient = vi.fn();
     const source = createPostgresDemoResetRowCountSource({ createClient });
-    const category = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(c => c.id === "market-core-participant-identity")!;
+    const category = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(c => c.id === categoryId)!;
     const read = await readDemoResetInventory({ scope: ESTABLISHED, source, now, manifest: manifestOf(category) });
     expect(createClient).not.toHaveBeenCalled();
     expect(read.kind).toBe("READ");
     if (read.kind !== "READ") return;
-    expect(read.objectsRead).toEqual(["market_core_participants"]);
+    expect(read.objectsRead).toEqual([object]);
     expect(read.inventory.categories[category.id]).toEqual({ kind: "UNAVAILABLE", reason: "SUBSYSTEM_NOT_READABLE" });
     expect(countedRows(read.inventory, category.id)).toBeNull();
   });
@@ -519,7 +522,8 @@ describe("demo reset inventory reader fail-closed behaviour", () => {
     });
     const read = await readDemoResetInventory({ scope: ESTABLISHED, source, now });
 
-    expect(asked.slice(0, 2)).toEqual([
+    expect(asked.slice(0, 3)).toEqual([
+      { object: "protocol_version_records", scope: { kind: "ENVIRONMENT" } },
       { object: "demo_reset_run_instances", scope: { kind: "ENVIRONMENT" } },
       { object: "demo_run_participant_commands", scope: { kind: "ENVIRONMENT" } },
     ]);

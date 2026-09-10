@@ -117,8 +117,11 @@ before(async () => {
     create table storage.objects(id uuid primary key,bucket_id text);
   `);
   // Optional full-chain compatibility mode; historical default remains pinned.
-  const fullFiles = process.env.MC02_FULL_SCHEMA === '1'
-    ? (await readdir(migrationDirectory)).filter(f => f.endsWith('.sql')).sort() : null;
+  const fullBoundary = process.env.MC03_FULL_SCHEMA === '1'
+    ? '20260910045213_mc03_immutable_protocol_version_reference.sql'
+    : '20260908133317_mc02_institutional_participant_root.sql';
+  const fullFiles = process.env.MC02_FULL_SCHEMA === '1' || process.env.MC03_FULL_SCHEMA === '1'
+    ? (await readdir(migrationDirectory)).filter(f => f.endsWith('.sql') && f <= fullBoundary).sort() : null;
   const baselineFiles = ['20260822120000_identity.sql','20260822231500_identity_security_hardening.sql',
     '20260822233000_identity_admin_capabilities.sql','20260828010000_origination_o1.sql',
     '20260828020000_origination_o1_storage_restrict.sql','20260828030000_origination_o12_hardening.sql',
@@ -139,11 +142,11 @@ before(async () => {
   privilegesBefore = await privileges(); genericDefinitions = await definitions();
   await db.query(await readFile(new URL(bindingMigration,migrationDirectory),'utf8'));
   if (fullFiles) {
-    assert.equal(fullFiles.at(-1), '20260908133317_mc02_institutional_participant_root.sql');
+    assert.equal(fullFiles.at(-1), fullBoundary);
     for (const file of fullFiles.filter(f => f > '20260908081019_demo_run_participant_bindings.sql')) {
       await db.query(await readFile(new URL(file, migrationDirectory), 'utf8'));
     }
-    console.log('GP compatibility: full ordered MC-02 migration chain', fullFiles.length);
+    console.log('GP compatibility: full ordered migration chain', fullFiles.length, fullBoundary);
   }
   service = await connection('service_role');
   await db.query(`create function private.gp01_test_role_failure() returns trigger language plpgsql as $$
