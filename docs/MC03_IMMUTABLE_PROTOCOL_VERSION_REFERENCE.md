@@ -95,7 +95,8 @@ Disabling guards via administrative DDL is outside the threat model.
 RLS is enabled. All table privileges inherited from defaults are explicitly revoked
 from PUBLIC, anon, authenticated and service_role; only authenticated SELECT is
 regranted with an unconditional shared-reference SELECT policy. No INSERT policy
-or runtime write grants exist. All six new private functions are SECURITY INVOKER,
+or runtime write grants exist. All seven private functions (including the review
+correction's text predicate) are SECURITY INVOKER,
 use an empty search_path, and revoke EXECUTE from those same roles. service_role
 BYPASSRLS does not restore revoked privileges. Existing defaults, functions,
 organization grants and MC-02 organization seals are unchanged.
@@ -168,7 +169,8 @@ No MC-13 inventory expansion or reset executor is included.
 
 ## Verification and source/deployed distinction
 
-New local evidence (separate from historical MC-02 evidence):
+Initial implementation evidence, before the Review corrections below (also
+separate from historical MC-02 evidence):
 
 | Check | Actual result |
 | --- | --- |
@@ -224,7 +226,7 @@ Reproduction after inspecting/locating optional tooling:
 
 ```sh
 GP01_EMBEDDED_POSTGRES_MODULE=/private/tmp/mc03-tools/node_modules/embedded-postgres/dist/index.js node --test supabase/tests/protocol-version-records.test.mjs
-MC03_FULL_SCHEMA=1 GP01_EMBEDDED_POSTGRES_MODULE=/private/tmp/mc03-tools/node_modules/embedded-postgres/dist/index.js node --test supabase/tests/market-core-participants.test.mjs supabase/tests/demo-run-issuance.test.mjs supabase/tests/demo-run-participant-bindings.test.mjs
+LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 MC03_FULL_SCHEMA=1 GP01_EMBEDDED_POSTGRES_MODULE=/private/tmp/mc03-tools/node_modules/embedded-postgres/dist/index.js node --test supabase/tests/market-core-participants.test.mjs supabase/tests/demo-run-issuance.test.mjs supabase/tests/demo-run-participant-bindings.test.mjs
 npm run check
 npm run build
 git diff --check
@@ -252,3 +254,107 @@ has reached the shared database.
 MC-04 (concrete instrument and CLOSED market roots) is next and remains unstarted.
 MC-05, MC-06, MC-13, GP-02, governance, admission, matching, Registrar, custody,
 settlement and Solana are outside this change.
+
+## Review corrections
+
+This bounded correction addresses the independent review of PR #19 at
+`2cec9b0b2060a4c696b0dda0afaa3a31210d081e`, against the same base
+`1d9e16b363336756032824bcb1946fd1b57f7e53`. That review reported P2 SQL/TypeScript
+text-validation disagreement (blocking) and P3 false absence after SDK HTTP-status
+normalization. Its historical results were 156 targeted tests / 6 files and native
+MC-03 18/18, with 152 additional snapshot/provenance cases and intercepted-fetch
+probes. Those results and the initial implementation counts above are not tests of
+the corrected code.
+
+### P2: one nonempty-text contract, without changing stored text
+
+PostgreSQL `btrim(value)` removed only ordinary spaces, whereas the production
+TypeScript predicate uses `typeof value === "string" && value.trim().length > 0`.
+A whitespace-only rule or provenance field could therefore occupy an immutable
+identity while the parser rejected its persisted record.
+
+`private.protocol_version_text_valid(text)` now checks the explicit 25-code-point
+ECMAScript WhiteSpace + LineTerminator set, verified against Node 22.23.2:
+`U+0009–000D`, `U+0020`, `U+00A0`, `U+1680`, `U+2000–200A`, `U+2028–2029`,
+`U+202F`, `U+205F`, `U+3000`, `U+FEFF`. See the
+[ECMAScript lexical grammar](https://tc39.es/ecma262/multipage/ecmascript-language-lexical-grammar.html#sec-white-space).
+It returns false for SQL NULL. JSON type checks and specialized ID/state/date
+checks remain in place. The helper is IMMUTABLE, SECURITY INVOKER, has an empty
+search_path, and explicitly revokes EXECUTE from PUBLIC, anon, authenticated and
+service_role. Privilege tests enumerate and check all seven functions.
+
+The predicate applies to displayVersion, governanceNote, all five models, each
+lifecycle/modules element, repository/path/exportName and recorded_by. Neither
+SQL nor TypeScript trims, replaces or defaults the stored text. Text containing
+non-whitespace content retains both edges exactly; empty arrays remain valid.
+The F2F SQL snapshot/provenance literals remain byte-identical. No data-repair
+migration, UPDATE/DELETE or change to import identity/retry semantics was added.
+
+Before correction, fresh native repros again saved `rules.riskModel="\t"` and
+`provenance.path="\t"`, then the production parser rejected both actual SQL rows.
+Both new rejection tests were red on the original migration. They now prove direct
+validator rejection, failed privileged import and owner INSERT, no partial row,
+and successful valid import/read under the previously rejected ID. Repository
+tests share a dependency-free JSON fixture: 35 SQL/TS cases cover all 25 trim
+characters, seven non-trim controls, empty/mixed strings and text with whitespace
+edges. Another matrix exercises all 13 free-text field locations. A unit test
+enumerates every runtime Unicode code point to verify the complete trim set.
+Positive native cases pass actual `to_jsonb` rows, including timestamp strings
+with microseconds, to the production TypeScript parser/freeze code transpiled by
+the already-installed TypeScript compiler; the snapshot is never substituted.
+
+### P3: reject the original HTTP failure before SDK normalization
+
+Installed Supabase/PostgREST JS 2.112.3 changes a `404` JSON-array response into
+`status:200, error:null, data:[]`. The new fetch-level test was red with
+`404 + [] -> ABSENT` on the original lookup.
+
+`createServerSupabaseClient` now accepts only an optional internal fetch decorator.
+Without opt-in its options and SSR behavior are unchanged. The factory still owns
+the configured URL/key and cookie callbacks. The lookup supplies a decorator per
+invocation that inspects the original Response only for GET
+`/rest/v1/protocol_version_records`; a non-200 response is cancelled and rejected
+before the SDK processes it. It never returns a rewritten response. There is no
+shared status variable, global fetch override, second request or service-role path.
+This lookup alone uses `.retry(false)` because the SDK otherwise retries a thrown
+transport error as a network failure, including a deterministic rejected 404.
+Auth/JWKS/refresh and other table responses pass through unchanged.
+
+26 intercepted-fetch tests run the production lookup and factory with the installed
+SSR/Supabase clients, replacing only the base transport through the opt-in seam.
+They cover success/absence, non-200 responses and arrays, malformed JSON/rows,
+foreign/duplicate IDs, network failure/abort, single-request behavior, concurrent
+lookups, cookies, Authorization headers, refresh and real synthetic ES256/JWKS
+verification. Six factory tests additionally preserve default options, cookie
+writes/read-only fallback and unconfigured behavior. These are SDK transport
+handling tests, not a deployed PostgREST integration.
+
+### Fresh correction evidence and retained limits
+
+| Check | Actual new result |
+| --- | --- |
+| Targeted validation/lookup/transport/factory suites | **116 tests / 4 files PASS** |
+| Native PostgreSQL 18.4, complete corrected 21-migration chain | **MC-03 22/22 PASS**, including SQL/TS parity |
+| MC-02 + GP compatibility, complete corrected chain | **105/105 PASS** |
+| `npm run check` | **1012 tests / 67 files; lint/typecheck PASS** |
+| Standard Turbopack `npm run build` | **PASS** |
+| `git diff --check`; pinned literals; 20 earlier migrations | **PASS / unchanged** |
+
+Optional embedded-postgres 18.4.0-beta.17 tooling was rechecked outside the
+repository. Runs used sanitized environments, synthetic data, TCP disabled and
+private Unix sockets; every own cluster was stopped and removed. Compatibility's
+first attempt initialized SQL_ASCII clusters and could not load the Unicode
+literal. Rerunning with the UTF-8 locale shown above passed without changing the
+compatibility suites or weakening assertions. MC-03 itself explicitly initializes
+UTF8. Logs are retained in `/private/tmp/mc03-corrections-4sH3fh`; native MC-03
+server logs are in `/private/tmp/mc03-sql-logs-icqlqf`. The standard build used
+scoped permission for local worker IPC and disabled telemetry. No dependencies,
+lockfile, environment files or deployment configuration were changed.
+
+Invalid timezone offsets can still raise SQL `22009` instead of returning false;
+this is a separate nonblocking, fail-closed limitation. Date validation was not
+rewritten or wrapped in a broad catch. Real Supabase/PostgREST transport, shared
+schema/migration/import, Auth/Storage changes, manual deployment and Devnet/Solana
+remain NOT_RUN. The planner remains INCOMPLETE. MC-04/05/06/13, GP-02 and Protocol
+Engine remain outside scope. Publication is two ordinary corrective commits to
+the existing feature branch and an updated Draft PR only, with no merge.

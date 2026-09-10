@@ -16,7 +16,19 @@ export type ProtocolVersionRecordLookup =
 export async function lookupProtocolVersionRecord(versionId: string): Promise<ProtocolVersionRecordLookup> {
   if (!isProtocolReferenceId(versionId)) return { kind: "UNAVAILABLE", reason: "INVALID_ID" };
   try {
-    const client = await createServerSupabaseClient();
+    const client = await createServerSupabaseClient((baseFetch) => async (input, init) => {
+      const response = await baseFetch(input, init);
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+      // The SDK builds this URL from the existing trusted server configuration.
+      // Inspect only this table's GET; Auth/JWKS/refresh and other reads are untouched.
+      if (method === "GET" && url.pathname.endsWith("/rest/v1/protocol_version_records")
+        && response.status !== 200) {
+        await response.body?.cancel();
+        throw new Error(`protocol_version_reference_http_${response.status}`);
+      }
+      return response;
+    });
     if (!client) return { kind: "UNAVAILABLE", reason: "NOT_CONFIGURED" };
     const auth = await client.auth.getClaims();
     const userId: unknown = auth?.data?.claims?.sub;
@@ -26,7 +38,9 @@ export async function lookupProtocolVersionRecord(versionId: string): Promise<Pr
     }
     const response = await client.from("protocol_version_records")
       .select("id,protocol_id,snapshot,activated_at,frozen_at,provenance,recorded_at,recorded_by")
-      .eq("id", versionId).limit(2);
+      // A rejected HTTP response above is a fetch error to the SDK. Disable retries
+      // on this read only, so a deterministic 404 cannot cause network-error retries.
+      .eq("id", versionId).retry(false).limit(2);
     if (response?.error !== null) return { kind: "UNAVAILABLE", reason: "ERROR" };
     if (response.status !== 200 || !Array.isArray(response.data) || response.data.length > 1) {
       return { kind: "UNAVAILABLE", reason: "MALFORMED_RESPONSE" };

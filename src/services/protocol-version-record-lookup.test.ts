@@ -18,7 +18,7 @@ function row() {
 }
 function setup(data: unknown = [row()], error: unknown = null, status: unknown = 200) {
   // Only the exact read capabilities exist; writes, RPCs and current-version calls fail.
-  const query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue({ data, error, status }) };
+  const query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), retry: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue({ data, error, status }) };
   const client = { auth: { getClaims: vi.fn().mockResolvedValue({ data: { claims: { sub: user } }, error: null }) }, from: vi.fn(() => query) };
   vi.mocked(createServerSupabaseClient).mockResolvedValue(client as unknown as NonNullable<Awaited<ReturnType<typeof createServerSupabaseClient>>>);
   return { query, client };
@@ -97,6 +97,7 @@ describe("server-only exact persisted version lookup", () => {
     expect(client.from).toHaveBeenCalledExactlyOnceWith("protocol_version_records");
     expect(query.eq).toHaveBeenCalledExactlyOnceWith("id", "F2F-V1.1");
     expect(query.limit).toHaveBeenCalledExactlyOnceWith(2);
+    expect(query.retry).toHaveBeenCalledExactlyOnceWith(false);
     expect(query.select).toHaveBeenCalledExactlyOnceWith("id,protocol_id,snapshot,activated_at,frozen_at,provenance,recorded_at,recorded_by");
   });
   it.each(["F2F-V1.1", "F2F-V9.9", "WHEAT-2027", "latest", "current"])("returns ABSENT for accessible empty %s; never fixture/current/symbol fallback", async (id) => {

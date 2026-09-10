@@ -5,7 +5,10 @@ import {
   getSupabaseUrl,
 } from "@/lib/auth/env";
 
-export async function createServerSupabaseClient() {
+/** Internal, request-local fetch decoration only; URL, credentials and SSR options stay here. */
+export type ServerSupabaseTransport = (baseFetch: typeof fetch) => typeof fetch;
+
+export async function createServerSupabaseClient(transport?: ServerSupabaseTransport) {
   const url = getSupabaseUrl();
   const key = getSupabasePublishableKey();
   if (!url || !key) {
@@ -13,6 +16,7 @@ export async function createServerSupabaseClient() {
   }
   const cookieStore = await cookies();
   return createServerClient(url, key, {
+    ...(transport ? { global: { fetch: transport(globalThis.fetch) } } : {}),
     cookies: {
       getAll() {
         return cookieStore.getAll();
