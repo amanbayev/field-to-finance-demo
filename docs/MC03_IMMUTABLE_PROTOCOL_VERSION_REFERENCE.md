@@ -189,14 +189,16 @@ its Unix socket is private, uses synthetic Auth/Storage stand-ins and synthetic
 business rows, and stops/removes only its own cluster. MC-03 explicitly uses UTF8.
 Tests run with a sanitized environment, without database URLs or real credentials.
 Logs stay outside the repository; MC-03 server logs are retained in
-`/private/tmp/mc03-sql-logs-2RMFMC`, with suite output in
-`/private/tmp/mc03-sql-native.log` and `/private/tmp/mc03-compat-native.log`.
+`/private/tmp/mc03-sql-logs-wfYWMx`, with suite output in
+`/private/tmp/mc03-sql-native-final.log` and `/private/tmp/mc03-compat-native.log`.
 
 The SQL suites verify defaults/grants/RLS, exact F2F content and null dates,
 first provenance, conflicting fields/rules, simultaneous same-ID calls, both
 isolation levels, rollback, owner/definer changes and BEFORE-trigger attacks.
 The future FK check creates a synthetic table inside a rolled-back transaction.
-No production table is added by that test. The MC-02/GP suites expose a bounded
+No production table is added by that test. The malformed-snapshot regression
+asserts the validator result directly and supplies matching request identities
+where available, so an unrelated ID mismatch cannot conceal a validation defect. The MC-02/GP suites expose a bounded
 `MC03_FULL_SCHEMA=1` mode; historical MC-00/MC-01 tests and all their assertions
 are untouched.
 

@@ -152,8 +152,14 @@ test('missing/extra keys, wrong types and invalid dates cannot enter through imp
   for(const key of Object.keys(known)) { const s=structuredClone(known); delete s[key]; bad.push(s); }
   for(const key of Object.keys(known.rules)) { const s=structuredClone(known); delete s.rules[key]; bad.push(s); }
   for(const s of bad) {
-    await unchanged(()=>db.query('select private.record_protocol_version($1,$2,$3,$4)',['BAD','F2F',s===null?null:JSON.stringify(s),provenance]),/import_invalid/);
-    await unchanged(()=>db.query('insert into public.protocol_version_records(id,protocol_id,snapshot,provenance) values($1,$2,$3,$4)',['BAD','F2F',s===null?null:JSON.stringify(s),provenance]),{code:s===null?'23502':'23514'});
+    const payload=s===null?null:JSON.stringify(s);
+    // Prove the full validator itself rejects the payload. An unrelated ID
+    // mismatch must not conceal a missing rules/type/date check in this test.
+    assert.equal((await db.query('select private.protocol_version_snapshot_valid($1) as valid',[payload])).rows[0].valid,false);
+    const id=typeof s?.id==='string'?s.id:'BAD';
+    const protocol=typeof s?.protocolId==='string'?s.protocolId:'F2F';
+    await unchanged(()=>db.query('select private.record_protocol_version($1,$2,$3,$4)',[id,protocol,payload,provenance]),/import_invalid/);
+    await unchanged(()=>db.query('insert into public.protocol_version_records(id,protocol_id,snapshot,provenance) values($1,$2,$3,$4)',[id,protocol,payload,provenance]),{code:s===null?'23502':'23514'});
   }
   await unchanged(()=>db.query('select private.record_protocol_version($1,$2,$3,$4)',['OTHER','F2F',known,provenance]),/import_invalid/);
   await unchanged(()=>db.query('select private.record_protocol_version($1,$2,$3,$4)',['F2F-V1.1','OTHER',known,provenance]),/import_invalid/);
