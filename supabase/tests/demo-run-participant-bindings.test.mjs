@@ -2,7 +2,7 @@
 // Minimal Auth/Storage stand-ins exist only to load the real repository migrations.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
@@ -39,6 +39,7 @@ const genericNames = ['add_membership','remove_membership','create_organization'
 async function connection(role) {
   const client = pg.getPgClient('postgres', directory);
   await client.connect(); clients.push(client);
+  await client.query("set statement_timeout='15s'");
   if (role) await client.query(`set role ${role}`); // Closed test-owned literals.
   return client;
 }
@@ -104,7 +105,9 @@ async function syntheticRun(ctx, receipt) {
 
 before(async () => {
   await pg.initialise(); await pg.start(); db = await connection();
-  assert.equal((await db.query('show listen_addresses')).rows[0].listen_addresses, '');
+  const settings=(await db.query("select current_setting('server_version') as version,current_setting('listen_addresses') as listen,current_setting('unix_socket_directories') as socket")).rows[0];
+  assert.match(settings.version,/^18\./); assert.equal(settings.listen,''); assert.equal(settings.socket,directory);
+  console.log('GP binding disposable PostgreSQL:',settings);
   await db.query(`create role anon; create role authenticated; create role service_role inherit nosuperuser bypassrls;
     alter default privileges for role postgres in schema public grant all on tables to service_role;
     create schema auth; create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb);
@@ -113,13 +116,17 @@ before(async () => {
     create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
     create table storage.objects(id uuid primary key,bucket_id text);
   `);
-  for (const file of ['20260822120000_identity.sql','20260822231500_identity_security_hardening.sql',
+  // Optional full-chain compatibility mode; historical default remains pinned.
+  const fullFiles = process.env.MC02_FULL_SCHEMA === '1'
+    ? (await readdir(migrationDirectory)).filter(f => f.endsWith('.sql')).sort() : null;
+  const baselineFiles = ['20260822120000_identity.sql','20260822231500_identity_security_hardening.sql',
     '20260822233000_identity_admin_capabilities.sql','20260828010000_origination_o1.sql',
     '20260828020000_origination_o1_storage_restrict.sql','20260828030000_origination_o12_hardening.sql',
     '20260828040000_origination_o121_state_guards.sql','20260828050000_origination_create_idempotency.sql',
     '20260828120000_origination_dac_foundation.sql','20260907090000_demo_reset_run_registry.sql',
-    '20260908055133_demo_reset_ownership_guards.sql','20260908070350_demo_run_issuance.sql']) {
-    await db.query(await readFile(new URL(file,migrationDirectory),'utf8'));
+    '20260908055133_demo_reset_ownership_guards.sql','20260908070350_demo_run_issuance.sql'];
+  for (const file of fullFiles ? fullFiles.filter(f => f < '20260908081019_demo_run_participant_bindings.sql') : baselineFiles) {
+    await db.query(await readFile(new URL(file, migrationDirectory), 'utf8'));
   }
   // Synthetic existing reusable logins. The operation itself may never create them.
   await db.query(`insert into auth.users(id,email) select id,case when id=$2 then 'bootstrap@example.invalid' end
@@ -131,6 +138,13 @@ before(async () => {
   legacyRole = (await db.query("insert into public.membership_roles(membership_id,role_id) values($1,'PRODUCER_ADMIN') returning id", [legacyMembership])).rows[0].id;
   privilegesBefore = await privileges(); genericDefinitions = await definitions();
   await db.query(await readFile(new URL(bindingMigration,migrationDirectory),'utf8'));
+  if (fullFiles) {
+    assert.equal(fullFiles.at(-1), '20260908133317_mc02_institutional_participant_root.sql');
+    for (const file of fullFiles.filter(f => f > '20260908081019_demo_run_participant_bindings.sql')) {
+      await db.query(await readFile(new URL(file, migrationDirectory), 'utf8'));
+    }
+    console.log('GP compatibility: full ordered MC-02 migration chain', fullFiles.length);
+  }
   service = await connection('service_role');
   await db.query(`create function private.gp01_test_role_failure() returns trigger language plpgsql as $$
     begin if new.role_id=current_setting('gp01.fail_role',true) then raise exception 'test: late participant failure'; end if; return new; end; $$;
@@ -153,7 +167,14 @@ before(async () => {
     end; $$;
   `);
 }, { timeout: 60000 });
-after(async () => { await Promise.all(clients.map(c=>c.end())); await pg.stop(); });
+after(async () => {
+  try { await Promise.all(clients.map(c=>c.end())); }
+  finally {
+    await pg.stop();
+    await rm(directory,{recursive:true,force:true});
+    console.log('GP binding cluster stopped and removed:',directory);
+  }
+});
 
 test('authorized binding resolves the exact receipt roots and creates three generated memberships/fixed roles only', async () => {
   const ctx=context(); const run=await issue(ctx); const baseline=await snapshot(); const key=randomUUID();

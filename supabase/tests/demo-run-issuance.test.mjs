@@ -3,7 +3,7 @@
 // Optional tooling is installed OUTSIDE the repository; see GP01_RUN_ISSUANCE.md.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -41,6 +41,7 @@ async function connection(role) {
   const client = pg.getPgClient("postgres", directory);
   await client.connect();
   clients.push(client);
+  await client.query("set statement_timeout='15s'");
   if (role) await client.query(`set role ${role}`); // Test-owned closed literals only.
   return client;
 }
@@ -117,7 +118,9 @@ before(async () => {
   await pg.initialise();
   await pg.start();
   db = await connection();
-  assert.equal((await db.query("show listen_addresses")).rows[0].listen_addresses, "");
+  const settings=(await db.query("select current_setting('server_version') as version,current_setting('listen_addresses') as listen,current_setting('unix_socket_directories') as socket")).rows[0];
+  assert.match(settings.version,/^18\./); assert.equal(settings.listen,''); assert.equal(settings.socket,directory);
+  console.log('GP issuance disposable PostgreSQL:',settings);
   await db.query(`
     create role anon; create role authenticated; create role service_role inherit nosuperuser bypassrls;
     -- Match the deployed Supabase public-table defaults observed in pg_default_acl
@@ -131,14 +134,20 @@ before(async () => {
     create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
     create table storage.objects (id uuid primary key, bucket_id text);
   `);
-  for (const file of [
+  // Optional full-chain compatibility mode; historical default remains pinned.
+  const fullFiles = process.env.MC02_FULL_SCHEMA === '1'
+    ? (await readdir(migrationDirectory)).filter(f => f.endsWith('.sql')).sort() : null;
+  const baselineFiles = [
     "20260822120000_identity.sql", "20260822231500_identity_security_hardening.sql",
     "20260822233000_identity_admin_capabilities.sql", "20260828010000_origination_o1.sql",
     "20260828020000_origination_o1_storage_restrict.sql", "20260828030000_origination_o12_hardening.sql",
     "20260828040000_origination_o121_state_guards.sql", "20260828050000_origination_create_idempotency.sql",
     "20260828120000_origination_dac_foundation.sql", "20260907090000_demo_reset_run_registry.sql",
     "20260908055133_demo_reset_ownership_guards.sql",
-  ]) await db.query(await readFile(new URL(file, migrationDirectory), "utf8"));
+  ];
+  for (const file of fullFiles ? fullFiles.filter(f => f < '20260908070350_demo_run_issuance.sql') : baselineFiles) {
+    await db.query(await readFile(new URL(file, migrationDirectory), 'utf8'));
+  }
   await db.query("insert into auth.users (id) values ($1), ($2)", [operator, outsider]);
   await db.query("insert into public.organizations(id, slug, name, type) values ($1, 'operator', 'Operator', 'PLATFORM')", [platformOrg]);
   const membership = (await db.query("insert into public.memberships(user_id, organization_id) values ($1,$2) returning id", [operator, platformOrg])).rows[0].id;
@@ -157,6 +166,13 @@ before(async () => {
   registryPrivilegesBefore = await serviceTablePrivileges("public.demo_reset_run_instances");
   organizationPrivilegesBefore = await serviceTablePrivileges("public.organizations");
   await db.query(await readFile(new URL("20260908070350_demo_run_issuance.sql", migrationDirectory), "utf8"));
+  if (fullFiles) {
+    assert.equal(fullFiles.at(-1), '20260908133317_mc02_institutional_participant_root.sql');
+    for (const file of fullFiles.filter(f => f > '20260908070350_demo_run_issuance.sql')) {
+      await db.query(await readFile(new URL(file, migrationDirectory), 'utf8'));
+    }
+    console.log('GP compatibility: full ordered MC-02 migration chain', fullFiles.length);
+  }
   // Synthetic probe/failure trigger, ONLY in this disposable cluster. It observes
   // the INSERT-time row, not the result of a later stamping UPDATE.
   await db.query(`
@@ -175,9 +191,12 @@ before(async () => {
   `);
 }, { timeout: 60000 });
 after(async () => {
-  await Promise.all(clients.map((client) => client.end()));
-  await pg.stop();
-  // Leave only this synthetic cluster's files for inspection; no deletion tooling.
+  try { await Promise.all(clients.map((client) => client.end())); }
+  finally {
+    await pg.stop();
+    await rm(directory,{recursive:true,force:true});
+    console.log('GP issuance cluster stopped and removed:',directory);
+  }
 });
 
 test("DB-issued opaque run and three distinct, fresh roots are stamped at INSERT; NULL history and operator stay untouched", async () => {

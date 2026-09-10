@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createPostgresDemoResetRowCountSource } from "@/data/demo-reset/postgres-row-count-source";
 import { countedRows, inventoryGaps } from "@/lib/demo-reset/inventory";
 import {
   DEMO_DATASET_V2_RESET_MANIFEST,
@@ -496,6 +497,19 @@ describe("demo reset inventory reader fail-closed behaviour", () => {
     expect(countedRows(read.inventory, "run-created-identity")).not.toBeNull();
     expect(countedRows(read.inventory, "origination-business")).not.toBeNull();
     expect(countedRows(read.inventory, "market-core-business")).toBeNull();
+  });
+
+  it("reports the preserved MC-02 root unavailable without calling the closed RPC or inventing zero", async () => {
+    const createClient = vi.fn();
+    const source = createPostgresDemoResetRowCountSource({ createClient });
+    const category = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(c => c.id === "market-core-participant-identity")!;
+    const read = await readDemoResetInventory({ scope: ESTABLISHED, source, now, manifest: manifestOf(category) });
+    expect(createClient).not.toHaveBeenCalled();
+    expect(read.kind).toBe("READ");
+    if (read.kind !== "READ") return;
+    expect(read.objectsRead).toEqual(["market_core_participants"]);
+    expect(read.inventory.categories[category.id]).toEqual({ kind: "UNAVAILABLE", reason: "SUBSYSTEM_NOT_READABLE" });
+    expect(countedRows(read.inventory, category.id)).toBeNull();
   });
 
   it("reports preserved history unavailable when command receipts cannot be counted", async () => {

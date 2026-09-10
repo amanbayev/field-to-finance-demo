@@ -45,6 +45,7 @@ async function connection(userId) {
   const client = pg.getPgClient('postgres', directory);
   await client.connect();
   clients.push(client);
+  await client.query("set statement_timeout='15s'");
   if (userId) {
     await client.query('set role authenticated');
     await client.query("select set_config('request.jwt.claim.sub',$1,false)", [userId]);
@@ -155,11 +156,9 @@ before(async () => {
 after(async () => {
   try { await Promise.all(clients.map(client => client.end())); }
   finally {
-    if (started) {
-      await pg.stop();
-      await rm(directory, { recursive: true });
-      console.log('Disposable server stopped; cluster removed.');
-    }
+    if (started) await pg.stop();
+    await rm(directory, { recursive: true, force: true });
+    console.log('Disposable server stopped; cluster removed:', directory);
   }
 });
 

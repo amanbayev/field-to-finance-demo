@@ -248,6 +248,21 @@ const CATEGORIES: readonly DemoResetCategory[] = [
       "observation, never chain truth.",
   },
   {
+    id: "market-core-participant-identity",
+    subsystem: "DATABASE",
+    disposition: "PRESERVED",
+    scopeBasis: "ENVIRONMENT_WIDE",
+    rowScope: "NOT_APPLICABLE",
+    objects: ["market_core_participants"],
+    note:
+      "Permanent institutional identity roots are preserved whole-table. The " +
+      "closed count RPC does not support this table, so inventory is unavailable. " +
+      "Its restrictive FK prevents deleting a referenced organization, including " +
+      "a run-created root. MC-13 must reconcile that retained-root dependency; " +
+      "the existing organization disposition and 14 legacy Market Core tables " +
+      "are unchanged. The planner remains INCOMPLETE; no reset executor exists.",
+  },
+  {
     id: "registrar-book-of-record",
     subsystem: "DATABASE",
     disposition: "CLEARED",
