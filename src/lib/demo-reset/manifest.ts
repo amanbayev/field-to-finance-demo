@@ -107,11 +107,12 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     disposition: "PRESERVED",
     scopeBasis: "ENVIRONMENT_WIDE",
     rowScope: "NOT_APPLICABLE",
-    objects: [],
+    objects: ["protocol_version_records"],
     note:
-      "Recorded protocols and frozen protocol versions live in " +
-      "src/data/market-core/catalog.ts, not in the database. F2F-V1.1 keeps " +
-      "claiming no activation or freeze date.",
+      "MC-03 preserves persisted frozen references whole-table, independent of runs. " +
+      "The legacy catalog remains unchanged and is not imported automatically. " +
+      "F2F-V1.1 claims no activation or freeze date. The closed count source cannot " +
+      "count this table: inventory is UNAVAILABLE and the planner stays INCOMPLETE.",
   },
   {
     id: "run-registry",

@@ -94,6 +94,20 @@ function observedInventory(
 }
 
 describe("demo reset inventory", () => {
+  it("keeps the MC-03 preserved reference unavailable and the full planner INCOMPLETE", () => {
+    const inventory = observedInventory(Object.fromEntries(manifestCategoryIds().map(id => [id,
+      id === "protocol-definitions-and-frozen-versions"
+        ? { kind: "UNAVAILABLE" as const, reason: "SUBSYSTEM_NOT_READABLE" as const }
+        : { kind: "COUNTED" as const, rows: 0 },
+    ])));
+    expect(countedRows(inventory, "protocol-definitions-and-frozen-versions")).toBeNull();
+    const plan = planDemoResetDryRun({ authorization: allowedAuthorization(),
+      runId: "RUN-1", inventory, manifest: DEMO_DATASET_V2_RESET_MANIFEST });
+    expect(plan.status).toBe("INCOMPLETE");
+    expect(inventoryGaps(inventory)).toContainEqual({
+      categoryId: "protocol-definitions-and-frozen-versions", reason: "SUBSYSTEM_NOT_READABLE",
+    });
+  });
   it("marks every category unavailable rather than zero when no reader exists", () => {
     const inventory = unavailableDemoResetInventory(
       "RUN_SCOPED_INVENTORY_SOURCE_ABSENT",
