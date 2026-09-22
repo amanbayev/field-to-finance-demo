@@ -52,6 +52,18 @@ describe("Dataset V2 reset manifest", () => {
       disposition: "CLEARED", objects: ["organizations", "memberships", "membership_roles"],
     });
   });
+  it("preserves MC-04 instruments without claiming mixed markets are scoped", () => {
+    const categories = DEMO_DATASET_V2_RESET_MANIFEST.categories;
+    expect(categories.filter(c => c.objects.includes("market_core_instruments"))).toEqual([
+      expect.objectContaining({ id: "market-core-instrument-identity", disposition: "PRESERVED",
+        scopeBasis: "ENVIRONMENT_WIDE", rowScope: "NOT_APPLICABLE", objects: ["market_core_instruments"] }),
+    ]);
+    expect(categories.find(c => c.id === "market-core-business")).toMatchObject({
+      disposition: "CLEARED", scopeBasis: "NOT_SCOPABLE", rowScope: "NOT_EXPRESSIBLE",
+    });
+    expect(categories.find(c => c.id === "market-core-business")?.note).toContain("MC-13");
+    expect(categories.find(c => c.id === "market-core-instrument-identity")?.note).toContain("INCOMPLETE");
+  });
   it("has unique category ids", () => {
     const ids = manifestCategoryIds();
     expect(new Set(ids).size).toBe(ids.length);

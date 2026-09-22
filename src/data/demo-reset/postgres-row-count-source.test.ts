@@ -151,7 +151,7 @@ describe("createPostgresDemoResetRowCountSource", () => {
     expect(called).toBe(false);
   });
 
-  it.each(["demo_run_participant_commands", "protocol_version_records"])("refuses manifest-known %s without creating a client", async (object) => {
+  it.each(["demo_run_participant_commands", "protocol_version_records", "market_core_instruments"])("refuses manifest-known %s without creating a client", async (object) => {
     const createClient = vi.fn(async () => null);
     const source = createPostgresDemoResetRowCountSource({ createClient });
 

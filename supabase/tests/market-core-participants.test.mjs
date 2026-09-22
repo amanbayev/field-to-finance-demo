@@ -1,5 +1,6 @@
 // MC-02 full migration chain on disposable PostgreSQL; TCP disabled, private socket.
 import assert from 'node:assert/strict';
+import { assertFunctionsPreserved } from './mc04-compatibility.mjs';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -109,11 +110,18 @@ before(async()=> {
   await db.query(`alter default privileges for role postgres in schema public grant all on tables to anon,authenticated;
     alter default privileges for role postgres in schema private grant execute on functions to anon,authenticated,service_role;`);
   await db.query(await readFile(new URL(migration,migrations),'utf8'));
-  if (process.env.MC03_FULL_SCHEMA === '1') {
-    assert.equal(allFiles.at(-1),'20260910045213_mc03_immutable_protocol_version_reference.sql');
-    for (const file of allFiles.filter(f=>f>migration)) await db.query(await readFile(new URL(file,migrations),'utf8'));
+  const fullBoundary = process.env.MC04_FULL_SCHEMA === '1'
+    ? '20260922043414_mc04_concrete_instrument_closed_market_roots.sql'
+    : process.env.MC03_FULL_SCHEMA === '1' ? '20260910045213_mc03_immutable_protocol_version_reference.sql' : migration;
+  const selected = allFiles.filter(f=>f<=fullBoundary);
+  assert.equal(selected.at(-1),fullBoundary);
+  for (const file of selected.filter(f=>f>migration)) await db.query(await readFile(new URL(file,migrations),'utf8'));
+  if (process.env.MC04_FULL_SCHEMA === '1') {
+    // Exact additive shape; all historical business values remain asserted below.
+    beforeRows['public.market_core_markets'] = beforeRows['public.market_core_markets'].map(r=>({...r,instrument_ref:null,book_key:null}));
+    assert.deepEqual((await snapshot())['public.market_core_instruments'],[]);
   }
-  console.log('Full ordered migrations applied:',process.env.MC03_FULL_SCHEMA === '1' ? allFiles.length : files.length);
+  console.log('Ordered migrations applied:',selected.length,fullBoundary);
 }, {timeout:60000});
 after(async()=> {
   try { await Promise.all(clients.map(c=>c.end())); }
@@ -132,7 +140,7 @@ test('migration has no business-row backfill and preserves every unrelated funct
   }
   const current=await functions();
   const guard=(await db.query("select 'private.demo_reset_guard_organization_run()'::regprocedure::oid as oid")).rows[0].oid;
-  for (const f of beforeFunctions.filter(f=>f.oid!==guard)) assert.deepEqual(current.find(g=>g.oid===f.oid),f);
+  assertFunctionsPreserved(current,beforeFunctions.filter(f=>f.oid!==guard),process.env.MC04_FULL_SCHEMA === '1');
   assert.deepEqual(await grants(),beforeGrants);
 });
 
