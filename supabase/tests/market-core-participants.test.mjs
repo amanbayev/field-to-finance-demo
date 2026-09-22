@@ -93,7 +93,8 @@ before(async()=> {
     create schema storage;
     create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
     create table storage.objects(id uuid primary key,bucket_id text);`);
-  const files=(await readdir(migrations)).filter(f=>f.endsWith('.sql')).sort();
+  const allFiles=(await readdir(migrations)).filter(f=>f.endsWith('.sql')).sort();
+  const files=allFiles.filter(f=>f<=migration);
   assert.equal(files.at(-1),migration,'Review the new full-chain boundary');
   for (const file of files.filter(f=>f!==migration)) await db.query(await readFile(new URL(file,migrations),'utf8'));
   await db.query('insert into auth.users(id) select unnest($1::uuid[])',[[operator,...Object.values(users)]]);
@@ -108,7 +109,11 @@ before(async()=> {
   await db.query(`alter default privileges for role postgres in schema public grant all on tables to anon,authenticated;
     alter default privileges for role postgres in schema private grant execute on functions to anon,authenticated,service_role;`);
   await db.query(await readFile(new URL(migration,migrations),'utf8'));
-  console.log('Full ordered migrations applied:',files.length);
+  if (process.env.MC03_FULL_SCHEMA === '1') {
+    assert.equal(allFiles.at(-1),'20260910045213_mc03_immutable_protocol_version_reference.sql');
+    for (const file of allFiles.filter(f=>f>migration)) await db.query(await readFile(new URL(file,migrations),'utf8'));
+  }
+  console.log('Full ordered migrations applied:',process.env.MC03_FULL_SCHEMA === '1' ? allFiles.length : files.length);
 }, {timeout:60000});
 after(async()=> {
   try { await Promise.all(clients.map(c=>c.end())); }

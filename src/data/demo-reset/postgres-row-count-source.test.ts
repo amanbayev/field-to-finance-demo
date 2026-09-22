@@ -151,10 +151,9 @@ describe("createPostgresDemoResetRowCountSource", () => {
     expect(called).toBe(false);
   });
 
-  it("refuses manifest-known participant command history without creating a client", async () => {
+  it.each(["demo_run_participant_commands", "protocol_version_records"])("refuses manifest-known %s without creating a client", async (object) => {
     const createClient = vi.fn(async () => null);
     const source = createPostgresDemoResetRowCountSource({ createClient });
-    const object = "demo_run_participant_commands";
 
     expect(DEMO_RESET_COUNTABLE_OBJECTS).not.toContain(object);
     for (const scope of [

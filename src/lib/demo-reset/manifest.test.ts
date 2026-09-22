@@ -31,6 +31,12 @@ function migratedTableNames(): Set<string> {
 }
 
 describe("Dataset V2 reset manifest", () => {
+  it("preserves MC-03 shared references whole-table without changing Market Core business disposition", () => {
+    const category = DEMO_DATASET_V2_RESET_MANIFEST.categories.find(c => c.id === "protocol-definitions-and-frozen-versions");
+    expect(category).toMatchObject({ disposition: "PRESERVED", scopeBasis: "ENVIRONMENT_WIDE",
+      rowScope: "NOT_APPLICABLE", objects: ["protocol_version_records"] });
+    expect(DEMO_DATASET_V2_RESET_MANIFEST.categories.find(c => c.id === "market-core-business")?.objects).toHaveLength(14);
+  });
   it("preserves the modern participant root without reclassifying legacy tables or organizations", () => {
     const categories = DEMO_DATASET_V2_RESET_MANIFEST.categories;
     expect(categories.filter(c => c.objects.includes("market_core_participants"))).toEqual([
