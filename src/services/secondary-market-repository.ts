@@ -45,7 +45,7 @@ function str(value: unknown): string {
 }
 
 function mapMarket(row: Record<string, unknown>): Market {
-  const catalog = catalogMarkets[0]!;
+  const catalog = catalogMarkets.find((item) => item.id === row.id)!;
   return {
     ...catalog,
     id: str(row.id ?? catalog.id),
@@ -194,16 +194,38 @@ function mapAccount(row: Record<string, unknown>): SettlementAccount {
 }
 
 export function engineStateFromSnapshot(payload: SnapshotPayload): EngineState {
-  const dbHoldings = (payload.holdings ?? []).map(mapHolding);
+  // market_core_snapshot uses to_jsonb(m): instrument_ref is the persisted,
+  // immutable MC-04 FK bridge, including an explicit JSON null for legacy rows.
+  // Missing/corrupt classification is not evidence of legacy compatibility.
+  if (!Array.isArray(payload.markets) || payload.markets.some((row) =>
+    !row || typeof row !== "object" || !Object.hasOwn(row, "instrument_ref") ||
+    typeof row.id !== "string" || !row.id.trim() ||
+    typeof row.instrument_id !== "string" || !row.instrument_id.trim() ||
+    (row.instrument_ref !== null && (
+      typeof row.instrument_ref !== "string" || !row.instrument_ref.trim() ||
+      row.instrument_ref !== row.instrument_id
+    ))
+  )) {
+    throw new Error("MARKET_CORE_SNAPSHOT_INVALID");
+  }
+  const legacyMarkets = payload.markets.filter((row) => row.instrument_ref === null &&
+    catalogMarkets.some((item) => item.id === row.id && item.instrumentId === row.instrument_id));
+  const instrumentsByMarket = new Map(legacyMarkets.map((row) => [row.id, row.instrument_id]));
+  const instrumentIds = new Set(legacyMarkets.map((row) => row.instrument_id));
+  const isLegacyInstrument = (row: Record<string, unknown>) => instrumentIds.has(row.instrument_id);
+  const isLegacyExecution = (row: Record<string, unknown>) =>
+    instrumentsByMarket.has(row.market_id) && instrumentsByMarket.get(row.market_id) === row.instrument_id;
+  const legacyHoldings = catalogHoldings.filter((row) => instrumentIds.has(row.instrumentId));
+  const dbHoldings = (payload.holdings ?? []).filter(isLegacyInstrument).map(mapHolding);
   const registeredOwned = new Map(
-    (payload.registeredOwnership ?? []).map((row) => [
+    (payload.registeredOwnership ?? []).filter(isLegacyInstrument).map((row) => [
       `${str(row.participant_id)}:${str(row.instrument_id)}`,
       num(row.registered_quantity),
     ]),
   );
   const holdings =
     dbHoldings.length > 0
-      ? catalogHoldings.map((legal) => {
+      ? legacyHoldings.map((legal) => {
           const working = dbHoldings.find(
             (row) =>
               row.holderReference === legal.holderReference &&
@@ -226,10 +248,17 @@ export function engineStateFromSnapshot(payload: SnapshotPayload): EngineState {
           };
           return { ...legal, buckets, available: availableBalance(buckets) };
         })
-      : catalogHoldings;
-  const dbMarkets = (payload.markets ?? []).map(mapMarket);
-  const dbSettlements = (payload.settlements ?? []).map(mapSettlement);
-  const primary = catalogSettlements.filter((item) => item.kind === "PRIMARY");
+      : legacyHoldings;
+  const dbMarkets = legacyMarkets.map(mapMarket);
+  const trades = (payload.trades ?? []).filter(isLegacyExecution).map(mapTrade);
+  const tradeIds = new Set(trades.map((row) => row.id));
+  const dbSettlements = (payload.settlements ?? [])
+    .filter((row) => tradeIds.has(str(row.trade_id))).map(mapSettlement);
+  // Retain the existing demo catalog overlay only for its observed legacy book.
+  // An empty/modern-only snapshot never supplies catalog roots or primary proof.
+  const hasLegacyDemo = legacyMarkets.length > 0;
+  const primary = hasLegacyDemo ? catalogSettlements.filter((item) => item.kind === "PRIMARY") : [];
+  const assetIds = new Set(dbMarkets.map((row) => row.settlementAssetId));
   return {
     now: new Date().toISOString(),
     nextOrderSeq: 0,
@@ -238,14 +267,14 @@ export function engineStateFromSnapshot(payload: SnapshotPayload): EngineState {
     nextReservationId: 0,
     nextSettlementId: 0,
     nextEventId: 0,
-    markets: dbMarkets.length > 0 ? dbMarkets : catalogMarkets,
-    instruments: marketInstruments,
-    orders: (payload.orders ?? []).map(mapOrder),
-    reservations: (payload.reservations ?? []).map(mapReservation),
-    trades: (payload.trades ?? []).map(mapTrade),
+    markets: dbMarkets,
+    instruments: hasLegacyDemo ? marketInstruments : [],
+    orders: (payload.orders ?? []).filter(isLegacyExecution).map(mapOrder),
+    reservations: (payload.reservations ?? []).filter(isLegacyExecution).map(mapReservation),
+    trades,
     settlements: [...primary, ...dbSettlements.filter((item) => item.kind === "SECONDARY")],
     holdings,
-    eligibility: eligibilityMatrix.map((row) => {
+    eligibility: (hasLegacyDemo ? eligibilityMatrix : []).map((row) => {
       const remote = (payload.eligibility ?? []).find(
         (item) =>
           str(item.participant_id) === row.participantReference &&
@@ -267,8 +296,9 @@ export function engineStateFromSnapshot(payload: SnapshotPayload): EngineState {
                 : "NOT_ASSESSED",
       };
     }),
-    settlementAccounts: (payload.settlementAccounts ?? []).map(mapAccount),
-    events: (payload.events ?? []).map(mapEvent),
+    settlementAccounts: (payload.settlementAccounts ?? [])
+      .filter((row) => assetIds.has(str(row.asset_id))).map(mapAccount),
+    events: (payload.events ?? []).filter(isLegacyExecution).map(mapEvent),
   };
 }
 

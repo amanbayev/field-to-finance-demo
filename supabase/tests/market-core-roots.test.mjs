@@ -139,6 +139,26 @@ test('missing exact version refuses even the known catalog ID and rolls back its
   buyer=await actor('GRAIN-DESK','TRADER','TRADING_FIRM'); seller=await actor('INVESTOR-0001','INVESTOR','INVESTMENT_FUND');
 });
 
+test('P2-READ native legacy-only and empty snapshots reach mapper/consumer without catalog substitution', async () => {
+  const { nativeReader } = await import('./mc04-reader-harness.mjs');
+  const original = await authenticatedSnapshot();
+  assert.ok(original.markets.length > 0);
+  assert.ok(original.markets.every(r => r.instrument_ref === null));
+  const reader = nativeReader(async () => ({ data: await snapshotAsBuyer(), error: null }));
+  const legacyState = reader.engineStateFromSnapshot(original);
+  assert.equal(legacyState.markets[0].id, legacy);
+  assert.equal(legacyState.holdings.find(h => h.holderReference === 'INVESTOR-0001').buckets.owned, 10);
+  await probe(async () => {
+    await removeLegacyMarket();
+    const raw = await snapshotAsBuyer();
+    assert.deepEqual(raw.markets, []);
+    const state = reader.engineStateFromSnapshot(raw);
+    for (const key of ['markets','instruments','holdings','eligibility','settlements','settlementAccounts','orders','reservations','trades','events']) assert.deepEqual(state[key], [], key);
+    assert.deepEqual((await reader.getSecondaryEngineState()).markets, []);
+    await assert.rejects(() => reader.getSecondaryMarketView({}), /MARKET_CORE_UNAVAILABLE/);
+  });
+});
+
 test('equal symbol/version across runs and within one run creates distinct permanent identities; NON_RUN works',async()=> {
   const a=await org(runA), b=await org(runB), non=await org();
   const roots=[await instrument(a,runA),await instrument(b,runB),await instrument(a,runA),await instrument(non)];
@@ -378,5 +398,214 @@ test('BEFORE trigger cannot adopt a legacy row even if it also closes every oper
       new.phase:='CLOSED'; new.transacting:=false; new.matching_enabled:=false; new.settlement_enabled:=false; new.demonstrator_status:='DEMO_CLOSED'; return new; end$$;
       create trigger z_mc04_adopt before update on public.market_core_markets for each row execute function private.mc04_adopt()`);
     await assert.rejects(()=>db.query('update public.market_core_markets set phase=phase where id=$1',[legacy]),/configuration_immutable/);
+  });
+});
+
+// Independent review corrections: assertions describe required behavior, not the bugs.
+async function authenticatedSnapshot(c = buyer) {
+  return (await c.query('select public.market_core_snapshot() result')).rows[0].result;
+}
+
+test('P2-READ: actual authenticated SQL snapshot excludes concrete roots in production mapper', async () => {
+  const { nativeReader } = await import('./mc04-reader-harness.mjs');
+  const reader = nativeReader(async name => {
+    assert.equal(name, 'market_core_snapshot');
+    return { data: await authenticatedSnapshot(), error: null };
+  });
+  for (const run of [runA, runB, null]) {
+    const issuer = await org(run);
+    const m = (await db.query("select * from private.mc04_create_instrument_and_market($1,$2,$3,'WHEAT-2027','Review instrument','ASSET_TOKEN',$4,'Review quote','PRIMARY')",
+      [issuer, version, run, run === runB ? 'DEMO-KZT' : 'REVIEW-QUOTE'])).rows[0];
+    const raw = await authenticatedSnapshot();
+    const row = raw.markets.find(x => x.id === m.id);
+    assert.equal(row.instrument_ref, m.instrument_ref);
+    assert.equal(row.phase, 'CLOSED');
+    assert.equal(row.settlement_asset_id, m.settlement_asset_id);
+    assert.equal((await db.query('select run_id from public.market_core_instruments where id=$1', [m.instrument_ref])).rows[0].run_id, run);
+    const state = reader.engineStateFromSnapshot(raw);
+    console.log('P2-READ probe', { run, rawPhase: row.phase, rawQuote: row.settlement_asset_id,
+      mapped: state.markets.find(x => x.id === m.id), concreteInstrument: state.instruments.some(x => x.id === m.instrument_ref) });
+    assert.equal(state.markets.some(x => x.id === m.id), false);
+    assert.equal(state.instruments.some(x => x.id === m.instrument_ref), false);
+    assert.equal(state.holdings.some(x => x.instrumentId === m.instrument_ref), false);
+    assert.equal(state.markets.some(x => x.id === legacy), true);
+    const consumed = await reader.getSecondaryEngineState();
+    assert.deepEqual({ ...consumed, now: state.now }, state);
+  }
+});
+
+// Restore even an unexpectedly accepted write so every malformed case is isolated.
+async function rejectsConfiguration(action) {
+  const before = await snapshot();
+  await db.query('begin');
+  let error;
+  try {
+    await db.query('savepoint attempted_creation');
+    try { await action(); } catch (e) { error = e; }
+    if (error) {
+      await db.query('rollback to savepoint attempted_creation');
+      assert.deepEqual(await snapshot(), before, 'no partial roots, counters, seals or other rows');
+    }
+  } finally { await db.query('rollback'); }
+  assert.ok(error, 'malformed configuration must be rejected, not saved with its counter');
+  assert.match(error.message, /invalid_configuration|check constraint|not-null|configuration_immutable/);
+  assert.deepEqual(await snapshot(), before);
+}
+
+function ownerMarketInsert(id, changes = {}) {
+  const fields = {
+    id: "'MKT-'||gen_random_uuid()", instrument_id: `'${id}'`, instrument_ref: `'${id}'`,
+    book_key: "'REVIEW'", phase: "'CLOSED'", transacting: 'false', matching_enabled: 'false',
+    settlement_enabled: 'false', demonstrator_status: "'DEMO_CLOSED'", settlement_asset_id: "'REVIEW-QUOTE'",
+    settlement_asset_label: "'Review quote'", ...changes,
+  };
+  return `insert into public.market_core_markets(${Object.keys(fields).join(',')}) values(${Object.values(fields).join(',')})`;
+}
+
+test('P2-CONFIG original primitive probe: tab/LF/CR mix rejects atomically', async () => {
+  const i = await instrument(await org());
+  await rejectsConfiguration(() => db.query('select * from private.mc04_create_closed_market($1,$2,$3,$4)', [i.id, '\t', '\n', '\r\n\t']));
+});
+for (const [label, changes] of [
+  ['empty market_type', { market_type: "''" }],
+  ['ARRAY[NULL]', { allowed_order_types: 'array[null]::text[]' }],
+]) test(`P2-CONFIG original independent owner probe: ${label}`, async () => {
+  const i = await instrument(await org());
+  await rejectsConfiguration(() => db.query(ownerMarketInsert(i.id, changes)));
+});
+
+const trimPoints = [9,10,11,12,13,32,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288,65279];
+const blankTexts = [null, '', '\r\n\t', trimPoints.map(cp => String.fromCodePoint(cp)).join(''), ...trimPoints.map(cp => String.fromCodePoint(cp))];
+const sqlText = value => value === null ? 'null' : "'" + value.replaceAll("'", "''") + "'";
+
+test('P2-CONFIG all 25 MC-03 whitespace characters: primitive/owner/definer/final BEFORE rows', async t => {
+  const i = await instrument(await org()); const existing = await market(i.id);
+  await db.query("create function public.mc04_review_dml(s text) returns void language plpgsql security definer set search_path='' as $$begin execute s; end$$; grant execute on function public.mc04_review_dml(text) to service_role");
+  try {
+    for (const field of ['settlement_asset_id', 'settlement_asset_label', 'book_key']) {
+      for (const [index, value] of blankTexts.entries()) {
+        for (const mode of ['primitive', 'owner', 'definer', 'before', 'before-update']) await t.test(`${field}/${index}/${mode}`, async () => {
+          const sql = ownerMarketInsert(i.id, { [field]: sqlText(value) });
+          if (mode === 'definer') {
+            // The definer call and rollback run on the same connection as the assertion.
+            await rejectsConfiguration(() => db.query("set local role service_role").then(() => db.query('select public.mc04_review_dml($1)', [sql])));
+          } else if (mode.startsWith('before')) {
+            await rejectsConfiguration(async () => {
+              await db.query(`create function private.mc04_review_before() returns trigger language plpgsql as $$begin new.${field}:=${sqlText(value)}; return new; end$$;
+                create trigger zz_mc04_review before insert or update on public.market_core_markets for each row execute function private.mc04_review_before()`);
+              await db.query(mode === 'before-update' ? `update public.market_core_markets set phase=phase where id='${existing.id}'` : ownerMarketInsert(i.id));
+            });
+          } else if (mode === 'owner') await rejectsConfiguration(() => db.query(sql));
+          else {
+            const args = { settlement_asset_id: 'REVIEW-QUOTE', settlement_asset_label: 'Review quote', book_key: 'REVIEW', [field]: value };
+            await rejectsConfiguration(() => db.query('select * from private.mc04_create_closed_market($1,$2,$3,$4)', [i.id, args.settlement_asset_id, args.settlement_asset_label, args.book_key]));
+          }
+        });
+      }
+    }
+  } finally {
+    await db.query('drop function public.mc04_review_dml(text)');
+  }
+});
+
+const malformedTypes = [
+  ...[...blankTexts, 'SECONDARY_OPEN', 'PRIMARY', 'OTHER'].map(v => ['market_type', sqlText(v)]),
+  ...trimPoints.map(cp => ['allowed_order_types', `array[${sqlText(String.fromCodePoint(cp))}]`]),
+  ...['null', 'array[]::text[]', 'array[null]::text[]', "array['LIMIT',null]", "array['']", "array[E'\\t\\n']", "array['MARKET']", "array[['LIMIT']]", "'[0:0]={LIMIT}'::text[]", "array['LIMIT','LIMIT']"].map(v => ['allowed_order_types', v]),
+];
+test('P2-CONFIG exact market/order type and array shape on final owner/definer/trigger rows', async t => {
+  const i = await instrument(await org()); const m = await market(i.id);
+  await db.query("create function public.mc04_review_types(s text) returns void language plpgsql security definer set search_path='' as $$begin execute s; end$$; grant execute on function public.mc04_review_types(text) to service_role");
+  try {
+    for (const [field, value] of malformedTypes) for (const mode of ['owner', 'definer', 'before-insert', 'before-update']) await t.test(`${field}=${value}/${mode}`, async () => {
+      await rejectsConfiguration(async () => {
+        if (mode.startsWith('before')) {
+          await db.query(`create function private.mc04_review_type_trigger() returns trigger language plpgsql as $$begin new.${field}:=${value}; return new; end$$;
+            create trigger zz_mc04_review before insert or update on public.market_core_markets for each row execute function private.mc04_review_type_trigger()`);
+          await db.query(mode === 'before-update' ? `update public.market_core_markets set phase=phase where id='${m.id}'` : ownerMarketInsert(i.id));
+        } else if (mode === 'definer') {
+          await db.query('set local role service_role');
+          await db.query('select public.mc04_review_types($1)', [ownerMarketInsert(i.id, { [field]: value })]);
+        } else await db.query(ownerMarketInsert(i.id, { [field]: value }));
+      });
+    });
+  } finally { await db.query('drop function public.mc04_review_types(text)'); }
+});
+
+test('P2-CONFIG compound rollback removes new roots/new seal and retains existing seal', async () => {
+  for (const presealed of [false, true]) {
+    const issuer = await org();
+    if (presealed) await instrument(issuer);
+    for (const value of blankTexts) {
+      await rejectsConfiguration(() => db.query("select * from private.mc04_create_instrument_and_market($1,$2,null,'SAME','Review rollback','ASSET_TOKEN','REVIEW-QUOTE','Review quote',$3)", [issuer, version, value]));
+      assert.equal((await sealed(issuer)).market_identity_sealed, presealed);
+    }
+  }
+});
+
+test('P2-CONFIG substantive quote/label/book text is stored unchanged, including all trim characters', async () => {
+  const i = await instrument(await org());
+  for (const cp of trimPoints) {
+    const value = String.fromCodePoint(cp) + 'Review-MixedCase' + String.fromCodePoint(cp);
+    const m = (await db.query('select * from private.mc04_create_closed_market($1,$2,$3,$4)', [i.id, value, value, value])).rows[0];
+    assert.equal(m.settlement_asset_id, value); assert.equal(m.settlement_asset_label, value); assert.equal(m.book_key, value);
+    assert.deepEqual(m.allowed_order_types, ['LIMIT']);
+    assert.equal(m.market_type, 'REGULATED_INSTITUTIONAL_DEMONSTRATOR');
+  }
+});
+
+async function removeLegacyMarket() {
+  // Transactional synthetic data only. Leave the Registrar book untouched.
+  for (const table of ['settlements', 'reservations', 'events', 'trades', 'orders']) {
+    await db.query(`delete from public.market_core_${table}`);
+  }
+  await db.query('delete from public.market_core_counters where market_id=$1', [legacy]);
+  await db.query('delete from public.market_core_markets where id=$1', [legacy]);
+}
+async function snapshotAsBuyer() {
+  const user = (await buyer.query("select current_setting('request.jwt.claim.sub') id")).rows[0].id;
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)", [user]);
+  await db.query('set local role authenticated');
+  try { return await authenticatedSnapshot(db); }
+  finally { await db.query('reset role'); }
+}
+
+test('P2-READ native modern-only NON_RUN snapshot cannot be read as the default legacy book', async () => {
+  const { nativeReader } = await import('./mc04-reader-harness.mjs');
+  const reader = nativeReader(async () => ({ data: await snapshotAsBuyer(), error: null }));
+  await probe(async () => {
+    await removeLegacyMarket();
+    const raw = await snapshotAsBuyer();
+    assert.ok(raw.markets.length > 0);
+    assert.ok(raw.markets.every(m => typeof m.instrument_ref === 'string'));
+    const state = reader.engineStateFromSnapshot(raw);
+    for (const key of ['markets','instruments','holdings','eligibility','settlements','settlementAccounts','orders','reservations','trades','events']) assert.deepEqual(state[key], [], key);
+    assert.deepEqual((await reader.getSecondaryEngineState()).markets, []);
+    await assert.rejects(() => reader.getSecondaryMarketView({}), /MARKET_CORE_UNAVAILABLE/);
+  });
+});
+
+test('P2-READ actual related modern records are excluded, legacy execution records survive', async () => {
+  const { nativeReader } = await import('./mc04-reader-harness.mjs');
+  const reader = nativeReader(() => { throw new Error('No transport needed'); });
+  const i = await instrument(await org()); const m = await market(i.id);
+  await probe(async () => {
+    await db.query("insert into public.market_core_holdings values('review-holding',$1,'GRAIN-DESK','Review',999,0,0,0,0,0)", [i.id]);
+    await db.query("insert into public.market_core_eligibility values('GRAIN-DESK','Review',$1,'ELIGIBLE')", [i.id]);
+    await db.query("insert into public.market_core_events(id,occurred_at,actor,participant_id,instrument_id,market_id,entity_id,event_type,metadata) values('review-event',now(),'Review','GRAIN-DESK',$1,$2,'Review','order_submitted','{}')", [i.id,m.id]);
+    const order = (await db.query('select id from public.market_core_orders limit 1')).rows[0].id;
+    await db.query("insert into public.market_core_reservations(id,order_id,market_id,instrument_id,participant_id,kind,quantity,status) values('review-reservation',$1,$2,$3,'GRAIN-DESK','ASSET',1,'RELEASED')", [order,m.id,i.id]);
+    await db.query("insert into public.market_core_settlements(id,trade_id,status,kind,idempotency_key) values('review-settlement','unavailable-modern-trade','RESERVED','SECONDARY','review-settlement')");
+    const raw = await snapshotAsBuyer();
+    assert.ok(raw.holdings.some(r => r.id === 'review-holding'));
+    assert.ok(raw.events.some(r => r.id === 'review-event'));
+    assert.ok(raw.reservations.some(r => r.id === 'review-reservation'));
+    assert.ok(raw.settlements.some(r => r.id === 'review-settlement'));
+    const state = reader.engineStateFromSnapshot(raw);
+    assert.ok(state.markets.some(r => r.id === legacy));
+    assert.ok(state.trades.length > 0);
+    for (const key of ['holdings','events','reservations','settlements']) assert.equal(state[key].some(r => r.id.startsWith('review-')), false, key);
+    assert.equal(state.eligibility.some(r => r.instrumentId === i.id), false);
+    assert.equal(state.instruments.some(r => r.id === i.id), false);
   });
 });

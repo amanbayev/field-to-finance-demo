@@ -123,8 +123,20 @@ begin
       (select c.relowner from pg_catalog.pg_class c where c.oid = tg_relid)) then
       raise exception 'mc04_market_internal_only' using errcode = '42501';
     end if;
-    if new.id !~ '^MKT-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-      or btrim(new.settlement_asset_id) = '' or btrim(new.settlement_asset_label) = '' then
+    -- Validate FINAL rows for primitive, owner and definer writes, including
+    -- BEFORE-trigger replacements. Reuse MC-03's exact 25-character trim
+    -- contract without changing any stored identity or the helper's ACL.
+    -- The current order-type contract is exactly one 1-based LIMIT element.
+    -- Array equality includes dimensions/bounds; IS DISTINCT FROM also rejects
+    -- NULL arrays/elements deterministically (CHECK/IF must not accept UNKNOWN).
+    if (new.id ~ '^MKT-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') is not true
+      or not private.protocol_version_text_valid(new.instrument_ref)
+      or not private.protocol_version_text_valid(new.instrument_id)
+      or not private.protocol_version_text_valid(new.book_key)
+      or not private.protocol_version_text_valid(new.settlement_asset_id)
+      or not private.protocol_version_text_valid(new.settlement_asset_label)
+      or new.market_type is distinct from 'REGULATED_INSTITUTIONAL_DEMONSTRATOR'
+      or new.allowed_order_types is distinct from array['LIMIT']::text[] then
       raise exception 'mc04_market_invalid_configuration';
     end if;
     if tg_op = 'INSERT' then

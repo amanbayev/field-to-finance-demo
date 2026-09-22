@@ -4,6 +4,10 @@ import { overlayWorkingHoldings } from "@/services/secondary-market-service";
 import { STEPPE_CAPITAL_ID, GRAIN_DESK_ID } from "@/domain/market-core";
 import { holdings as catalogHoldings } from "@/data/market-core/catalog";
 
+// Real SQL snapshots always include the persisted legacy bridge, even when
+// a fixture exercises only holdings or eligibility. Missing is now an error.
+const legacyMarket = { id: "MKT-WHEAT-2027-DEMO-KZT", instrument_id: "WHEAT-2027", instrument_ref: null };
+
 describe("persistent market snapshot mapping", () => {
   it("preserves full UUID business IDs and their cross-record references", () => {
     const suffix = "123e4567-e89b-42d3-a456-426614174000";
@@ -15,12 +19,13 @@ describe("persistent market snapshot mapping", () => {
       event: `EVT-${suffix}`,
     };
     const state = engineStateFromSnapshot({
+      markets: [legacyMarket],
       ok: true,
-      orders: [{ id: ids.order, sequence: 1 }],
-      reservations: [{ id: ids.reservation, order_id: ids.order }],
-      trades: [{ id: ids.trade, buy_order_id: ids.order, sell_order_id: "ORD-SEED-SELL-001" }],
+      orders: [{ id: ids.order, sequence: 1, market_id: legacyMarket.id, instrument_id: legacyMarket.instrument_id }],
+      reservations: [{ id: ids.reservation, order_id: ids.order, market_id: legacyMarket.id, instrument_id: legacyMarket.instrument_id }],
+      trades: [{ id: ids.trade, buy_order_id: ids.order, sell_order_id: "ORD-SEED-SELL-001", market_id: legacyMarket.id, instrument_id: legacyMarket.instrument_id }],
       settlements: [{ id: ids.settlement, trade_id: ids.trade, kind: "SECONDARY" }],
-      events: [{ id: ids.event, entity_id: ids.trade, metadata: { tradeId: ids.trade } }],
+      events: [{ id: ids.event, entity_id: ids.trade, metadata: { tradeId: ids.trade }, market_id: legacyMarket.id, instrument_id: legacyMarket.instrument_id }],
     });
     expect(state.orders[0]?.id).toBe(ids.order);
     expect(state.orders[0]?.sequence).toBe(1);
@@ -40,6 +45,7 @@ describe("persistent market snapshot mapping", () => {
 
   it("maps the seeded secondary scenario without changing legal owned amounts", () => {
     const state = engineStateFromSnapshot({
+      markets: [legacyMarket],
       ok: true,
       holdings: [
         {
@@ -155,6 +161,7 @@ describe("persistent market snapshot mapping", () => {
 
   it("overlays working reserved/pending fields without rewriting legal owned", () => {
     const state = engineStateFromSnapshot({
+      markets: [legacyMarket],
       ok: true,
       holdings: [
         {
@@ -180,6 +187,7 @@ describe("persistent market snapshot mapping", () => {
 
   it("takes legal owned from the registrar book, not from holdings.owned", () => {
     const state = engineStateFromSnapshot({
+      markets: [legacyMarket],
       ok: true,
       registeredOwnership: [
         {

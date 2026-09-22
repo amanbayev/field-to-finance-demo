@@ -99,9 +99,11 @@ export async function getSecondaryEngineState(): Promise<EngineState> {
 
 export async function getSecondaryMarketView(actor: ActorContext) {
   const state = await fetchPersistentEngineState();
-  const market =
-    state.markets.find((item) => item.id === WHEAT_DEMO_MARKET_ID) ?? state.markets[0]!;
-  const instrument = state.instruments.find((item) => item.id === market.instrumentId)!;
+  const market = state.markets.find((item) => item.id === WHEAT_DEMO_MARKET_ID);
+  const instrument = market && state.instruments.find((item) => item.id === market.instrumentId);
+  if (!market || !instrument) {
+    throw new Error("MARKET_CORE_UNAVAILABLE");
+  }
   const participantId = participantIdForActor(actor);
   const eligibility = participantId
     ? eligibilityFor(state.eligibility, participantId, instrument.id)
@@ -158,8 +160,7 @@ export async function submitSecondaryOrder(input: {
   idempotencyKey: string;
 }) {
   const state = await fetchPersistentEngineState();
-  const market =
-    state.markets.find((item) => item.id === WHEAT_DEMO_MARKET_ID) ?? state.markets[0];
+  const market = state.markets.find((item) => item.id === WHEAT_DEMO_MARKET_ID);
   const instrument = market
     ? state.instruments.find((item) => item.id === market.instrumentId)
     : undefined;

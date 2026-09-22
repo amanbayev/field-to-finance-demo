@@ -206,7 +206,7 @@ No MC-05/06/07/08/09/10/11/12/13 implementation, GP CURRENT bootstrap, GP-02,
 public command API, Server Action, HTTP route, UI, read-service integration,
 issuance/admission workflow or Protocol Engine is included.
 
-## Local verification and reproduction
+## Historical local verification and reproduction (bd2d19f)
 
 Host discovery: `uname -m` and Node both reported **darwin arm64**, Node **22.23.2**.
 Historical tooling was incomplete. Optional `embedded-postgres@18.4.0-beta.17` and
@@ -314,3 +314,177 @@ References consulted: [Supabase API security and grants](https://supabase.com/do
 [PostgreSQL trigger behavior](https://www.postgresql.org/docs/18/trigger-definition.html).
 The Supabase changelog markdown request was unavailable in this environment; the
 installed CLI help and official API security guide supplied the relevant guidance.
+
+
+## Review corrections — P2-READ and P2-CONFIG (2026-09-22)
+
+The independent review of `bd2d19f573022bbefa510652855403b8ad5bbb1f`
+returned **CHANGES_REQUIRED**. The results above are historical implementation
+checks, not approval of this correction. This bounded pass stays on
+`feature/mc-04-concrete-instrument-closed-market-roots`, based on
+`1eadd6ab7615614f8bbfc1b6d16103116810d6f8`, and adds one ordinary local commit
+with `bd2d19f` as parent. No amend, rebase, base synchronization or remote fetch
+was performed. Initial root, origin, branch, HEAD, clean tree, absence of unfinished
+Git operations and one local-only commit were verified. The preserved reviewer
+probe and log in `/private/tmp/mc04-review-BVEQaZ` were read.
+
+No evidence contradicting the recorded unapplied/shared status was found in the
+local materials. Shared infrastructure was not queried. Only the existing,
+unpublished MC-04 migration source is corrected; every migration in the base,
+including MC-02 and MC-03, remains byte-identical.
+
+### P2-READ: explicit legacy boundary in the production adapter
+
+The final `public.market_core_snapshot()` definition is the one in
+`20260823200000_registrar_book_and_live_proof.sql`. Its markets collection uses
+`to_jsonb(m)` and **already returns `instrument_ref` and `book_key` after MC-04**.
+Native authenticated SQL verifies this. The snapshot SQL body, grants, definer
+context and exposed schemas are unchanged; no new JSON classification flag is
+needed. The authority is the stored `market_core_markets.instrument_ref` FK and
+its immutable NULL/non-NULL bridge, not a symbol, quote asset, ID prefix, run ID,
+client flag or missing property. Modern NON_RUN therefore remains modern.
+
+`engineStateFromSnapshot()` now requires a markets array, an own `instrument_ref`
+property on every row, nonblank string market/instrument IDs, and either explicit
+NULL or a nonblank exact concrete reference equal to `instrument_id`. Missing or
+corrupt classification throws `MARKET_CORE_SNAPSHOT_INVALID`, including when
+mixed with otherwise valid legacy data. It never treats `undefined` as legacy.
+
+Only explicit NULL rows can enter the legacy adapter. Within that class, the
+existing catalog adapter supports its exact catalog market/instrument pair;
+unknown resources are omitted, never mapped onto WHEAT. Orders, reservations,
+trades and events must match an accepted market/instrument pair. Holdings and
+Registrar overlays use accepted instrument IDs; secondary settlements must refer
+to a retained trade. Modern roots receive no synthetic `MarketInstrument`,
+issuance/admission metadata, holdings or primary placement proof.
+
+Settlement accounts have participant/asset identity, not instrument or market
+identity in the existing schema. They remain in the legacy result only for the
+accepted legacy book's asset. A shared quote does **not** classify a market or
+create a modern account/ownership relation; no new account model was introduced.
+
+An empty or modern-only snapshot returns empty engine collections. Catalog
+holdings, instruments, eligibility and the existing primary proof overlay remain
+only in the observed, supported legacy demo context. The mapper no longer falls
+back to `catalogMarkets`. The existing secondary consumer requires its exact
+WHEAT demo target and instrument or reports `MARKET_CORE_UNAVAILABLE`; its submit
+precheck likewise no longer selects `state.markets[0]`. This adds no selector,
+modern persistent reader, UI or later-stage functionality.
+
+The wire shape did not change, but the adapter's minimum accepted fixture contract
+did: previous abbreviated mapper fixtures now include an explicit legacy market
+and its NULL bridge, and execution fixtures include their real market/instrument
+references. Their original legal ownership, UUID, admission and cancellation
+assertions are retained unchanged. The legacy fallback inventory remains historical
+GP planning material; its former empty-market behavior is superseded here.
+
+### P2-CONFIG: final-row validation with definite NULL rejection
+
+The existing owner-only `private.mc04_market_guard()` AFTER INSERT/UPDATE trigger
+now uses the unchanged `private.protocol_version_text_valid(text)` for book key,
+quote ID/label and instrument references. The helper rejects NULL, empty text and
+all 25 ECMAScript trim characters (including tab, LF, CR, NBSP, Unicode spaces and
+BOM). It only tests content: substantive strings retain their exact case and
+leading/trailing whitespace. Existing format/FK/bridge constraints continue to
+validate root identity; CLOSED/DEMO_CLOSED and NOT NULL constraints validate the
+remaining required operational text. No helper definition, grant or MC-03 byte
+changed, and no normalization was added.
+
+`market_type` must be exactly `REGULATED_INSTITUTIONAL_DEMONSTRATOR`.
+`allowed_order_types` must be exactly the one-dimensional, one-based, single-element
+`ARRAY['LIMIT']::text[]`. Duplicate LIMIT entries, other dimensions/lower bounds,
+NULL/empty arrays, NULL elements, valid-plus-NULL, blank elements and unsupported
+types are refused. `IS DISTINCT FROM` gives definite rejection for NULL and uses
+PostgreSQL array equality including dimensions/bounds; neither containment nor
+`ALL` is used. PostgreSQL documents the dimensional array comparisons in its
+[array operators reference](https://www.postgresql.org/docs/18/functions-array.html).
+ID format uses `IS NOT TRUE`; the text helper returns a definite
+boolean. No SQL UNKNOWN can bypass this validation.
+
+The guard checks the row after every BEFORE trigger and before creating the
+mandatory counter. It covers internal primitives, direct owner DML and effective
+owner SECURITY DEFINER writes. Existing immutable UPDATE guards run unchanged
+before configuration validation, including fields altered outside an UPDATE's
+target list. No deletion/repair bypass was added. Failed single or compound
+creation retains no new market/counter/instrument or new seal; an earlier seal
+survives. A substantive `REVIEW-QUOTE` remains valid.
+
+### Regression evidence and validation for this correction
+
+Correct-behavior native regressions were added and run against the original
+production implementation **before production edits**. Both defects were red:
+
+| Probe | Original bd2d19f | Corrected source |
+| --- | --- | --- |
+| Authenticated native snapshot → production mapper | SQL `CLOSED / REVIEW-QUOTE`; mapped `SECONDARY_OPEN / DEMO-KZT`, concrete instrument absent | SQL unchanged; modern market excluded, no substitute instrument/holdings; legacy retained |
+| Primitive quote=`tab`, label=`LF`, book=`CR+LF+tab` | Accepted | Rejected atomically |
+| Owner INSERT, empty market_type (otherwise valid) | Accepted | Rejected atomically |
+| Owner INSERT, ARRAY[NULL] (otherwise valid) | Accepted | Rejected atomically |
+
+Each malformed variant is isolated. The native suite exercises all 25 trim
+characters independently and in mixtures for primitive/owner/definer/BEFORE INSERT
+and final UPDATE paths, closed enum/array shape variants, full-row rollback,
+new/existing seals and preservation of substantive text. Test-only definer wrappers
+exist exclusively inside the disposable database, are dropped, and add no runtime
+API or repository migration grants.
+
+The reader regression loads the actual production TypeScript mapper and services
+with the repository's installed TypeScript compiler. Only the transport factory is
+replaced with the native authenticated SQL call. It covers native legacy-only,
+empty, mixed Run A/Run B/NON_RUN, identical symbol/quote, modern-only and related
+holdings/eligibility/reservation/event/settlement rows. Unit regressions cover
+malformed/missing JSON classification and related execution filtering, plus exact
+consumer target failure. This is **native SQL context coverage, not real HTTP or
+PostgREST transport verification**.
+
+| Check on corrected source | Result |
+| --- | --- |
+| Native MC-04 full chain | **745/745 PASS**, 42 top-level tests plus 703 isolated subtests |
+| MC-02 + MC-03 + GP issuance/bindings, full corrected chain | **127/127 PASS** |
+| Historical MC-00/01/02/03 boundaries | **92/92 PASS** |
+| Targeted mapper/consumer/admission unit tests | **61/61 PASS** |
+| `npm run check` | **1034 tests / 68 files PASS**, lint and TypeScript PASS |
+| Standard `npm run build` | **PASS**, Next.js 16.3.1 / Turbopack, 69 pages |
+| `git diff --check` | PASS |
+
+All native runs use the prepared PostgreSQL **18.4**, fresh UTF-8 clusters,
+private Unix sockets, disabled TCP, mode-0700 directories and `env -i` without
+shared credentials. For historical suites, a temporary external wrapper fixes
+UTF-8 and verifies server version, encoding, socket and directory permissions at
+startup. It does not change repository tests or dependencies. All clusters owned
+by this pass are stopped and their data removed by teardown.
+
+Evidence directory: `/private/tmp/mc04-corrections/`. Relevant logs:
+`native-red-confirmed.log`, `native-final.log`, `full-chain-compat.log`,
+`historical-boundaries.log`, `reader-green-final.log`, `check-final.log`, and
+`build-final.log`. Earlier diagnostic logs are retained separately. The initial
+native attempt failed because the sandbox denied `shmget`; scoped execution
+resolved it. A test-only definer schema-usage error, Vitest array-parameter fixture
+shape, a synthetic reservation unique-index collision and a loader lint variable
+name were corrected without weakening assertions. The original native red probes
+were reconfirmed after fixing the definer harness and before production edits.
+The first standard build hit Turbopack's sandbox IPC port restriction; its generated
+cache was moved outside the repository before retrying the identical command with
+local IPC permission. No bundler or deployment configuration changed.
+
+Correction files:
+
+- `supabase/migrations/20260922043414_mc04_concrete_instrument_closed_market_roots.sql`
+- `src/services/secondary-market-repository.ts`
+- `src/services/secondary-market-service.ts`
+- `supabase/tests/market-core-roots.test.mjs`
+- `supabase/tests/mc04-reader-harness.mjs`
+- `src/services/secondary-market-boundary.test.ts`
+- `src/services/secondary-market-repository.test.ts`
+- `src/services/secondary-market-service.test.ts`
+- `src/domain/market-core/trade-admission.test.ts`
+- this document.
+
+NOT_RUN (outside authorization): shared Supabase/schema/migrations, real HTTP
+PostgREST, Auth/Storage services, Solana/Devnet or settlement, remote CI and
+Vercel/deployment. No push, PR, Ready or merge. Dependencies, lockfile, environment
+and deployment settings, main/develop and the second working copy are unchanged.
+Exact version/seal/context/concurrency guards, CLOSED modern roots, legacy
+submit/matching/cancellation, Registrar, UNAVAILABLE/null inventory and INCOMPLETE
+planner remain covered. MC-05/06 and later stages remain deferred. The corrective
+HEAD requires a **separate independent review**; no independent approval is claimed.
