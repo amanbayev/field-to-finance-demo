@@ -135,10 +135,12 @@ before(async () => {
     create table storage.objects (id uuid primary key, bucket_id text);
   `);
   // Optional full-chain compatibility mode; historical default remains pinned.
-  const fullBoundary = process.env.MC03_FULL_SCHEMA === '1'
+  const fullBoundary = process.env.MC04_FULL_SCHEMA === '1'
+    ? '20260922043414_mc04_concrete_instrument_closed_market_roots.sql'
+    : process.env.MC03_FULL_SCHEMA === '1'
     ? '20260910045213_mc03_immutable_protocol_version_reference.sql'
     : '20260908133317_mc02_institutional_participant_root.sql';
-  const fullFiles = process.env.MC02_FULL_SCHEMA === '1' || process.env.MC03_FULL_SCHEMA === '1'
+  const fullFiles = process.env.MC02_FULL_SCHEMA === '1' || process.env.MC03_FULL_SCHEMA === '1' || process.env.MC04_FULL_SCHEMA === '1'
     ? (await readdir(migrationDirectory)).filter(f => f.endsWith('.sql') && f <= fullBoundary).sort() : null;
   const baselineFiles = [
     "20260822120000_identity.sql", "20260822231500_identity_security_hardening.sql",

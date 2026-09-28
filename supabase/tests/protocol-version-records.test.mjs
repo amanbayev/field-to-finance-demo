@@ -1,5 +1,6 @@
 // MC-03: complete ordered migration chain, disposable native PostgreSQL only.
 import assert from 'node:assert/strict';
+import { assertFunctionsPreserved } from './mc04-compatibility.mjs';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, readdir, rm, appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -94,14 +95,25 @@ before(async()=> {
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
     create table storage.objects(id uuid primary key,bucket_id text);`);
-  const files=(await readdir(migrations)).filter(f=>f.endsWith('.sql')).sort();
+  const allFiles=(await readdir(migrations)).filter(f=>f.endsWith('.sql')).sort();
+  const files=allFiles.filter(f=>f<=migration);
   assert.equal(files.at(-1),migration);
   for(const file of files.slice(0,-1)) await db.query(await readFile(new URL(file,migrations),'utf8'));
   previousRows=await businessRows(); previousFunctions=await functionRows();
   await db.query(`alter default privileges for role postgres in schema public grant all on tables to public,anon,authenticated,service_role;
     alter default privileges for role postgres in schema private grant execute on functions to public,anon,authenticated,service_role;`);
   await db.query(sql);
-  console.log('Complete ordered migration chain:',files.length);
+  const fullBoundary = process.env.MC04_FULL_SCHEMA === '1'
+    ? '20260922043414_mc04_concrete_instrument_closed_market_roots.sql' : migration;
+  const selected=allFiles.filter(f=>f<=fullBoundary);
+  assert.equal(selected.at(-1),fullBoundary);
+  for(const file of selected.filter(f=>f>migration)) await db.query(await readFile(new URL(file,migrations),'utf8'));
+  if (process.env.MC04_FULL_SCHEMA === '1') {
+    // Explicit additive expectations, not a snapshot reset that could hide mutation.
+    previousRows['public.market_core_instruments']=[];
+    previousRows['public.market_core_markets']=previousRows['public.market_core_markets'].map(r=>({row:{...r.row,instrument_ref:null,book_key:null}}));
+  }
+  console.log('Ordered migration chain:',selected.length,fullBoundary);
 },{timeout:60000});
 after(async()=> {
   try { await Promise.all(clients.map(c=>c.end())); }
@@ -117,7 +129,7 @@ test('additive migration has no automatic import, business mutation or existing 
   assert.deepEqual(await rows(),[]);
   assert.deepEqual(await businessRows(),previousRows);
   const current=await functionRows();
-  for(const f of previousFunctions) assert.deepEqual(current.find(x=>x.oid===f.oid),f);
+  assertFunctionsPreserved(current,previousFunctions,process.env.MC04_FULL_SCHEMA === '1');
 });
 
 test('full schema and exact effective privileges despite hostile Supabase defaults',async()=> {

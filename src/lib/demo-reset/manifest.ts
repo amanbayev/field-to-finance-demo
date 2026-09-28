@@ -246,7 +246,9 @@ const CATEGORIES: readonly DemoResetCategory[] = [
     note:
       "Orders, trades, reservations, holdings projection, eligibility, " +
       "participant mapping and cached chain proof. Cached proof is an " +
-      "observation, never chain truth.",
+      "observation, never chain truth. MC-04 adds an instrument path for modern " +
+      "markets only; this mixed legacy/modern category and its inventory remain " +
+      "unresolved until MC-13. Modern market roots cannot be deleted.",
   },
   {
     id: "market-core-participant-identity",
@@ -262,6 +264,20 @@ const CATEGORIES: readonly DemoResetCategory[] = [
       "a run-created root. MC-13 must reconcile that retained-root dependency; " +
       "the existing organization disposition and 14 legacy Market Core tables " +
       "are unchanged. The planner remains INCOMPLETE; no reset executor exists.",
+  },
+  {
+    id: "market-core-instrument-identity",
+    subsystem: "DATABASE",
+    disposition: "PRESERVED",
+    scopeBasis: "ENVIRONMENT_WIDE",
+    rowScope: "NOT_APPLICABLE",
+    objects: ["market_core_instruments"],
+    note:
+      "MC-04 permanent instrument roots are preserved whole-table. Their exact " +
+      "version, issuer and Run/NON_RUN context cannot change. Restrictive FKs " +
+      "retain issuer and run roots; MC-13 must reconcile reset dependencies and " +
+      "mixed legacy/modern markets. The count source is unsupported: inventory " +
+      "is UNAVAILABLE with null count; the planner stays INCOMPLETE.",
   },
   {
     id: "registrar-book-of-record",

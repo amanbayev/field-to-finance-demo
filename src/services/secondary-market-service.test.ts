@@ -232,3 +232,18 @@ describe("cancelSecondaryOrder after eligibility loss", () => {
     expect(result.error).toBe("ORDER_NOT_FOUND");
   });
 });
+
+describe("MC-04 unavailable target never selects a default market", () => {
+  beforeEach(() => {
+    fetchPersistentEngineState.mockReset();
+    rpcSubmitLimitOrder.mockReset();
+  });
+  it.each([{ markets: [] }, { markets: [{ ...wheatEngineBaseState().markets[0]!, id: "some-other-market" }] }])("rejects a missing supported market: %j", async ({ markets }) => {
+    fetchPersistentEngineState.mockResolvedValue({ ...wheatEngineBaseState(), markets });
+    const { getSecondaryMarketView } = await import("@/services/secondary-market-service");
+    await expect(getSecondaryMarketView(asPersona("DEMO-FUND-001"))).rejects.toThrow("MARKET_CORE_UNAVAILABLE");
+    const result = await submitSecondaryOrder({ actor: asPersona("DEMO-FUND-001"), side: "BUY", price: 1, quantity: 1, idempotencyKey: "missing-target" });
+    expect(result.error).toBe("INELIGIBLE");
+    expect(rpcSubmitLimitOrder).not.toHaveBeenCalled();
+  });
+});

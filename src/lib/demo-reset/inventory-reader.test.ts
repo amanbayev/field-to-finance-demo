@@ -501,6 +501,7 @@ describe("demo reset inventory reader fail-closed behaviour", () => {
 
   it.each([
     ["market-core-participant-identity", "market_core_participants"],
+    ["market-core-instrument-identity", "market_core_instruments"],
     ["protocol-definitions-and-frozen-versions", "protocol_version_records"],
   ])("reports preserved %s unavailable without calling the closed RPC or inventing zero", async (categoryId, object) => {
     const createClient = vi.fn();

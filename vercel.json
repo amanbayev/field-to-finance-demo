@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "feature/mc-04-concrete-instrument-closed-market-roots": false
+    }
+  }
+}

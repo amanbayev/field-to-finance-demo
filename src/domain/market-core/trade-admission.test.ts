@@ -207,6 +207,7 @@ describe("unified TypeScript trade admission", () => {
 
   it("fails closed on an assessment/eligibility overlay mismatch", () => {
     const state = engineStateFromSnapshot({
+      markets: [{ id: wheatMarket.id, instrument_id: wheat.id, instrument_ref: null }],
       eligibility: [
         {
           participant_id: "INVESTOR-0001",
@@ -341,6 +342,7 @@ describe("submit admission remains fail-closed on eligibility loss", () => {
 
   it("denies submission when the eligibility overlay mismatches the assessment", () => {
     const state = engineStateFromSnapshot({
+      markets: [{ id: wheatMarket.id, instrument_id: wheat.id, instrument_ref: null }],
       eligibility: [
         {
           participant_id: "INVESTOR-0001",
@@ -387,6 +389,7 @@ describe("cancellation remains possible after eligibility loss", () => {
 
   it("allows cancellation when the eligibility overlay mismatches while submission is denied", () => {
     const state = engineStateFromSnapshot({
+      markets: [{ id: wheatMarket.id, instrument_id: wheat.id, instrument_ref: null }],
       eligibility: [
         {
           participant_id: "INVESTOR-0001",

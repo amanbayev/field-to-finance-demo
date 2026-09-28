@@ -108,6 +108,20 @@ describe("demo reset inventory", () => {
       categoryId: "protocol-definitions-and-frozen-versions", reason: "SUBSYSTEM_NOT_READABLE",
     });
   });
+  it("keeps the MC-04 instrument root unavailable and the full planner INCOMPLETE", () => {
+    const inventory = observedInventory(Object.fromEntries(manifestCategoryIds().map(id => [id,
+      id === "market-core-instrument-identity"
+        ? { kind: "UNAVAILABLE" as const, reason: "SUBSYSTEM_NOT_READABLE" as const }
+        : { kind: "COUNTED" as const, rows: 0 },
+    ])));
+    expect(countedRows(inventory, "market-core-instrument-identity")).toBeNull();
+    const plan = planDemoResetDryRun({ authorization: allowedAuthorization(),
+      runId: "RUN-1", inventory, manifest: DEMO_DATASET_V2_RESET_MANIFEST });
+    expect(plan.status).toBe("INCOMPLETE");
+    expect(inventoryGaps(inventory)).toContainEqual({
+      categoryId: "market-core-instrument-identity", reason: "SUBSYSTEM_NOT_READABLE",
+    });
+  });
   it("marks every category unavailable rather than zero when no reader exists", () => {
     const inventory = unavailableDemoResetInventory(
       "RUN_SCOPED_INVENTORY_SOURCE_ABSENT",
